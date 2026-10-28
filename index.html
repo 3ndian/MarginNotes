@@ -147,7 +147,7 @@ body.editing .fab,body.selmode .fab,body.dragging .fab{display:none}
 .selbar,.acc{position:fixed;z-index:40;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:6px;border-radius:20px;background:var(--paper);border:1px solid var(--line);box-shadow:var(--shadow);max-width:calc(100vw - 20px);overflow-x:auto}
 .selbar{bottom:calc(18px + env(safe-area-inset-bottom,0px));align-items:center}
 .selbar .cnt{padding:0 10px;font-size:13px;color:var(--muted);white-space:nowrap}
-.acc{bottom:0;border-radius:18px 18px 0 0;width:100%;max-width:100%;justify-content:space-around;border-bottom:0;padding-bottom:6px}
+.acc{bottom:0;border-radius:20px;width:calc(100% - 16px);max-width:calc(100% - 16px);justify-content:space-around;margin-bottom:8px}
 @media (hover:hover) and (pointer:fine){.acc{display:none!important}}
 .ib.bad{color:var(--danger)}
 .pop{position:fixed;z-index:50;width:min(300px,calc(100vw - 20px));max-height:min(340px,45vh);overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:6px}
@@ -332,6 +332,20 @@ details.psec>summary::after{content:"+";color:var(--muted)}details.psec[open]>su
 .page.fulldb{max-width:none;padding-left:10px;padding-right:10px}.fulldb .fullbtn{display:none}
 .scroller.swiping{box-shadow:0 14px 40px #0004;will-change:transform;touch-action:none}.scroller.pgin{animation:pgin .34s cubic-bezier(.2,.8,.2,1)}@keyframes pgin{from{transform:scale(.95);opacity:.2}to{transform:none;opacity:1}}
 .swhint{position:fixed;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:6px;align-items:center;padding:6px 12px;border-radius:999px;background:var(--paper);border:1px solid var(--line);font-size:13px;opacity:0;pointer-events:none;transition:background .15s}.swhint.ready{background:var(--accent);color:var(--accent-ink,#fff)}
+
+/* all notes */
+.main{position:relative}
+.allv{position:absolute;z-index:15;left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));bottom:8px;overflow:auto;border-radius:var(--r);background:var(--paper);border:1px solid var(--line);padding:16px 14px 90px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.ahead{display:flex;align-items:center;gap:8px}.ahead h2{font-family:var(--font-display);font-size:26px;margin:0;flex:1}.acnt{color:var(--muted);font-size:13px}
+.atools{display:flex;gap:8px;margin:12px 0 8px;align-items:center}.atools .inp{flex:1;margin:0}
+.achips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 12px;align-items:center}.achips::-webkit-scrollbar{display:none}.achips i{width:1px;height:18px;background:var(--line);flex:none;margin:0 4px}
+.achip{flex:none;padding:7px 13px;border-radius:999px;background:var(--accent-soft);font-size:13.5px;font-weight:500}.achip.on{background:var(--accent);color:var(--on-accent)}
+.alist.grid{column-width:165px;column-gap:10px}.alist.grid .acard{break-inside:avoid;margin-bottom:10px}
+.acard{display:flex;flex-direction:column;gap:5px;width:100%;text-align:left;background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:12px 13px;overflow:hidden}
+.acard b{font-weight:650;font-size:15px;line-height:1.25}.asn{font-size:13px;color:var(--muted);line-height:1.4;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}.acard small{color:var(--muted);font-size:11.5px;margin-top:2px}
+.acov{display:block;width:calc(100% + 26px);margin:-12px -13px 4px;height:110px;object-fit:cover}
+.alist.list .acard{margin-bottom:8px}.alist.list .asn{-webkit-line-clamp:2}.alist.list .acov{display:none}
+.sb{gap:3px;padding:4px 8px}.sb .pill{flex:1 1 0;min-width:0;padding-left:6px;padding-right:6px;gap:4px;justify-content:center;font-size:13px}.sb .pill svg{width:16px;height:16px;flex:none}
 </style>
 <div class="app">
  <aside class="side" id="side" aria-label="Notes"></aside>
@@ -402,7 +416,7 @@ function takeSnap(reason,force){
  while(a.length>((S.set&&S.set.snapKeep)||25))a.shift();putSnaps(a);
 }
 function touch(){const n=cur();if(n){n.t=Date.now();markDirty(n.id)}save()}
-function mk(parent,kind,title,blocks){const n={id:uid(),parent,kind,title:title||'',blocks:blocks||(kind==='page'?[blk('p','')]:[]),kids:[],open:false,t:Date.now()};S.nodes[n.id]=n;if(parent)S.nodes[parent].kids.push(n.id);markDirty(n.id);return n}
+function mk(parent,kind,title,blocks){const n={id:uid(),parent,kind,title:title||'',blocks:blocks||(kind==='page'?[blk('p','')]:[]),kids:[],open:false,t:Date.now(),c:Date.now()};S.nodes[n.id]=n;if(parent)S.nodes[parent].kids.push(n.id);markDirty(n.id);return n}
 function seed(){
  S={nodes:{root:{id:'root',parent:null,kind:'folder',title:'Home',blocks:[],kids:[],open:true,t:Date.now()}},cur:'root',set:{shade:'auto',paper:'dots',fs:17}};
  const proj=mk('root','folder','Projects');proj.open=true;
@@ -456,7 +470,7 @@ function treeHTML(id,d){return S.nodes[id].kids.map(k=>{const c=S.nodes[k];const
  return `<div class="ti ${k===S.cur?'on':''}" data-id="${k}" style="--d:${d}"><button class="tc ${has?'':'none'} ${c.open?'open':''}" data-a="tog" aria-label="Expand">${ic('chev',16)}</button><div class="tt" data-a="go">${ic(c.kind==='folder'?'folder':'page',18)}<span>${esc(nm(c))}</span></div><button class="tm" data-a="menu" aria-label="More">${ic('more',18)}</button></div>`+(c.open&&has?treeHTML(k,d+1):'')}).join('')}
 function renderSide(){
  $('#side').innerHTML=`<div class="sh"><span class="brand">Margin Notes</span><button class="ib" id="sClose" aria-label="Close menu">${ic('x')}</button></div>
- <div class="sb"><button class="pill ${S.cur==='root'?'on':''}" data-go="root">${ic('home',18)}Home</button><button class="pill" id="sSearch">${ic('search',18)}Search</button><button class="pill" id="sToday">${ic('cal',18)}Today</button></div>
+ <div class="sb"><button class="pill ${S.cur==='root'?'on':''}" data-go="root">${ic('home',18)}Home</button><button class="pill" id="sSearch">${ic('search',18)}Search</button><button class="pill" id="sToday">${ic('cal',18)}Today</button><button class="pill" id="sAll">${ic('table',18)}All</button></div>
  <div class="tree" id="tree">${pinsHTML()}${treeHTML('root',0)||'<div class="empty">No notes yet</div>'}</div>
  <div class="sf"><div class="saverow"><button class="pill save" id="sSave">${ic('save',18)}Save vault<span class="badge" id="sBadge" hidden></span></button><button class="ib optb" id="sSaveOpt" aria-label="Save options">${ic('sliders',18)}</button></div><div class="sfnote" id="sNote"></div><button class="pill" id="sFolder">${ic('folder',18)}New folder</button><button class="pill" id="sPaper">${ic('pal',18)}Paper</button><button class="pill" id="sBackup">${ic('undo',18)}Backups</button><button class="pill" id="sTrash">${ic('trash',18)}Trash${(S.trash||[]).length?`<span class="badge2">${S.trash.length}</span>`:''}</button></div>`;
  updBadge();
@@ -468,7 +482,7 @@ function renderTop(){
  const c=$('#crumbs');c.scrollLeft=c.scrollWidth;updUndo();
 }
 function refreshChrome(){renderTop();renderSide()}
-function go(id,opt){opt=opt||{};closeFind();if(!S.nodes[id])id='root';flushTitle();{const a=document.activeElement;if(a&&a.blur&&a!==document.body)a.blur()}clearSel(true);closeSlash();S.cur=id;
+function go(id,opt){opt=opt||{};closeFind();if(typeof closeAll==='function')closeAll();if(!S.nodes[id])id='root';flushTitle();{const a=document.activeElement;if(a&&a.blur&&a!==document.body)a.blur()}clearSel(true);closeSlash();S.cur=id;
  path(id).forEach(p=>S.nodes[p].open=true);
  render();if(innerWidth<900)closeSide();save();
  if(opt.block){const r=document.querySelector(`.row[data-id="${opt.block}"]`);if(r){r.scrollIntoView({block:'center'});r.classList.add('flash')}}
@@ -918,7 +932,7 @@ function closeSheet(){$('#sw').hidden=true;$('#sheet').innerHTML=''}
 $('#swbg').addEventListener('click',closeSheet);
 function nodeMenu(id){
  const n=S.nodes[id];
- if(id==='root')return openSheet(`<h3>Home</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button><button class="opt" data-m="note" data-id="root">${ic('page')}New page</button><button class="opt" data-m="dbpage" data-id="root">${ic('table')}New database page</button><button class="opt" data-m="folder" data-id="root">${ic('folder')}New folder</button>`);
+ if(id==='root')return openSheet(`<h3>Home</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button><button class="opt" data-m="all">${ic('table')}All notes</button><button class="opt" data-m="note" data-id="root">${ic('page')}New page</button><button class="opt" data-m="dbpage" data-id="root">${ic('table')}New database page</button><button class="opt" data-m="folder" data-id="root">${ic('folder')}New folder</button>`);
  openSheet(`<h3>${esc(nm(n))}</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button>
  ${n.kind==='page'&&id===S.cur?`<button class="opt" data-m="find">${ic('search')}Find on this page</button><button class="opt" data-m="stats">${ic('all')}Word count</button>`:''}
  <button class="opt" data-m="pin" data-id="${id}">${ic('star')}${(S.pins||[]).includes(id)?'Unpin from sidebar':'Pin to sidebar'}</button>
@@ -947,6 +961,7 @@ $('#sheet').addEventListener('click',e=>{
  const m=e.target.closest('[data-m]');if(!m)return;const id=m.dataset.id,n=S.nodes[id],k=m.dataset.m;
  if(k==='note'){closeSheet();const nn=mk(id,'page','');n.open=true;go(nn.id,{focus:'title'})}
  else if(k==='paper'){closeSheet();openPaper()}
+ else if(k==='all'){closeSheet();openAll()}
  else if(k==='dbpage'){closeSheet();newDbPage(id)}
  else if(k==='folder'){closeSheet();const nn=mk(id,'folder','New folder');n.open=true;go(nn.id,{focus:'title'})}
  else if(k==='rename')openSheet(`<h3>Rename</h3><input class="inp" id="rn" value="${esc(n.title)}" maxlength="120"><div class="btnrow"><button class="btn" data-m="x">Cancel</button><button class="btn pri" data-m="rnok" data-id="${id}">Save</button></div>`),setTimeout(()=>{const r=$('#rn');r&&r.focus()},50);
@@ -2539,6 +2554,65 @@ function dbToFull(b){
  };
  sc.addEventListener('touchend',end);sc.addEventListener('touchcancel',()=>{if(sw&&sw.on){sw=null;reset(true)}else sw=null});
 })();
+/* ---------- All notes: live gallery of every page, newest first ---------- */
+let allQ='';
+function allPrefs(){const s=S.set;s.all=s.all||{sort:'edited',view:'grid',scope:'all'};return s.all}
+function cleanSnip(t){return String(t||'').replace(/\[\[([^\]|]*)(\|[^\]]*)?\]\]/g,'$1').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/[*~`]/g,'')}
+function noteInfo(n){
+ const lines=[];let img=null;
+ for(const b of n.blocks||[]){
+  if(b.type==='db'&&b.db){const ic0=b.db.cols.find(c=>c.type==='image');if(ic0&&!img){for(const r of b.db.rows){const id=(r.cells[ic0.id]||[])[0];if(id&&IMG[id]){img=id;break}}}
+   lines.push('▦ '+(b.db.rows.length)+' rows');continue}
+  if(b.type==='divider')continue;
+  let t=cleanSnip(b.type==='table'?(b.rows||[]).slice(0,2).map(r=>r.join(' · ')).join('\n'):b.text);if(!t.trim())continue;
+  if(b.type==='todo')t=(b.done?'☑ ':'☐ ')+t;else if(b.type==='bullet')t='• '+t;else if(b.type==='page'){const rn=S.nodes[b.ref];t='↗ '+(rn?nm(rn):t)}
+  lines.push(t);if(lines.length>=7)break;
+ }
+ return {lines,img};
+}
+function allScope(sc){
+ if(sc==='all')return null;
+ if(sc==='pinned')return new Set(S.pins||[]);
+ const f=S.nodes[sc];if(!f)return null;return new Set([sc].concat(descendants(sc)));
+}
+function allList(){
+ const P=allPrefs(),q=allQ.trim().toLowerCase(),scope=allScope(P.scope);
+ let a=Object.values(S.nodes).filter(n=>n.kind==='page'&&n.id!=='root');
+ if(scope)a=a.filter(n=>scope.has(n.id));
+ const out=a.map(n=>({n,i:noteInfo(n)})).filter(x=>x.i.lines.length||x.n.title);
+ let r=q?out.filter(x=>(x.n.title||'').toLowerCase().includes(q)||x.i.lines.join(' ').toLowerCase().includes(q)):out;
+ if(P.sort==='title')r.sort((a,b)=>nm(a.n).localeCompare(nm(b.n)));
+ else if(P.sort==='created')r.sort((a,b)=>(b.n.c||b.n.t)-(a.n.c||a.n.t));
+ else r.sort((a,b)=>b.n.t-a.n.t);
+ return r;
+}
+function allHTML(){
+ const P=allPrefs(),list=allList(),folders=(S.nodes.root.kids||[]).filter(k=>S.nodes[k]&&S.nodes[k].kind==='folder');
+ const chip=(v,l,key,cur)=>`<button class="achip ${cur===v?'on':''}" data-al="${key}" data-v="${v}">${esc(l)}</button>`;
+ const card=x=>{const n=x.n,p=path(n.id).filter(k=>k!=='root').map(k=>nm(S.nodes[k])),w=n.t;
+  return `<button class="acard ${x.i.img?'hasimg':''}" data-go="${n.id}">${x.i.img?`<img class="acov" alt="" src="${imgSrc(x.i.img)}" data-img="${x.i.img}">`:''}<b>${esc(nm(n))}</b><span class="asn">${x.i.lines.map(l=>esc(l.slice(0,140))).join('<br>')}</span><small>${esc(p.slice(-1)[0]||'Home')} · ${ago(w)}</small></button>`};
+ return `<div class="ahead"><h2>All notes</h2><span class="acnt">${list.length}</span><button class="ib" data-al="close" aria-label="Close">${ic('x')}</button></div>
+ <div class="atools"><input class="inp" id="allq" placeholder="Search notes" value="${esc(allQ)}" autocomplete="off"><button class="ib" data-al="view" aria-label="Switch layout">${ic(P.view==='grid'?'all':'table',18)}</button></div>
+ <div class="achips">${chip('edited','Edited','sort',P.sort)}${chip('created','Created','sort',P.sort)}${chip('title','A–Z','sort',P.sort)}<i></i>${chip('all','Everything','scope',P.scope)}${chip('pinned','Pinned','scope',P.scope)}${folders.map(k=>chip(k,nm(S.nodes[k]),'scope',P.scope)).join('')}</div>
+ <div class="alist ${P.view}" id="allbody">${list.length?list.map(card).join(''):'<p class="hint" style="padding:20px">No notes match.</p>'}</div>`;
+}
+function openAll(){
+ closeAll();const m=document.querySelector('.main'),sc=$('#scroller');
+ const el=document.createElement('div');el.id='allv';el.className='allv';el.style.top=sc.offsetTop+'px';el.innerHTML=allHTML();m.appendChild(el);
+ const a=document.activeElement;if(a&&a.blur&&a!==document.body)a.blur();
+}
+function closeAll(){const e=$('#allv');if(e)e.remove()}
+function allRedraw(keepFocus){const e=$('#allv');if(!e)return;const sy=e.scrollTop,f=document.activeElement&&document.activeElement.id==='allq',pos=f?document.activeElement.selectionStart:0;e.innerHTML=allHTML();e.scrollTop=sy;if(keepFocus&&f){const i=$('#allq');i.focus();i.setSelectionRange(pos,pos)}}
+document.addEventListener('click',e=>{
+ const g=e.target.closest('#allv [data-go]');if(g){go(g.dataset.go);return}
+ const m=e.target.closest('#allv [data-al]');if(!m)return;const P=allPrefs(),k=m.dataset.al,v=m.dataset.v;
+ if(k==='close')closeAll();
+ else if(k==='sort'){P.sort=v;save();allRedraw()}
+ else if(k==='scope'){P.scope=v;save();allRedraw()}
+ else if(k==='view'){P.view=P.view==='grid'?'list':'grid';save();allRedraw()}
+});
+document.addEventListener('input',e=>{if(e.target.id==='allq'){allQ=e.target.value;const b=$('#allbody');if(!b)return;const P=allPrefs();const t=document.createElement('div');t.innerHTML=allHTML();b.innerHTML=t.querySelector('#allbody').innerHTML;const c=$('#allv .acnt');if(c)c.textContent=t.querySelector('.acnt').textContent}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#allv')){closeAll()}});
 /* ---------- hold on a line to select it (touch) ---------- */
 let hs=null,hsSwallow=false,hx=null,hxRaf=0;
 page.addEventListener('pointerdown',e=>{
@@ -2588,6 +2662,7 @@ document.addEventListener('click',e=>{
   else if(e.target.closest('#sFolder')){const c=cur();newFolder(c.kind==='folder'?c.id:c.parent||'root')}
   else if(e.target.closest('#sPaper')){closeSide();openPaper()}
   else if(e.target.closest('#sBackup')){closeSide();openBackup()}
+  else if(e.target.closest('#sAll')){closeSide();openAll()}
   else if(e.target.closest('#sTrash')){closeSide();openTrash()}
   else if(e.target.closest('#sSaveOpt')){closeSide();openSave()}
   else if(e.target.closest('#sSave')){closeSide();quickSave()}
