@@ -14,6 +14,9 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Bricolage+Grotesque:wght@600;700&family=DM+Mono&family=Nunito:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Atkinson+Hyperlegible:wght@400;700&family=Newsreader:wght@400;500;600;700&family=Source+Serif+4:wght@400;600;700&family=Caveat:wght@500;700&display=swap">
 
+
+
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -23,9 +26,9 @@
 /* Layout: rounded sidebar card + rounded paper sheet floating on a quiet shell; one-column editor, blocks as rows */
 :root{
  --shell:#ecebe7; --paper:#fbfbf9; --ink:#25262b; --muted:#8a8b93; --line:#e4e3de; --accent:#3f6fb0; --on-accent:#fff;
- --accent-soft:color-mix(in srgb,var(--accent) 15%,transparent); --pat:color-mix(in srgb,var(--ink) 14%,transparent);
+ --accent-soft:color-mix(in srgb,var(--accent) 15%,transparent); --pat:color-mix(in srgb,var(--ink) 7%,transparent);
  --danger:#c24b4b; --shadow:0 10px 34px rgba(20,22,30,.14);
- --font-ui:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif; --font-display:'Bricolage Grotesque','Figtree',system-ui,sans-serif; --font-mono:'DM Mono',ui-monospace,Menlo,monospace; --fs:17px;--ps:22px;--pw:1.2px;--lh:26px;--maxw:760px;--r:24px;
+ --font-ui:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif; --font-display:'Bricolage Grotesque','Figtree',system-ui,sans-serif; --font-mono:'DM Mono',ui-monospace,Menlo,monospace; --fs:17px;--ps:26px;--pw:1px;--lh:26px;--maxw:760px;--r:24px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--shell:#0f1012;--paper:#17181b;--ink:#e9e9ec;--muted:#8d8f98;--line:#2a2c31;--accent:#8fb0e0;--on-accent:#0d0f14;--shadow:0 10px 34px rgba(0,0,0,.5);color-scheme:dark}}
 :root[data-theme="dark"]{--shell:#0f1012;--paper:#17181b;--ink:#e9e9ec;--muted:#8d8f98;--line:#2a2c31;--accent:#8fb0e0;--on-accent:#0d0f14;--shadow:0 10px 34px rgba(0,0,0,.5);color-scheme:dark}
@@ -387,6 +390,24 @@ body.cvopen .fab{display:none}
 .qrprog{position:absolute;left:16px;right:16px;bottom:calc(24px + env(safe-area-inset-bottom,0px));color:#fff;text-align:center;font-size:13.5px;text-shadow:0 1px 4px #000}.qrprog .bar{height:8px;border-radius:99px;background:#fff4;overflow:hidden;margin-bottom:6px}.qrprog .bar i{display:block;height:100%;width:0;background:#fff;border-radius:99px;transition:width .15s}
 .qrpend{position:absolute;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:flex;gap:6px;justify-content:center;flex-wrap:wrap}.qrchip{display:inline-flex;align-items:center;gap:6px;background:#000a;color:#fff;border-radius:99px;padding:5px 6px 5px 12px;font-size:12.5px}.qrchip button{width:22px;height:22px;border-radius:50%;background:#fff3;color:#fff}
 .qrhl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.swn{min-width:18px;height:18px;border-radius:9px;background:var(--ink);color:var(--paper);font-size:11px;display:grid;place-items:center;padding:0 5px}
+@media (max-width:600px){.page{padding-left:8px;padding-right:8px}.row{padding-left:20px}.grip{width:20px}.grip::before{left:4px}
+.card{padding:8px 12px;gap:10px;border-radius:14px}.cards{gap:6px}.card small{font-size:12px}.card .when{font-size:11px}}
+.sheet::before{content:"";display:block;width:36px;height:4px;border-radius:2px;background:var(--line);margin:-8px auto 10px}
+@media (min-width:700px){.sheet::before{display:none}}
+.addrow{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:6px;padding:9px;border-radius:14px;border:1px dashed var(--line);color:var(--muted)}
+.swdot{width:10px;height:10px;border-radius:50%;flex:none}
+.top{flex-wrap:wrap}.top.crumbrow .crumbs{order:5;flex-basis:100%;flex:none;width:100%}.top.crumbrow .crumbs+.ib{margin-left:auto}
+.top:not(.crumbrow) .crumbs{flex:1}
+.qrtext{white-space:pre-wrap;word-break:break-word;max-height:36vh;overflow:auto;background:var(--accent-soft);border-radius:12px;padding:10px;font:14px/1.45 var(--font-ui);margin:8px 0}
+.clprev{font-family:var(--font-display);font-size:30px;font-weight:700;padding:6px 2px 10px}
+.clsw{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.clsw button{width:34px;height:34px;border-radius:50%;border:2px solid var(--paper);box-shadow:0 0 0 1px var(--line)}
+.clsw button.none{background:var(--paper);display:grid;place-items:center;color:var(--muted)}
+.clrow{display:grid;grid-template-columns:22px 1fr;align-items:center;gap:10px;margin:8px 0}.clrow span{color:var(--muted);font-size:13px}
+.clrow input[type=range]{-webkit-appearance:none;appearance:none;height:14px;border-radius:7px;border:1px solid var(--line);width:100%;margin:0}
+.clrow input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid #0006;box-shadow:0 1px 4px #0004}
+.clrow input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid #0006}
+.crumb[data-cid]{position:relative}
 </style>
 <div class="app">
  <aside class="side" id="side" aria-label="Notes"></aside>
@@ -547,7 +568,7 @@ function renderPage(){
   B=[];const isRoot=n.id==='root';
   let h=`<div class="title" id="title" ${isRoot?'':'data-ph="Untitled folder"'}></div>`;
   h+=`<p class="sub">${n.kids.length} ${n.kids.length===1?'item':'items'}</p>`;
-  if(n.kids.length)h+=`<div class="cards">${listHTML(n.kids)}</div>`;
+  if(n.kids.length)h+=`<div class="cards">${listHTML(n.kids)}</div><button class="addrow" data-fa="menu">${ic('plus',16)}Add…</button>`;
   else h+=`<div class="empty">Nothing here yet.<div class="btnrow"><button class="btn pri" data-a="newnote">New note</button><button class="btn" data-a="newfolder">New folder</button></div></div>`;
   if(isRoot){const rec=Object.values(S.nodes).filter(x=>x.kind==='page').sort((a,b)=>b.t-a.t).slice(0,5).map(x=>x.id);if(rec.length)h+=`<div class="sec">Recent</div><div class="cards">${listHTML(rec)}</div>`}
   page.innerHTML=h;const t=$('#title');t.textContent=nm(n);if(!isRoot)t.contentEditable=PT;
@@ -770,6 +791,7 @@ page.addEventListener('keydown',e=>{
  if(!t.classList.contains('txt'))return;
  const r=t.closest('.row'),i=idx(r.dataset.id);if(i<0)return;
  if((e.key==='Backspace'||e.key==='Delete')&&getSelection().isCollapsed&&t.textContent===''&&removeEmpty(i)){e.preventDefault();return}
+ if(e.key==='Backspace'&&!e.isComposing&&getSelection().isCollapsed&&t.textContent!==''&&caretOffset(t)===0&&!(e.metaKey||e.ctrlKey||e.altKey)){e.preventDefault();backspaceStart(i,t);return}
  if(e.key==='Tab'){e.preventDefault();shiftSubtree(i,e.shiftKey?-1:1);return}
  if((e.metaKey||e.ctrlKey)&&e.shiftKey&&e.key==='ArrowUp'){e.preventDefault();toParent(i);return}
  if((e.metaKey||e.ctrlKey)&&e.shiftKey&&e.key==='ArrowDown'){e.preventDefault();exitSection(i);return}
@@ -1061,7 +1083,7 @@ function seedCustom(){const cs=getComputedStyle(document.documentElement);
  const g=k=>{const h=cs.getPropertyValue(k).trim();return/^#/.test(h)?rgb2ok(...hexRgb(h)):[.5,.05,250]};
  S.set.custom={paper:g('--paper'),shell:g('--shell'),ink:g('--ink'),accent:g('--accent')}}
 const FONTS={default:{l:'Default',s:null,pv:"'Figtree',system-ui,sans-serif"},system:{l:'System',s:"system-ui,-apple-system,'Segoe UI',sans-serif"},rounded:{l:'Rounded',s:"'Nunito',system-ui,sans-serif"},plex:{l:'Plex Sans',s:"'IBM Plex Sans',system-ui,sans-serif"},atkinson:{l:'Atkinson',s:"'Atkinson Hyperlegible',system-ui,sans-serif"},newsreader:{l:'Newsreader',s:"'Newsreader',Georgia,serif"},source:{l:'Source Serif',s:"'Source Serif 4',Georgia,serif"},serif:{l:'System serif',s:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif"},mono:{l:'Mono',s:"var(--font-mono)"},hand:{l:'Handwritten',s:"'Caveat','Bradley Hand',cursive"}};
-const DEF={patOp:14,patSize:22,patW:1.2,lh:26,maxw:760,rad:24,fs:17};
+const DEF={patOp:7,patSize:26,patW:1,lh:26,maxw:760,rad:24,fs:17};
 const FMT={patOp:v=>v+'%',patSize:v=>v+' px',patW:v=>v+' px',fs:v=>v+' px',lh:v=>v+' px',maxw:v=>v+' px',rad:v=>v+' px'};
 function applySettings(){
  const r=document.documentElement,s=S.set,st=r.style,g=k=>s[k]==null?DEF[k]:s[k];
@@ -1170,7 +1192,7 @@ shEl.addEventListener('click',e=>{
  const snap=()=>{const o=JSON.parse(JSON.stringify(normApp(S.set)));return o};
  if(k==='save'||k==='rename'){pMode=k;openPaper();const n=$('#pName');n&&n.focus()}
  else if(k==='cancel'){pMode=null;openPaper()}
- else if(k==='savego'){const n=($('#pName').value||'').trim();if(!n)return toast('Give it a name');const p={id:uid(),name:n,set:snap()};presets().push(p);selP=p.id;pMode=null;save();openPaper();toast('Preset saved')}
+ else if(k==='savego'){const n=($('#pName').value||'').trim()||('Preset '+(presets().length+1));const p={id:uid(),name:n,set:snap()};presets().push(p);selP=p.id;pMode=null;save();openPaper();toast('Preset saved')}
  else if(k==='renamego'){const n=($('#pName').value||'').trim();const p=presets().find(x=>x.id===selP);if(p&&n){p.name=n;save()}pMode=null;openPaper()}
  else if(k==='update'){const p=presets().find(x=>x.id===selP);if(p){p.set=snap();save();openPaper();toast('Preset updated')}}
  else if(k==='del'){if(!pm.dataset.arm){pm.dataset.arm='1';pm.textContent='Tap again to delete';pm.classList.add('bad');return}S.presets=presets().filter(x=>x.id!==selP);selP=null;save();openPaper()}
@@ -2579,6 +2601,10 @@ function dbToFull(b){
 (function(){
  const sc=$('#scroller');let sw=null,hint=null;
  const parentOf=()=>{const n=S.nodes[S.cur];return n&&n.parent&&S.nodes[n.parent]?S.nodes[n.parent]:null};
+ const ancs=()=>path(S.cur).reverse().filter(i=>S.nodes[i]);
+ const lvl=d=>{const m=ancs().length;if(d<120||!m)return 0;return Math.min(m,1+Math.floor((d-120)/100))};
+ const lname=id=>id==='root'?'Home':nm(S.nodes[id]);
+ function hintTxt(l){const a=ancs();if(!hint)return;const t=l?a[l-1]:a[0];const col=window.nodeColor?nodeColor(t):'';hint.innerHTML=`${ic('up',16)}${col?`<i class="swdot" style="background:${col}"></i>`:''}<span>${esc(lname(t))}</span>${l>1?`<b class="swn">${l}</b>`:''}`;hint.style.borderColor=col||''}
  function mkHint(){if(hint)return;hint=document.createElement('div');hint.className='swhint';const p=parentOf();hint.innerHTML=`${ic('up',16)}<span>${esc(p?(p.id==='root'?'Home':nm(p)):'')}</span>`;document.body.appendChild(hint);const r=sc.getBoundingClientRect();hint.style.top=(r.top+12)+'px'}
  function reset(anim){sc.style.transition=anim?'transform .28s cubic-bezier(.2,.9,.3,1.2)':'none';sc.style.transform='';setTimeout(()=>{sc.style.transition='';sc.classList.remove('swiping')},anim?300:0);if(hint){hint.remove();hint=null}}
  sc.addEventListener('touchstart',e=>{
@@ -2597,12 +2623,12 @@ function dbToFull(b){
   const d=Math.max(0,t.clientY-sw.y0),now=Date.now();sw.v=(t.clientY-sw.ly)/Math.max(1,now-sw.lt);sw.ly=t.clientY;sw.lt=now;sw.d=d;
   const p=Math.min(1,d/160),eased=d<160?d:160+(d-160)*.7;
   sc.style.transform=`translateY(${eased}px) scale(${1-p*.05})`;
-  if(hint){hint.style.opacity=String(Math.min(1,d/70));hint.classList.toggle('ready',d>120)}
+  if(hint){hint.style.opacity=String(Math.min(1,d/70));const l=lvl(d);hint.classList.toggle('ready',l>0);if(hint._l!==l){hint._l=l;hintTxt(l);if(l>0&&window.hap)hap(10)}}
  },{passive:false});
  const end=()=>{
   if(!sw||!sw.on){sw=null;return}
-  const s=sw;sw=null;const par=parentOf();
-  if(par&&(s.d>120||(s.v>.7&&s.d>40))){
+  const s=sw;sw=null;let L=lvl(s.d);if(!L&&s.v>.7&&s.d>40)L=1;const a=ancs(),par=L?S.nodes[a[L-1]]:null;
+  if(par){
    sc.style.transition='transform .2s cubic-bezier(.5,0,1,.6),opacity .2s';sc.style.transform=`translateY(${innerHeight}px) scale(.92)`;sc.style.opacity='0';
    setTimeout(()=>{go(par.id);sc.style.transition='none';sc.style.transform='';sc.style.opacity='';sc.classList.remove('swiping');sc.classList.add('pgin');if(hint){hint.remove();hint=null}setTimeout(()=>sc.classList.remove('pgin'),340)},200);
   }else reset(true);
@@ -2965,7 +2991,7 @@ function exportBlocks(n){
 }
 /* ---- showing a QR ---- */
 function qrCanvas(text,px){
- const q=qrcode(0,'M');q.addData(text);q.make();const n=q.getModuleCount(),qz=4,cell=Math.max(2,Math.floor(px/(n+qz*2))),size=(n+qz*2)*cell,c=document.createElement('canvas');c.width=c.height=size;
+ const q=qrcode(0,'M');q.addData(text);q.make();const n=q.getModuleCount(),qz=4,cell=Math.max(3,Math.floor(px*2/(n+qz*2))),size=(n+qz*2)*cell,c=document.createElement('canvas');c.width=c.height=size;
  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,size,size);x.fillStyle='#000';
  for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect((k+qz)*cell,(r+qz)*cell,cell,cell);
  c.style.width='100%';c.style.maxWidth='340px';c.style.imageRendering='pixelated';return c;
@@ -3054,6 +3080,10 @@ async function receiveMsg(str){
   QP={kind:'page',k:r.k,name:from,title,blocks:bl};
   return openSheet(`<h3>Received a page</h3>${who}<div class="qrprev"><b>${esc(title)}</b><div>${prev||'<i>Empty page</i>'}</div><small>${bl.length} blocks</small></div>`
    +`<div class="btnrow"><button class="btn" data-qr="close">Cancel</button>${known?'':'<button class="btn" data-qr="once">Import once</button>'}<button class="btn pri" data-qr="${known?'import':'trustimp'}">${known?'Import':'Trust and import'}</button></div>`);
+ }
+ if(o.t==='text'){
+  const tx=sstr(o.text,60000);QP={kind:'text',k:r.k,name:from,title:sstr(o.title,200),text:tx};
+  return openSheet(`<h3>Received text</h3>${who}<pre class="qrtext">${esc(tx)}</pre><p class="hint">Nothing is imported. Copy it, or keep it as a page.</p><div class="btnrow"><button class="btn" data-qr="close">Close</button><button class="btn" data-qr="text2page">Save as page</button><button class="btn pri" data-qr="copytext">Copy text</button></div>`);
  }
  openSheet(`<h3>Unsupported code</h3><p class="hint">This code comes from a newer version. Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
 }
@@ -3237,7 +3267,7 @@ async function streamQR(title,u8,note){
  const ctx=await fxPrepare(u8);clearTimeout(strm&&strm.timer);
  strm={ctx,idx:0,fps:4,timer:null};const S0=strm;
  const single=('MN1.'+(u8[0]?'z':'r')+'.'+b64u(u8.subarray(1)));
- if(single.length<=900){openSheet(`<h3>${esc(title)}</h3><div class="qrbox" id="qrbox"></div><p class="hint" style="text-align:center">${esc(note||'')}</p><div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);$('#qrbox').appendChild(qrCanvas(single,340));return}
+ if(single.length<=640){openSheet(`<h3>${esc(title)}</h3><div class="qrbox" id="qrbox"></div><p class="hint" style="text-align:center">${esc(note||'')}</p><div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);$('#qrbox').appendChild(qrCanvas(single,340));return}
  openSheet(`<h3>${esc(title)}</h3><div class="qrbox" id="qrbox"></div><p class="hint" id="qrnote" style="text-align:center"></p>
  <div class="qrspeed"><button class="btn" data-qs="-">Slower</button><span id="qrfps"></span><button class="btn" data-qs="+">Faster</button></div>
  <p class="hint" style="text-align:center">${esc(note||'')} The codes repeat until the other device has everything. It can miss some and resume later.</p><div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);
@@ -3274,7 +3304,199 @@ receiveMsg=async function(str){
  openSheet(`<h3>Received a vault</h3><div class="qrwho ${known?'ok':'new'}"><b>${esc(from)}</b><code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet. You can add its notes but not replace yours.'}</span></div>${known?'':'<div class="btnrow" style="margin-bottom:6px"><button class="btn" data-qr="trustonly">Trust this device</button></div>'}<div id="bkPrev"></div><div class="btnrow"><button class="btn" data-qr="close">Cancel</button></div>`);
  try{await handleBytes('vault from '+from+'.zip',z,$('#bkPrev'));if(!known){const rb=$('#fRep');if(rb)rb.remove()}}catch(e){toast('Could not read that vault')}
 };
-window.__fx={sealBytes,fxPrepare,fxFrame,fxFeed,fxParse,reset:()=>{FX={}},pending:fxPending,persistNow:async()=>{for(const k in FX)await fxPersist(FX[k],true)},crc32,b64u,buildVaultZip:()=>buildVaultZip()};
+window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,sealBytes,fxPrepare,fxFrame,fxFeed,fxParse,reset:()=>{FX={}},pending:fxPending,persistNow:async()=>{for(const k in FX)await fxPersist(FX[k],true)},crc32,b64u,buildVaultZip:()=>buildVaultZip()};
+/* ---- phase 1: haptics, add menu, sheet swipe-dismiss, caret above keyboard ---- */
+(function(){
+ let sw=null;
+ function hap(ms){
+  try{if(navigator.vibrate){navigator.vibrate(ms||8);return}}catch(e){}
+  try{ // iOS: toggling a switch input gives a light tap
+   if(!sw){sw=document.createElement('label');sw.style.cssText='position:fixed;left:-99px;top:-99px;opacity:0;pointer-events:none';sw.innerHTML='<input type="checkbox" switch>';document.body.appendChild(sw)}
+   sw.click();
+  }catch(e){}
+ }
+ window.hap=hap;
+ /* add menu (pages-only view) */
+ function addMenu(){
+  const id=S.cur;
+  openSheet(`<h3>Add</h3><button class="opt" data-fa="note">${ic('page')}New note</button><button class="opt" data-fa="folder">${ic('folder')}New folder</button><button class="opt" data-fa="db">${ic('table')}New database page</button>`);
+  S._addId=id;
+ }
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-fa]');if(!m)return;
+  const k=m.dataset.fa;
+  if(k==='menu'){addMenu();return}
+  const id=S._addId||S.cur;
+  if(k==='note'){closeSheet();newNote(id)}
+  else if(k==='folder'){closeSheet();newFolder(id)}
+  else if(k==='db'){closeSheet();newDbPage(id)}
+ });
+ /* long press on empty space in a pages-only view */
+ (function(){
+  const sc=$('#scroller');let t=null,x0=0,y0=0;
+  const cancel=()=>{clearTimeout(t);t=null};
+  sc.addEventListener('touchstart',e=>{
+   cancel();const n=S.nodes[S.cur];if(!n||n.kind!=='folder'||e.touches.length!==1)return;
+   if(e.target.closest('.card,button,input,textarea,.title'))return;
+   x0=e.touches[0].clientX;y0=e.touches[0].clientY;
+   t=setTimeout(()=>{t=null;hap(12);addMenu()},520);
+  },{passive:true});
+  sc.addEventListener('touchmove',e=>{if(t&&(Math.abs(e.touches[0].clientX-x0)>8||Math.abs(e.touches[0].clientY-y0)>8))cancel()},{passive:true});
+  sc.addEventListener('touchend',cancel);sc.addEventListener('touchcancel',cancel);
+ })();
+ /* sheets: drag down to dismiss, following the finger */
+ (function(){
+  const sheet=$('#sheet'),swEl=$('#sw'),bg=$('#swbg');let d=null;
+  sheet.addEventListener('touchstart',e=>{
+   d=null;if(innerWidth>=700||e.touches.length!==1)return;
+   if(e.target.closest('input,textarea,select,canvas,[contenteditable],.qrspeed,.sl,input[type=range]'))return;
+   const r=sheet.getBoundingClientRect(),t=e.touches[0];
+   d={y:t.clientY,x:t.clientX,on:false,id:t.identifier,v:0,ly:t.clientY,lt:Date.now(),top:t.clientY-r.top<44};
+  },{passive:true});
+  sheet.addEventListener('touchmove',e=>{
+   if(!d)return;const t=[...e.touches].find(x=>x.identifier===d.id);if(!t){d=null;return}
+   const dy=t.clientY-d.y,dx=t.clientX-d.x;
+   if(!d.on){
+    if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)){d=null;return}
+    if(dy<6)return;
+    if(!(d.top||sheet.scrollTop<=0)){d=null;return}
+    d.on=true;d.y=t.clientY-dy+6;sheet.style.transition='none';
+   }
+   e.preventDefault();
+   const now=Date.now(),y=Math.max(0,t.clientY-d.y);d.v=(t.clientY-d.ly)/Math.max(1,now-d.lt);d.ly=t.clientY;d.lt=now;d.dy=y;
+   sheet.style.transform=`translateY(${y}px)`;bg.style.opacity=String(Math.max(.2,1-y/400));
+  },{passive:false});
+  const end=()=>{
+   if(!d||!d.on){d=null;return}
+   const s=d;d=null;
+   if(s.dy>110||(s.v>.6&&s.dy>30)){
+    sheet.style.transition='transform .18s ease-in';sheet.style.transform='translateY(110%)';hap(6);
+    setTimeout(()=>{closeSheet();sheet.style.transition='';sheet.style.transform='';bg.style.opacity=''},180);
+   }else{sheet.style.transition='transform .22s cubic-bezier(.2,.9,.3,1.2)';sheet.style.transform='';bg.style.opacity='';setTimeout(()=>{sheet.style.transition=''},240)}
+  };
+  sheet.addEventListener('touchend',end);sheet.addEventListener('touchcancel',()=>{if(d&&d.on){d=null;sheet.style.transition='';sheet.style.transform='';bg.style.opacity=''}else d=null});
+ })();
+ /* keep the caret above the keyboard */
+ (function(){
+  let raf=0;
+  function fix(){
+   raf=0;if(!document.body.classList.contains('editing'))return;
+   const a=document.activeElement;if(!a||!a.classList||!(a.classList.contains('txt')||a.id==='title'))return;
+   const s=getSelection();if(!s.rangeCount||!a.contains(s.anchorNode))return;
+   const rg=s.getRangeAt(0).cloneRange();rg.collapse(false);
+   let r=rg.getClientRects()[0];if(!r||!r.height)r=a.getBoundingClientRect();
+   const vv=window.visualViewport,sc=$('#scroller'),acc=$('#acc');
+   const bottom=(vv?vv.offsetTop+vv.height:innerHeight)-(acc&&!acc.hidden?acc.offsetHeight:0)-18;
+   const top=sc.getBoundingClientRect().top+12;
+   if(r.bottom>bottom)sc.scrollTop+=r.bottom-bottom;
+   else if(r.top<top)sc.scrollTop-=top-r.top;
+  }
+  const q=()=>{if(!raf)raf=requestAnimationFrame(fix)};
+  document.addEventListener('selectionchange',q);
+  document.addEventListener('input',q,true);
+  if(window.visualViewport){visualViewport.addEventListener('resize',()=>setTimeout(fix,60))}
+ })();
+})();
+/* ---- phase 2: title colors, card long-press menu, breadcrumb row + siblings, text QR ---- */
+(function(){
+ const isDark=()=>{try{const m=/\d+/g,c=(getComputedStyle($('#scroller')).backgroundColor.match(m)||[255,255,255]).map(Number);return (c[0]*.299+c[1]*.587+c[2]*.114)<128}catch(e){return false}};
+ function css(col,dark){if(!col)return '';let l=+col.l,c=+col.c,h=+col.h;if(!isFinite(l+c+h))return '';dark=dark===undefined?isDark():dark;l=dark?Math.max(l,.62):Math.min(l,.62);return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`}
+ window.nodeColor=id=>{const n=S.nodes[id];return n&&n.color?css(n.color):''};
+ function paint(){
+  const n=cur(),t=$('#title');if(t&&n)t.style.color=nodeColor(n.id);
+  document.querySelectorAll('.card[data-go]').forEach(el=>{const col=nodeColor(el.dataset.go);const b=el.querySelector('b'),ic=el.querySelector('.ic,svg');if(b)b.style.color=col;if(ic)ic.style.color=col||''});
+  document.querySelectorAll('#side .ti[data-id]').forEach(el=>{const col=nodeColor(el.dataset.id);const ic=el.querySelector('.tt svg');if(ic)ic.style.color=col||''});
+  const chain=path(S.cur).concat(S.cur);document.querySelectorAll('#crumbs .crumb').forEach((el,k)=>{const id=chain[k];if(!id)return;el.dataset.cid=id;const col=nodeColor(id);el.style.color=col||''});
+  const top=$('#top');if(top)top.classList.toggle('crumbrow',path(S.cur).length>=2);
+  const cr=$('#crumbs');if(cr)cr.scrollLeft=cr.scrollWidth;
+ }
+ const _rp=renderPage,_rt=renderTop,_rs=renderSide;
+ renderPage=function(){_rp.apply(this,arguments);paint()};
+ renderTop=function(){_rt.apply(this,arguments);paint()};
+ renderSide=function(){_rs.apply(this,arguments);paint()};
+ /* ---- color picker ---- */
+ let ced=null;
+ const PRE=[25,55,95,150,195,250,300,350];
+ function openColor(id){
+  const n=S.nodes[id];if(!n)return;ced=id;const c=n.color||{l:.6,c:.15,h:250};
+  openSheet(`<h3>Title color</h3><div class="clprev" id="clprev">${esc(nm(n))}</div>
+  <div class="clsw"><button class="none" data-cl="none" aria-label="No color">${ic('x',16)}</button>${PRE.map(h=>`<button data-cl="pre" data-h="${h}" style="background:oklch(.6 .15 ${h})" aria-label="Hue ${h}"></button>`).join('')}</div>
+  <div class="clrow"><span>L</span><input type="range" id="clL" min="0.3" max="0.9" step="0.005"></div>
+  <div class="clrow"><span>C</span><input type="range" id="clC" min="0" max="0.3" step="0.002"></div>
+  <div class="clrow"><span>H</span><input type="range" id="clH" min="0" max="360" step="1"></div>
+  <div class="btnrow"><button class="btn pri" data-cl="done">Done</button></div>`);
+  $('#clL').value=c.l;$('#clC').value=c.c;$('#clH').value=c.h;clSync(false);
+ }
+ function clVals(){return{l:+$('#clL').value,c:+$('#clC').value,h:+$('#clH').value}}
+ function clBg(){const v=clVals();
+  $('#clL').style.background=`linear-gradient(90deg,oklch(.3 ${v.c} ${v.h}),oklch(.6 ${v.c} ${v.h}),oklch(.9 ${v.c} ${v.h}))`;
+  $('#clC').style.background=`linear-gradient(90deg,oklch(${v.l} 0 ${v.h}),oklch(${v.l} .3 ${v.h}))`;
+  $('#clH').style.background=`linear-gradient(90deg,${[0,60,120,180,240,300,360].map(h=>`oklch(${v.l} ${Math.max(v.c,.1)} ${h})`).join(',')})`}
+ let st=0;
+ function clSync(apply){const n=S.nodes[ced];if(!n)return;clBg();
+  if(apply!==false){n.color=clVals();clearTimeout(st);st=setTimeout(()=>{markDirty(ced);save()},300)}
+  const p=$('#clprev');if(p)p.style.color=css(n.color||clVals());paint()}
+ document.addEventListener('input',e=>{if(e.target.closest&&e.target.closest('#clL,#clC,#clH'))clSync(true)});
+ document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-cl]');if(!b)return;const n=S.nodes[ced];if(!n)return;
+  if(b.dataset.cl==='pre'){const v=clVals();$('#clH').value=b.dataset.h;if(+$('#clC').value<.08)$('#clC').value=.15;$('#clL').value=.6;clSync(true)}
+  else if(b.dataset.cl==='none'){delete n.color;markDirty(ced);save();const p=$('#clprev');if(p)p.style.color='';paint()}
+  else if(b.dataset.cl==='done'){clearTimeout(st);markDirty(ced);save();closeSheet();hap&&hap(6)}
+ });
+ /* ---- extra node-menu entries ---- */
+ const _nm=nodeMenu;
+ nodeMenu=function(id){
+  _nm(id);if(id==='root')return;const n=S.nodes[id];if(!n)return;
+  const r=$('#sheet [data-m=rename]');if(!r)return;
+  r.insertAdjacentHTML('beforebegin',`<button class="opt" data-cm="color" data-id="${id}">${ic('pal')}Title color…</button>${n.kind==='page'?`<button class="opt" data-cm="dup" data-id="${id}">${ic('copy')}Duplicate</button>`:''}`);
+ };
+ document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-cm]');if(!b)return;const id=b.dataset.id,n=S.nodes[id];if(!n)return;
+  if(b.dataset.cm==='color')openColor(id);
+  else if(b.dataset.cm==='dup'&&n.kind==='page'){closeSheet();const bl=JSON.parse(JSON.stringify(n.blocks||[])).map(x=>{x.id=uid();return x});const d=mk(n.parent||'root','page',(n.title||'Untitled')+' copy',bl);if(n.color)d.color=Object.assign({},n.color);save();refreshChrome();if(S.cur===n.parent)renderPage();toast('Duplicated')}
+ });
+ /* ---- long-press on a card / sidebar row = full menu ---- */
+ let lp=0;
+ (function(){
+  let t=null,x0=0,y0=0,tid=null;
+  const sel='.card[data-go],#side .ti[data-id]';
+  const idOf=el=>el.dataset.go||el.dataset.id;
+  const cancel=()=>{clearTimeout(t);t=null};
+  document.addEventListener('touchstart',e=>{cancel();const el=e.target.closest(sel);if(!el||e.touches.length!==1)return;if(e.target.closest('.tm,.tc'))return;
+   x0=e.touches[0].clientX;y0=e.touches[0].clientY;tid=idOf(el);
+   t=setTimeout(()=>{t=null;lp=Date.now();hap&&hap(12);nodeMenu(tid)},480)},{passive:true});
+  document.addEventListener('touchmove',e=>{if(t&&(Math.abs(e.touches[0].clientX-x0)>8||Math.abs(e.touches[0].clientY-y0)>8))cancel()},{passive:true});
+  document.addEventListener('touchend',cancel);document.addEventListener('touchcancel',cancel);
+  document.addEventListener('contextmenu',e=>{const el=e.target.closest(sel);if(!el)return;e.preventDefault();nodeMenu(idOf(el))});
+  document.addEventListener('click',e=>{if(Date.now()-lp<700&&e.target.closest(sel+',#crumbs .crumb')){e.stopPropagation();e.preventDefault()}},true);
+ })();
+ /* ---- breadcrumb long-press: show the pages at that level ---- */
+ function sibMenu(id){
+  const n=S.nodes[id];if(!n)return;const pid=id==='root'?'root':(n.parent||'root'),par=S.nodes[pid];
+  const ids=id==='root'?par.kids.slice():par.kids.slice();
+  const list=ids.map(k=>{const c=S.nodes[k];if(!c)return '';const col=nodeColor(k);return `<button class="opt" data-cs="${k}" ${k===id?'style="background:var(--accent-soft)"':''}>${ic(c.kind==='folder'?'folder':'page',18)}<span style="${col?'color:'+col:''}">${esc(nm(c))}</span></button>`}).join('');
+  openSheet(`<h3>In ${esc(pid==='root'?'Home':nm(par))}</h3>${pid!==S.cur&&pid!=='root'?`<button class="opt" data-cs="${pid}">${ic('up',18)}Open ${esc(nm(par))}</button>`:''}${list||'<p class="hint">Nothing else here.</p>'}`);
+ }
+ document.addEventListener('click',e=>{const b=e.target.closest('[data-cs]');if(!b)return;closeSheet();go(b.dataset.cs)});
+ (function(){
+  let t=null,x0=0,y0=0;const cancel=()=>{clearTimeout(t);t=null};
+  document.addEventListener('touchstart',e=>{cancel();const el=e.target.closest('#crumbs .crumb[data-cid]');if(!el||e.touches.length!==1)return;
+   x0=e.touches[0].clientX;y0=e.touches[0].clientY;const id=el.dataset.cid;t=setTimeout(()=>{t=null;lp=Date.now();hap&&hap(12);sibMenu(id)},450)},{passive:true});
+  document.addEventListener('touchmove',e=>{if(t&&(Math.abs(e.touches[0].clientX-x0)>8||Math.abs(e.touches[0].clientY-y0)>8))cancel()},{passive:true});
+  document.addEventListener('touchend',cancel);document.addEventListener('touchcancel',cancel);
+  document.addEventListener('contextmenu',e=>{const el=e.target.closest('#crumbs .crumb[data-cid]');if(!el)return;e.preventDefault();sibMenu(el.dataset.cid)});
+ })();
+ /* ---- text-only QR ---- */
+ const _os=openShare;
+ openShare=function(id){_os(id);const sh=$('#sheet');if(sh)sh.insertAdjacentHTML('beforeend',`<button class="opt" data-sh="qrtext" data-id="${id}">${ic('slash')}Show text as QR<small style="margin-left:auto;color:var(--muted)">receiver copies it</small></button>`)};
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('[data-sh=qrtext]');if(m){const n=S.nodes[m.dataset.id];if(!n)return;e.stopPropagation();closeSheet();
+   try{await showQR('Text of “'+nm(n)+'”',{t:'text',n:devName(),ts:Date.now(),title:nm(n),text:(nm(n)+'\n\n'+mdOf(n)).slice(0,60000)},'Scan on the other device. It shows the text with a Copy button.')}catch(er){toast('Could not make the codes')}return}
+  const q=e.target.closest('#sheet [data-qr=copytext],#sheet [data-qr=text2page]');if(!q||!QP||QP.kind!=='text')return;e.stopPropagation();
+  if(q.dataset.qr==='copytext'){try{await navigator.clipboard.writeText(QP.text);toast('Copied');closeSheet()}catch(er){toast('Could not copy')}}
+  else{const tx=QP.text;closeSheet();window.__receiveShared('',tx)}
+ },true);
+})();
 /* ---------- hold on a line to select it (touch) ---------- */
 let hs=null,hsSwallow=false,hx=null,hxRaf=0;
 page.addEventListener('pointerdown',e=>{
