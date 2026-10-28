@@ -503,7 +503,7 @@ function treeHTML(id,d){return S.nodes[id].kids.map(k=>{const c=S.nodes[k];const
  return `<div class="ti ${k===S.cur?'on':''}" data-id="${k}" style="--d:${d}"><button class="tc ${has?'':'none'} ${c.open?'open':''}" data-a="tog" aria-label="Expand">${ic('chev',16)}</button><div class="tt" data-a="go">${ic(c.kind==='folder'?'folder':'page',18)}<span>${esc(nm(c))}</span></div><button class="tm" data-a="menu" aria-label="More">${ic('more',18)}</button></div>`+(c.open&&has?treeHTML(k,d+1):'')}).join('')}
 function renderSide(){
  $('#side').innerHTML=`<div class="sh"><span class="brand">Margin Notes</span><button class="ib" id="sClose" aria-label="Close menu">${ic('x')}</button></div>
- <div class="sb"><button class="pill ${S.cur==='root'?'on':''}" data-go="root">${ic('home',18)}Home</button><button class="pill" id="sSearch">${ic('search',18)}Search</button><button class="pill" id="sToday">${ic('cal',18)}Today</button></div><div class="sb"><button class="pill" id="sAll">${ic('all',18)}All notes</button><button class="pill" id="sCanvas">${ic('table',18)}Canvas</button></div>
+ <div class="sb"><button class="pill ${S.cur==='root'?'on':''}" data-go="root">${ic('home',18)}Home</button><button class="pill" id="sSearch">${ic('search',18)}Search</button><button class="pill" id="sToday">${ic('cal',18)}Today</button></div><div class="sb"><button class="pill" id="sAll">${ic('all',18)}All notes</button><button class="pill" id="sCanvas">${ic('table',18)}Canvas</button><button class="pill" id="sScan">${ic('slash',18)}Scan</button></div>
  <div class="tree" id="tree">${pinsHTML()}${treeHTML('root',0)||'<div class="empty">No notes yet</div>'}</div>
  <div class="sf"><div class="saverow"><button class="pill save" id="sSave">${ic('save',18)}Save vault<span class="badge" id="sBadge" hidden></span></button><button class="ib optb" id="sSaveOpt" aria-label="Save options">${ic('sliders',18)}</button></div><div class="sfnote" id="sNote"></div><button class="pill" id="sFolder">${ic('folder',18)}New folder</button><button class="pill" id="sPaper">${ic('pal',18)}Paper</button><button class="pill" id="sBackup">${ic('undo',18)}Backups</button><button class="pill" id="sTrash">${ic('trash',18)}Trash${(S.trash||[]).length?`<span class="badge2">${S.trash.length}</span>`:''}</button></div>`;
  updBadge();
@@ -3158,6 +3158,7 @@ document.addEventListener('click',e=>{
   else if(e.target.closest('#sBackup')){closeSide();openBackup()}
   else if(e.target.closest('#sAll')){closeSide();openAll()}
   else if(e.target.closest('#sCanvas')){closeSide();openCanvas()}
+  else if(e.target.closest('#sScan')){closeSide();openScanner()}
   else if(e.target.closest('#sTrash')){closeSide();openTrash()}
   else if(e.target.closest('#sSaveOpt')){closeSide();openSave()}
   else if(e.target.closest('#sSave')){closeSide();quickSave()}
