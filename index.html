@@ -3,14 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Margin Notes</title>
-<link rel="manifest" href="manifest.webmanifest">
+<title>Margin Notes</title><link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Margin Notes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#ecebe7">
 <link rel="apple-touch-icon" href="icon-180.png">
+
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Bricolage+Grotesque:wght@600;700&family=DM+Mono&family=Nunito:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Atkinson+Hyperlegible:wght@400;700&family=Newsreader:wght@400;500;600;700&family=Source+Serif+4:wght@400;600;700&family=Caveat:wght@500;700&display=swap">
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -377,8 +380,13 @@ body.cvopen .fab{display:none}
 .qrprev{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:8px 0;font-size:13.5px;color:var(--muted)}.qrprev b{color:var(--ink);display:block;margin-bottom:4px}.hint.warn{color:var(--danger)}
 .qrraw{white-space:pre-wrap;word-break:break-all;background:var(--accent-soft);border-radius:12px;padding:10px;font-size:12.5px;max-height:30vh;overflow:auto}
 .qrscan{position:fixed;inset:0;z-index:120;background:#000}.qrscan video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.qrframe{position:absolute;left:50%;top:50%;width:min(70vw,320px);aspect-ratio:1;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:24px;box-shadow:0 0 0 100vmax #0006}
+
 .qrtop{position:absolute;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:8px}.qrtop span{flex:1;text-align:center;color:#fff;font-size:14px;text-shadow:0 1px 4px #000}
+
+.qrspeed{display:flex;align-items:center;justify-content:center;gap:10px;margin:2px 0 6px}.qrspeed span{font-size:13px;color:var(--muted);min-width:90px;text-align:center}
+.qrprog{position:absolute;left:16px;right:16px;bottom:calc(24px + env(safe-area-inset-bottom,0px));color:#fff;text-align:center;font-size:13.5px;text-shadow:0 1px 4px #000}.qrprog .bar{height:8px;border-radius:99px;background:#fff4;overflow:hidden;margin-bottom:6px}.qrprog .bar i{display:block;height:100%;width:0;background:#fff;border-radius:99px;transition:width .15s}
+.qrpend{position:absolute;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:flex;gap:6px;justify-content:center;flex-wrap:wrap}.qrchip{display:inline-flex;align-items:center;gap:6px;background:#000a;color:#fff;border-radius:99px;padding:5px 6px 5px 12px;font-size:12.5px}.qrchip button{width:22px;height:22px;border-radius:50%;background:#fff3;color:#fff}
+.qrhl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 </style>
 <div class="app">
  <aside class="side" id="side" aria-label="Notes"></aside>
@@ -1447,7 +1455,7 @@ function openBackup(){
  flush();const snaps=getSnaps().slice().reverse(),st=S.set;
  const sg=(key,def,arr)=>`<div class="seg" data-seg="${key}">${arr.map(([v,l])=>`<button data-v="${v}" class="${(st[key]==null?def:st[key])==v?'on':''}">${l}</button>`).join('')}</div>`;
  openSheet(`<h3>Backups</h3>
- <div class="btnrow" style="justify-content:flex-start;margin:0 0 6px"><button class="btn pri" id="bkSave">Save now</button><button class="btn" id="bkOpts">Save options</button></div>
+ <div class="btnrow" style="justify-content:flex-start;margin:0 0 6px"><button class="btn pri" id="bkSave">Save now</button><button class="btn" id="bkOpts">Save options</button><button class="btn" data-qr="sendvault">Send by QR</button></div>
  <p class="hint">${S.lastFile?'Last file saved '+stamp(S.lastFile):'No file saved yet'} · ${dirtyCount()} unsaved change${dirtyCount()===1?'':'s'}</p>
  <div class="lbl">Open a file</div>
  <input type="file" id="bkFile" accept=".zip,.json,.md,.txt,application/zip,application/json,text/markdown,text/plain" class="inp" style="margin:6px 0"><div id="bkPrev"></div>
@@ -2434,6 +2442,7 @@ function openViewMenu(b,vid){
  ${v.type==='calendar'?`<label class="vlab">Date property<select class="inp sel" data-vm="vdate">${dates.map(c=>`<option value="${c.id}" ${dc&&dc.id===c.id?'selected':''}>${esc(c.name)}</option>`).join('')||'<option value="">None</option>'}</select></label>`:''}
  ${v.type==='gallery'?galOpts(db,v):''}
  <div class="vlab">Properties</div><div class="vprops">${db.cols.map(c=>`<button class="vprop ${c.title||!v.hidden.includes(c.id)?'on':''}" data-vm="vprop" data-v="${c.id}" ${c.title?'disabled':''}><span>${DBT[c.type]}</span>${esc(c.name||'Untitled')}<i></i></button>`).join('')}</div>
+ <button class="opt" data-vm="vsend">${ic('slash',18)}Send this database by QR</button>
  <div class="dbrow2"><button class="opt" data-vm="vdup">${ic('copy',18)}Duplicate view</button>${db.views.length>1?`<button class="opt bad" data-vm="vdel">${ic('trash',18)}Delete view</button>`:'<span></span>'}</div>
  <div class="btnrow"><button class="btn pri" data-vm="vdone">Done</button></div>`);
 }
@@ -2470,6 +2479,7 @@ function vmHandle(e){
  if(k==='vmkimg'){snapshot();const c=mkImgCol(db);v.cover=c.id;redo();openViewMenu(b,v.id);return true}
  if(k==='vdate'){v.dateCol=val||null;redo();return true}
  if(k==='vprop'){snapshot();const h=v.hidden.indexOf(val);if(h>=0)v.hidden.splice(h,1);else v.hidden.push(val);redo();openViewMenu(b,v.id);return true}
+ if(k==='vsend'){closeSheet();sendDbQR(b);return true}
  if(k==='vdup'){snapshot();const cp=JSON.parse(JSON.stringify(v));cp.id=uid();cp.name=v.name+' copy';db.views.splice(db.views.indexOf(v)+1,0,cp);db.view=cp.id;redo();closeSheet();return true}
  if(k==='vdel'){if(vmArm!=='vdel'){vmArm='vdel';m.textContent='Tap again to delete';setTimeout(()=>{vmArm=null},2500);return true}vmArm=null;snapshot();db.views.splice(db.views.indexOf(v),1);db.view=db.views[0].id;redo();closeSheet();return true}
  if(k==='fadd'){snapshot();const c=db.cols.find(c=>!c.title)||db.cols[0];v.filters.push({col:c.id,op:opsFor(c)[0][0],val:''});redo();openFilters(b);return true}
@@ -2872,7 +2882,7 @@ $('#sheet').addEventListener('click',e=>{
  else if(k==='done')cvReload();
 });
 /* ---------- QR share / scan, with signed messages and trusted devices ---------- */
-const QRMAX=400000;
+const QRMAX=8000000;
 function b64u(u8){let s='';for(let i=0;i<u8.length;i+=8192)s+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 function unb64u(s){s=String(s).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
 async function streamBytes(kind,bytes,max){
@@ -2894,15 +2904,16 @@ async function devKey(){
  DEV={priv:rec.priv,pub:b64u(rec.pub),fp:await fpOf(rec.pub)};return DEV;
 }
 const devName=()=>(S.set.devName||'My device').slice(0,40);
-async function sealMsg(obj){
+async function sealBytes(obj){
  const k=await devKey(),d=JSON.stringify(obj),sig=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},k.priv,new TextEncoder().encode(d)));
  const env=JSON.stringify({v:1,k:k.pub,s:b64u(sig),d}),raw=new TextEncoder().encode(env);
- try{if(typeof CompressionStream==='function')return 'MN1.z.'+b64u(await streamBytes('z',raw))}catch(e){}
- return 'MN1.r.'+b64u(raw);
+ let flag=0,body=raw;try{if(typeof CompressionStream==='function'){body=await streamBytes('z',raw);flag=1}}catch(e){body=raw;flag=0}
+ const out=new Uint8Array(body.length+1);out[0]=flag;out.set(body,1);return out;
 }
+async function sealMsg(obj){const u=await sealBytes(obj);return 'MN1.'+(u[0]?'z':'r')+'.'+b64u(u.subarray(1))}
 async function openMsg(str){
  const m=/^MN1\.([zr])\.([A-Za-z0-9_-]+)$/.exec(str);if(!m)throw new Error('format');
- if(str.length>2000000)throw new Error('big');
+ if(str.length>16000000)throw new Error('big');
  let raw=unb64u(m[2]);if(m[1]==='z')raw=await streamBytes('d',raw,QRMAX);if(raw.length>QRMAX)throw new Error('big');
  const env=JSON.parse(new TextDecoder().decode(raw));
  if(!env||env.v!==1||typeof env.k!=='string'||typeof env.s!=='string'||typeof env.d!=='string')throw new Error('env');
@@ -2982,7 +2993,7 @@ async function openScanner(){
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){return scanFallback('Camera is not available here. You can pick a photo of a QR code instead.')}
  closeScanner();
  const el=document.createElement('div');el.id='qrscan';el.className='qrscan';
- el.innerHTML=`<video playsinline muted autoplay></video><div class="qrframe"></div><div class="qrtop"><button class="cvbtn" data-qr="scanclose" aria-label="Close">${ic('x',18)}</button><span id="qrstat">Point at a Margin Notes QR code</span><button class="cvbtn wide" data-qr="photo">Photo</button></div>`;
+ el.innerHTML=`<video playsinline muted autoplay></video><canvas id="qrhl" class="qrhl"></canvas><div class="qrtop"><button class="cvbtn" data-qr="scanclose" aria-label="Close">${ic('x',18)}</button><span id="qrstat">Point at a QR code. Anywhere on the screen works.</span><button class="cvbtn wide" data-qr="photo">Photo</button></div>`;
  document.body.appendChild(el);qrParts={};
  let stream;try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}},audio:false})}catch(e){closeScanner();return scanFallback('Camera permission was not given. You can pick a photo of a QR code instead.')}
  const v=el.querySelector('video');v.srcObject=stream;try{await v.play()}catch(e){}
@@ -2991,8 +3002,9 @@ async function openScanner(){
  const tick=async()=>{
   if(!scan||scan.stop)return;
   if(v.videoWidth){const sc=Math.min(1,720/v.videoWidth);cv.width=Math.round(v.videoWidth*sc);cv.height=Math.round(v.videoHeight*sc);cx.drawImage(v,0,0,cv.width,cv.height);
-   let txt=null;try{if(det){const r=await det.detect(cv);if(r&&r[0])txt=r[0].rawValue}}catch(e){}
-   if(!txt&&typeof jsQR==='function'){const im=cx.getImageData(0,0,cv.width,cv.height),r=jsQR(im.data,im.width,im.height,{inversionAttempts:'dontInvert'});if(r)txt=r.data}
+   let txt=null,pts=null;try{if(det){const r=await det.detect(cv);if(r&&r[0]){txt=r[0].rawValue;pts=r[0].cornerPoints}}}catch(e){}
+   if(!txt&&typeof jsQR==='function'){const im=cx.getImageData(0,0,cv.width,cv.height),r=jsQR(im.data,im.width,im.height,{inversionAttempts:'dontInvert'});if(r){txt=r.data;const l=r.location;pts=[l.topLeftCorner,l.topRightCorner,l.bottomRightCorner,l.bottomLeftCorner]}}
+   if(pts&&pts.length>=3)qrHighlight(pts,v,cv);
    if(txt&&await qrFeed(txt))return}
   setTimeout(tick,110);
  };
@@ -3020,7 +3032,7 @@ async function qrFeed(txt,single){
  }
  if(txt.startsWith('MN1.')){closeScanner();closeSheet();await receiveMsg(txt);return true}
  if(single||!scan){closeScanner();showUnknown(txt);return true}
- const st=$('#qrstat');if(st){st.textContent='That is not a Margin Notes code';setTimeout(()=>{const s2=$('#qrstat');if(s2&&scan)s2.textContent='Point at a Margin Notes QR code'},1800)}
+ const st=$('#qrstat');if(st){st.textContent='That is not a Margin Notes code';setTimeout(()=>{const s2=$('#qrstat');if(s2&&scan)s2.textContent='Point at a QR code. Anywhere on the screen works.'},1800)}
  return false;
 }
 function showUnknown(t){openSheet(`<h3>Not a Margin Notes code</h3><p class="hint">Nothing was imported or opened. The code contains this text:</p><pre class="qrraw">${esc(String(t).slice(0,600))}</pre><div class="btnrow"><button class="btn" data-qr="copy">Copy text</button><button class="btn pri" data-qr="close">Close</button></div>`);QP={raw:t}}
@@ -3066,6 +3078,7 @@ $('#sheet').addEventListener('click',async e=>{
  else if(k==='photo'){scanPhoto()}
  else if(k==='scanclose')closeScanner();
  else if(k==='showid'){try{await showQR('My device code',{t:'id',n:devName(),ts:Date.now()},'The other device scans this to trust '+devName()+'.')}catch(er){toast('Could not make a QR code')}}
+ else if(k==='sendvault'){closeSheet();sendVaultQR()}
  else if(k==='trustonly'){addTrust();closeSheet();toast('Device trusted')}
  else if(k==='trustimp'){addTrust();importPage()}
  else if(k==='once'||k==='import')importPage();
@@ -3107,6 +3120,161 @@ window.__receiveShared=function(title,text){
  if(!t)t=(text.split('\n').find(l=>l.trim())||'Shared note').replace(/^#+\s*/,'').slice(0,60);
  const n=mk(rec.id,'page',t.slice(0,200),bl);rec.open=true;save();go(n.id);toast('Saved to Received');
 };
+
+let qrHl=null;
+function qrHighlight(pts,v,cv){
+ const c=$('#qrhl');if(!c||!v.videoWidth)return;const W=c.clientWidth,H=c.clientHeight;if(c.width!==W||c.height!==H){c.width=W;c.height=H}
+ const x=c.getContext('2d');x.clearRect(0,0,W,H);const k=Math.max(W/v.videoWidth,H/v.videoHeight),sc=cv.width/v.videoWidth,ox=(W-v.videoWidth*k)/2,oy=(H-v.videoHeight*k)/2;
+ x.beginPath();pts.forEach((p,i)=>{const a=p.x/sc*k+ox,b=p.y/sc*k+oy;i?x.lineTo(a,b):x.moveTo(a,b)});x.closePath();
+ x.lineWidth=5;x.lineJoin='round';x.strokeStyle='#7CFFB2';x.shadowColor='#000';x.shadowBlur=8;x.stroke();
+ clearTimeout(qrHl);qrHl=setTimeout(()=>{const cc=$('#qrhl');if(cc)cc.getContext('2d').clearRect(0,0,cc.width,cc.height)},400);
+}
+/* ---------- Robust QR transfer: fountain codes, resumable on the receiving side ---------- */
+const FXB=300;
+function crc32(u8){let c=-1;for(let i=0;i<u8.length;i++){c^=u8[i];for(let k=0;k<8;k++)c=(c>>>1)^(0xEDB88320&-(c&1))}return((c^-1)>>>0).toString(16).padStart(8,'0')}
+function fnv(str){let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193)}return(h>>>0).toString(16).padStart(8,'0').slice(0,4)}
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function seedOf(tid,idx){let h=0;for(let i=0;i<tid.length;i++)h=Math.imul(h^tid.charCodeAt(i),16777619);return(h+Math.imul(idx+1,2654435761))>>>0}
+function maskFor(tid,K,idx){
+ const m=new Uint8Array((K+7)>>3);
+ if(idx<K){m[idx>>3]|=1<<(idx&7);return m}
+ const r=mulberry(seedOf(tid,idx));let any=false;
+ for(let i=0;i<K;i++)if(r()<.5){m[i>>3]|=1<<(i&7);any=true}
+ if(!any){const i=idx%K;m[i>>3]|=1<<(i&7)}return m;
+}
+const bit=(m,i)=>(m[i>>3]>>(i&7))&1;
+function xorInto(a,b){for(let i=0;i<a.length;i++)a[i]^=b[i]}
+/* ---- sender ---- */
+async function fxPrepare(u8){
+ const K=Math.ceil(u8.length/FXB),blocks=[];
+ for(let i=0;i<K;i++){const b=new Uint8Array(FXB);b.set(u8.subarray(i*FXB,(i+1)*FXB));blocks.push(b)}
+ const h=new Uint8Array(await crypto.subtle.digest('SHA-256',u8));
+ return {K,len:u8.length,tid:b64u(h).slice(0,6),crc:crc32(u8),blocks};
+}
+function fxFrame(c,idx){
+ const m=maskFor(c.tid,c.K,idx),d=new Uint8Array(FXB);
+ for(let i=0;i<c.K;i++)if(bit(m,i))xorInto(d,c.blocks[i]);
+ const head=`MNF1|${c.tid}|${c.K}|${c.len}|${FXB}|${c.crc}|${idx}|${b64u(d)}`;
+ return head+'|'+fnv(head);
+}
+/* ---- receiver ---- */
+let FX={};
+function fxParse(t){
+ const p=t.split('|');if(p.length!==9||p[0]!=='MNF1')return null;
+ if(fnv(p.slice(0,8).join('|'))!==p[8])return null;
+ const K=+p[2],len=+p[3],B=+p[4],idx=+p[6];
+ if(!(K>0&&K<=4000&&len>0&&len<=8000000&&B>=50&&B<=1000&&Math.ceil(len/B)===K&&idx>=0&&idx<1e7))return null;
+ if(!/^[A-Za-z0-9_-]{6}$/.test(p[1])||!/^[0-9a-f]{8}$/.test(p[5]))return null;
+ let d;try{d=unb64u(p[7])}catch(e){return null}if(d.length!==B)return null;
+ return {tid:p[1],K,len,B,crc:p[5],idx,data:d};
+}
+async function fxLoad(f){
+ let st=FX[f.tid];if(st)return st;
+ st={tid:f.tid,K:f.K,len:f.len,B:f.B,crc:f.crc,piv:new Array(f.K).fill(null),rank:0,t:Date.now()};
+ try{const sv=await idbGet('qrx:'+f.tid);if(sv&&sv.K===f.K&&sv.len===f.len&&sv.crc===f.crc&&Array.isArray(sv.rows)){sv.rows.forEach(r=>{const i=r.lead;if(i>=0&&i<f.K&&!st.piv[i]){st.piv[i]={mask:r.mask,data:r.data};st.rank++}});st.t=sv.t||st.t}}catch(e){}
+ FX[f.tid]=st;return st;
+}
+function fxAdd(st,mask,data){
+ mask=mask.slice();data=data.slice();
+ for(let i=0;i<st.K;i++){
+  if(!bit(mask,i))continue;
+  const p=st.piv[i];
+  if(p){xorInto(mask,p.mask);xorInto(data,p.data)}
+  else{st.piv[i]={mask,data};st.rank++;return true}
+ }
+ return false;
+}
+let fxSaveT=null;
+function fxPersist(st,now){
+ clearTimeout(fxSaveT);
+ const go=async()=>{try{const rows=[];st.piv.forEach((r,i)=>{if(r)rows.push({lead:i,mask:r.mask,data:r.data})});await idbSet('qrx:'+st.tid,{tid:st.tid,K:st.K,len:st.len,B:st.B,crc:st.crc,t:Date.now(),rows});
+  const idx=(await idbGet('qrxidx'))||[];if(!idx.includes(st.tid)){idx.push(st.tid);await idbSet('qrxidx',idx)}}catch(e){}};
+ if(now)return go();fxSaveT=setTimeout(go,700);
+}
+async function fxDrop(tid){delete FX[tid];try{await idbSet('qrx:'+tid,null);const idx=((await idbGet('qrxidx'))||[]).filter(x=>x!==tid);await idbSet('qrxidx',idx)}catch(e){}}
+function fxSolve(st){
+ const K=st.K;for(let i=K-1;i>=0;i--){const r=st.piv[i];for(let j=i+1;j<K;j++){if(bit(r.mask,j)){const q=st.piv[j];xorInto(r.data,q.data);r.mask[j>>3]&=~(1<<(j&7))}}}
+ const out=new Uint8Array(K*st.B);for(let i=0;i<K;i++)out.set(st.piv[i].data,i*st.B);return out.subarray(0,st.len);
+}
+function fxUi(st){
+ const pc=Math.floor(st.rank/st.K*100),el=$('#qrprog');
+ if(el){el.hidden=false;el.querySelector('i').style.width=pc+'%';el.querySelector('span').textContent=`${st.rank} of ${st.K} pieces · ${pc}%`}
+ const s=$('#qrstat');if(s)s.textContent=st.rank>=st.K?'Got everything. Checking…':'Keep the camera on the codes. Order doesn’t matter.';
+}
+async function fxFeed(txt){
+ const f=fxParse(txt);if(!f)return false;
+ const st=await fxLoad(f);if(st.K!==f.K||st.len!==f.len||st.crc!==f.crc)return false;
+ const mask=maskFor(f.tid,f.K,f.idx),useful=fxAdd(st,mask,f.data);
+ if(useful){st.t=Date.now();fxUi(st);fxPersist(st,false);try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}}
+ if(st.rank<st.K)return false;
+ const bytes=fxSolve(st);
+ if(crc32(bytes)!==st.crc){await fxDrop(f.tid);toast('That transfer was damaged. Please start it again.');return false}
+ await fxDrop(f.tid);closeScanner();closeSheet();
+ await receiveMsg('MN1.'+(bytes[0]?'z':'r')+'.'+b64u(bytes.subarray(1)));return true;
+}
+async function fxPending(){const out=[];try{const idx=(await idbGet('qrxidx'))||[];for(const tid of idx){const r=await idbGet('qrx:'+tid);if(r&&r.rows&&Date.now()-(r.t||0)<7*864e5)out.push({tid,K:r.K,have:r.rows.length,t:r.t});else await fxDrop(tid)}}catch(e){}return out}
+async function fxPaintPending(){
+ const box=$('#qrpend');if(!box)return;const l=await fxPending();
+ box.innerHTML=l.length?l.map(x=>`<span class="qrchip">Unfinished ${Math.floor(x.have/x.K*100)}%<button data-qr="fxdel" data-tid="${x.tid}" aria-label="Forget">×</button></span>`).join(''):'';
+}
+/* hook the scanner: fountain frames go to fxFeed */
+const _qrFeed=qrFeed;
+qrFeed=async function(txt,single){
+ txt=String(txt||'');
+ if(txt.startsWith('MNF1|')){const ok=await fxFeed(txt);return ok}
+ return _qrFeed(txt,single);
+};
+const _openScanner=openScanner;
+openScanner=async function(){await _openScanner();const el=$('#qrscan');if(!el)return;
+ const prog=document.createElement('div');prog.id='qrprog';prog.className='qrprog';prog.hidden=true;prog.innerHTML='<div class="bar"><i></i></div><span></span>';el.appendChild(prog);
+ const pend=document.createElement('div');pend.id='qrpend';pend.className='qrpend';el.appendChild(pend);fxPaintPending()};
+document.addEventListener('click',async e=>{const m=e.target.closest('#qrscan [data-qr=fxdel]');if(!m)return;await fxDrop(m.dataset.tid);fxPaintPending()});
+/* ---- sender UI: replaces the single/loop code player ---- */
+const sealCache={};
+async function sealCached(key,make){const c=sealCache[key];if(c&&Date.now()-c.t<15*60000)return c.u;const u=await sealBytes(await make());sealCache[key]={u,t:Date.now()};return u}
+let strm=null;
+async function streamQR(title,u8,note){
+ const ctx=await fxPrepare(u8);clearTimeout(strm&&strm.timer);
+ strm={ctx,idx:0,fps:4,timer:null};const S0=strm;
+ const single=('MN1.'+(u8[0]?'z':'r')+'.'+b64u(u8.subarray(1)));
+ if(single.length<=900){openSheet(`<h3>${esc(title)}</h3><div class="qrbox" id="qrbox"></div><p class="hint" style="text-align:center">${esc(note||'')}</p><div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);$('#qrbox').appendChild(qrCanvas(single,340));return}
+ openSheet(`<h3>${esc(title)}</h3><div class="qrbox" id="qrbox"></div><p class="hint" id="qrnote" style="text-align:center"></p>
+ <div class="qrspeed"><button class="btn" data-qs="-">Slower</button><span id="qrfps"></span><button class="btn" data-qs="+">Faster</button></div>
+ <p class="hint" style="text-align:center">${esc(note||'')} The codes repeat until the other device has everything. It can miss some and resume later.</p><div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);
+ const draw=()=>{if(S0!==strm||!document.getElementById('qrbox'))return;const box=$('#qrbox');box.innerHTML='';box.appendChild(qrCanvas(fxFrame(ctx,S0.idx),340));
+  const nt=$('#qrnote');if(nt)nt.textContent=`Showing code ${S0.idx+1}. About ${ctx.K} are needed; ${Math.ceil(ctx.K/S0.fps)} s at this speed.`;
+  const f=$('#qrfps');if(f)f.textContent=S0.fps+' per second';S0.idx++;S0.timer=setTimeout(draw,1000/S0.fps)};
+ draw();
+}
+showQR=async function(title,obj,note,cacheKey){
+ const u8=cacheKey?await sealCached(cacheKey,()=>obj):await sealBytes(obj);return streamQR(title,u8,note);
+};
+document.addEventListener('click',e=>{const m=e.target.closest('#sheet [data-qs]');if(!m||!strm)return;strm.fps=Math.max(1,Math.min(10,strm.fps+(m.dataset.qs==='+'?1:-1)));const f=$('#qrfps');if(f)f.textContent=strm.fps+' per second'});
+/* page + database + vault senders */
+shareNodeQR=async function(id){
+ const n=S.nodes[id];if(!n||n.kind!=='page')return;
+ try{await showQR('Share “'+nm(n)+'”',{t:'page',n:devName(),ts:Date.now(),title:nm(n),blocks:exportBlocks(n)},'On the other device: Scan.','page:'+id+':'+n.t)}catch(e){toast('Could not make the codes')}
+};
+async function sendDbQR(b){
+ const n=cur();try{const bl=JSON.parse(JSON.stringify([b]));
+  await showQR('Send this database',{t:'page',n:devName(),ts:Date.now(),title:(nm(n)||'Database')+' (database)',blocks:exportBlocks({blocks:bl})},'On the other device: Scan.','db:'+b.id+':'+JSON.stringify(b.db.rows.length)+':'+n.t)}catch(e){toast('Could not make the codes')}
+}
+async function sendVaultQR(){
+ try{toast('Packing your vault…');const z=await buildVaultZip();
+  await showQR('Send my whole vault',{t:'vault',n:devName(),ts:Date.now(),z:b64u(z)},'Takes a while for big vaults. Use only on your own devices.','vault:'+S.saved)}catch(e){toast('Could not make the codes')}
+}
+/* receiving a vault */
+const _receiveMsg=receiveMsg;
+receiveMsg=async function(str){
+ let r;try{r=await openMsg(str)}catch(e){return _receiveMsg(str)}
+ const o=r.obj||{};if(o.t!=='vault')return _receiveMsg(str);
+ const known=isTrusted(r.k),from=sstr(o.n,40)||'Unknown device';QP={kind:'vault',k:r.k,name:from};
+ let z=null;try{z=unb64u(o.z)}catch(e){}
+ if(!z||z.length<30||z[0]!==0x50||z[1]!==0x4B)return openSheet('<h3>Could not read this vault</h3><p class="hint">Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>');
+ openSheet(`<h3>Received a vault</h3><div class="qrwho ${known?'ok':'new'}"><b>${esc(from)}</b><code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet. You can add its notes but not replace yours.'}</span></div>${known?'':'<div class="btnrow" style="margin-bottom:6px"><button class="btn" data-qr="trustonly">Trust this device</button></div>'}<div id="bkPrev"></div><div class="btnrow"><button class="btn" data-qr="close">Cancel</button></div>`);
+ try{await handleBytes('vault from '+from+'.zip',z,$('#bkPrev'));if(!known){const rb=$('#fRep');if(rb)rb.remove()}}catch(e){toast('Could not read that vault')}
+};
+window.__fx={sealBytes,fxPrepare,fxFrame,fxFeed,fxParse,reset:()=>{FX={}},pending:fxPending,persistNow:async()=>{for(const k in FX)await fxPersist(FX[k],true)},crc32,b64u,buildVaultZip:()=>buildVaultZip()};
 /* ---------- hold on a line to select it (touch) ---------- */
 let hs=null,hsSwallow=false,hx=null,hxRaf=0;
 page.addEventListener('pointerdown',e=>{
