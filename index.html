@@ -47,6 +47,9 @@
 
 
 
+
+
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -524,6 +527,16 @@ html.locked .app,html.locked .fab{visibility:hidden}
 .sheet:has(.qrbox)::before{display:none}
 }
 .txt[data-zw]::before{content:attr(data-ph);color:var(--muted);opacity:.6;pointer-events:none;position:absolute}.row[data-type^=h] .txt[data-zw]::before{opacity:.45}
+@media (min-width:820px) and (hover:hover){.fab{right:max(44px,env(safe-area-inset-right,0px));bottom:calc(40px + env(safe-area-inset-bottom,0px))}}
+.sb{gap:6px;padding:4px 10px}
+.sb .pill{flex:1 1 0;min-width:0;flex-direction:column;justify-content:center;gap:6px;padding:12px 4px 10px;border-radius:16px;font-size:12px;font-weight:600;line-height:1;color:var(--ink);background:color-mix(in srgb,var(--ink) 6%,transparent);border:1px solid color-mix(in srgb,var(--ink) 8%,transparent);transition:background .12s,border-color .12s,transform .08s;cursor:pointer;text-align:center}
+.sb .pill svg{width:18px;height:18px;flex:none}
+@media (hover:hover){.sb .pill:hover{background:color-mix(in srgb,var(--ink) 11%,transparent);border-color:color-mix(in srgb,var(--ink) 17%,transparent);color:var(--ink)}}
+.sb .pill:active{background:color-mix(in srgb,var(--ink) 17%,transparent);transform:scale(.96)}
+.sb .pill.on,.sb .pill.on:hover{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.sb .pill:only-child{flex-direction:row;gap:8px;padding:11px 10px;font-size:13px}
+.page{padding-top:18px}.title{margin-bottom:16px}
+@media (max-width:600px){.title{margin-left:20px}}
 </style>
 <script>try{if(localStorage.getItem("margin-lock"))document.documentElement.classList.add("locked")}catch(e){}</script>
 <div class="app">
@@ -556,7 +569,9 @@ check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',undo:'<path d="M9 14 4 9l5-5M4 9h10a6
 save:'<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>',more:'<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',x:'<path d="M6 6l12 12M18 6 6 18"/>',
 kb:'<path d="M5 9l7 7 7-7"/>',sliders:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/>',redo:'<path d="M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3"/>',toparent:'<path d="M18 18V9a2 2 0 0 0-2-2H6M10 3 6 7l4 4"/>',exitsec:'<path d="M5 6v8a2 2 0 0 0 2 2h11M14 12l4 4-4 4"/>',home:'<path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"/>',slash:'<path d="M16 4 8 20"/>',all:'<path d="M4 6h16M4 12h16M4 18h16"/>',send:'<path d="M5 12h11M12 7l5 5-5 5M20 5v14"/>',topage:'<path d="M7 3.5h7l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V5a1.5 1.5 0 0 1 1-1.5z"/><path d="M9 14h6M12 11l3 3-3 3"/>'};
 const ic=(n,s=20)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]||''}</svg>`;
-Object.assign(IC,{lock:'<rect x="5" y="11" width="14" height="9" rx="3"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',scan:'<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M8 12h8"/>'});
+Object.assign(IC,{lock:'<rect x="5" y="11" width="14" height="9" rx="3"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',scan:'<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><rect x="8.2" y="8.2" width="3" height="3" rx=".6" fill="currentColor" stroke="none"/><rect x="12.8" y="8.2" width="3" height="3" rx=".6" fill="currentColor" stroke="none"/><rect x="8.2" y="12.8" width="3" height="3" rx=".6" fill="currentColor" stroke="none"/><rect x="13.3" y="13.3" width="2" height="2" rx=".4" fill="currentColor" stroke="none"/>',recv:'<circle cx="12" cy="14" r="2.2" fill="currentColor" stroke="none"/><path d="M16.7 15.71A5 5 0 1 0 7.3 15.71M20.93 17.25A9.5 9.5 0 1 0 3.07 17.25"/>'});
+const isRecv=c=>!!c&&c.kind==='folder'&&c.title==='Received'&&c.parent==='root';
+const kic=(c,s)=>ic(isRecv(c)?'recv':(c&&c.kind==='folder')?'folder':'page',s);
 const PT=(()=>{try{const d=document.createElement('div');d.contentEditable='plaintext-only';return d.contentEditable==='plaintext-only'?'plaintext-only':'true'}catch(e){return 'true'}})();
 const KEY='margin-notes-v1';
 const blk=(type,text,ind=0,x)=>Object.assign({id:uid(),type,text:text||'',ind,col:false},x||{});
@@ -647,7 +662,7 @@ function updUndo(){
 function path(id){const a=[];let p=S.nodes[id]&&S.nodes[id].parent;while(p){a.unshift(p);p=S.nodes[p].parent}return a}
 function descendants(id){let out=[];S.nodes[id].kids.forEach(k=>{out.push(k);out=out.concat(descendants(k))});return out}
 function treeHTML(id,d){return S.nodes[id].kids.map(k=>{const c=S.nodes[k];const has=c.kids.length;
- return `<div class="ti ${k===S.cur?'on':''}" data-id="${k}" style="--d:${d}"><button class="tc ${has?'':'none'} ${c.open?'open':''}" data-a="tog" aria-label="Expand">${ic('chev',16)}</button><div class="tt" data-a="go">${ic(c.kind==='folder'?'folder':'page',18)}<span>${esc(nm(c))}</span></div><button class="tm" data-a="menu" aria-label="More">${ic('more',18)}</button></div>`+(c.open&&has?treeHTML(k,d+1):'')}).join('')}
+ return `<div class="ti ${k===S.cur?'on':''}" data-id="${k}" style="--d:${d}"><button class="tc ${has?'':'none'} ${c.open?'open':''}" data-a="tog" aria-label="Expand">${ic('chev',16)}</button><div class="tt" data-a="go">${kic(c,18)}<span>${esc(nm(c))}</span></div><button class="tm" data-a="menu" aria-label="More">${ic('more',18)}</button></div>`+(c.open&&has?treeHTML(k,d+1):'')}).join('')}
 function renderSide(){
  $('#side').innerHTML=`<div class="sh"><span class="brand">Margin Notes</span><button class="ib" id="sClose" aria-label="Close menu">${ic('x')}</button></div>
  <div class="sb"><button class="pill ${S.cur==='root'?'on':''}" data-go="root">${ic('home',18)}Home</button><button class="pill" id="sSearch">${ic('search',18)}Search</button><button class="pill" id="sToday">${ic('cal',18)}Today</button></div><div class="sb"><button class="pill" id="sAll">${ic('all',18)}All notes</button><button class="pill" id="sCanvas">${ic('table',18)}Canvas</button><button class="pill" id="sScan">${ic('scan',18)}Scan</button></div>
@@ -675,7 +690,7 @@ function openSide(){const s=$('#side');if(innerWidth>=900){s.classList.toggle('c
 function closeSide(){$('#side').classList.remove('open');$('#scrim').hidden=true}
 /* ---------- page ---------- */
 function listHTML(ids){return ids.map(k=>{const c=S.nodes[k];let pv='';if(c.kind==='folder')pv=c.kids.length+(c.kids.length===1?' item':' items');else{const f=c.blocks.find(b=>b.text&&b.text.trim());pv=f?f.text:'Empty'}
- return `<button class="card" data-go="${k}">${ic(c.kind==='folder'?'folder':'page',22)}<span class="ct"><b>${esc(nm(c))}</b><small>${esc(pv.slice(0,90))}</small></span><small class="when">${ago(c.t)}</small></button>`}).join('')}
+ return `<button class="card" data-go="${k}">${kic(c,22)}<span class="ct"><b>${esc(nm(c))}</b><small>${esc(pv.slice(0,90))}</small></span><small class="when">${ago(c.t)}</small></button>`}).join('')}
 function renderPage(){
  const n=cur(),page=$('#page');page.classList.toggle('fulldb',n.kind==='page'&&!!n.full);
  if(n.kind==='page'){
@@ -695,7 +710,7 @@ function renderPage(){
 function renderKids(){
  const n=cur(),linked=new Set(B.filter(b=>b.type==='page').map(b=>b.ref));B.forEach(b=>{if(b.type==='db'&&b.db)b.db.rows.forEach(r=>{if(r.page)linked.add(r.page)})});
  const rest=n.kids.filter(k=>!linked.has(k));const el=$('#kids');if(!el)return;
- el.innerHTML=rest.length?`<div class="kidlist"><span>Inside this page</span>${rest.map(k=>`<button class="chip" data-go="${k}">${ic(S.nodes[k].kind==='folder'?'folder':'page',16)}${esc(nm(S.nodes[k]))}</button>`).join('')}</div>`:'';
+ el.innerHTML=rest.length?`<div class="kidlist"><span>Inside this page</span>${rest.map(k=>`<button class="chip" data-go="${k}">${kic(S.nodes[k],16)}${esc(nm(S.nodes[k]))}</button>`).join('')}</div>`:'';
  el.innerHTML+=backlinkHTML();
 }
 let titleT;
@@ -1642,7 +1657,7 @@ function restoreTrash(i){
 function openTrash(){
  purgeTrash();const T=S.trash||[];
  const row=(t,i)=>{const n=t.nodes[t.id],c=Object.keys(t.nodes).length-1,left=Math.max(1,Math.ceil(30-(Date.now()-t.t)/864e5));
-  return `<div class="trrow"><span class="ct"><b>${ic(n.kind==='folder'?'folder':'page',16)} ${esc(nm(n))}</b><small>${c?c+' inside · ':''}deleted ${ago(t.t)} ago · ${left} day${left>1?'s':''} left</small></span><button class="btn pri" data-tr="rs" data-i="${i}">Restore</button><button class="btn bad" data-tr="rm" data-i="${i}">Delete</button></div>`};
+  return `<div class="trrow"><span class="ct"><b>${kic(n,16)} ${esc(nm(n))}</b><small>${c?c+' inside · ':''}deleted ${ago(t.t)} ago · ${left} day${left>1?'s':''} left</small></span><button class="btn pri" data-tr="rs" data-i="${i}">Restore</button><button class="btn bad" data-tr="rm" data-i="${i}">Delete</button></div>`};
  openSheet(`<h3>Trash</h3><p style="color:var(--muted);margin:0 0 6px">Deleted pages and folders stay here for 30 days.</p>`+(T.length?T.map(row).join('')+`<div class="btnrow"><button class="btn bad" data-tr="empty">Empty trash</button><button class="btn" data-tr="x">Close</button></div>`:`<div class="empty">Trash is empty.</div><div class="btnrow"><button class="btn" data-tr="x">Close</button></div>`));
 }
 let armed=null;
@@ -2082,7 +2097,7 @@ function openStats(){
 /* ---------- pinned favorites + daily note ---------- */
 function pinsHTML(){
  const p=(S.pins||[]).filter(id=>S.nodes[id]);if(!p.length)return'';
- return `<div class="pinbox"><div class="pinh">${ic('star',14)}Pinned</div>${p.map(id=>`<button class="pinr ${id===S.cur?'on':''}" data-go="${id}">${ic(S.nodes[id].kind==='folder'?'folder':'page',17)}<span>${esc(nm(S.nodes[id]))}</span></button>`).join('')}</div>`;
+ return `<div class="pinbox"><div class="pinh">${ic('star',14)}Pinned</div>${p.map(id=>`<button class="pinr ${id===S.cur?'on':''}" data-go="${id}">${kic(S.nodes[id],17)}<span>${esc(nm(S.nodes[id]))}</span></button>`).join('')}</div>`;
 }
 function togglePin(id){S.pins=S.pins||[];const i=S.pins.indexOf(id);if(i>=0)S.pins.splice(i,1);else S.pins.push(id);save();renderSide();toast(i>=0?'Unpinned':'Pinned to sidebar')}
 function openDaily(){
@@ -2358,7 +2373,7 @@ function openLinkPicker(b,rid,cid,q){
  dbCtx={b,rowId:rid,colId:cid};const db=b.db,r=rowOf(db,rid),c=colOf(db,cid),cur=idsOf(r.cells[c.id]).filter(id=>S.nodes[id]);
  q=(q||'').toLowerCase();
  const pages=Object.values(S.nodes).filter(n=>n.id!=='root'&&nm(n).toLowerCase().includes(q)).sort((a,b2)=>b2.t-a.t).slice(0,30);
- const html=`${cur.length?`<div class="chips" style="padding:4px 0 8px">${cur.map(id=>`<button class="pc" data-dm="unlink" data-v="${id}">${ic('page',13)}${esc(nm(S.nodes[id]))} ✕</button>`).join('')}</div>`:''}<input class="inp" id="dlq" placeholder="Find a page to link" value="${esc(q)}" autocomplete="off"><div id="dlr" style="margin-top:8px">${pages.map(n=>`<button class="opt ${cur.includes(n.id)?'on':''}" data-dm="linkpick" data-v="${n.id}">${ic(n.kind==='folder'?'folder':'page',18)}${esc(nm(n))}</button>`).join('')||'<div class="empty">No pages.</div>'}</div><div class="btnrow"><button class="btn pri" data-dm="done">Done</button></div>`;
+ const html=`${cur.length?`<div class="chips" style="padding:4px 0 8px">${cur.map(id=>`<button class="pc" data-dm="unlink" data-v="${id}">${ic('page',13)}${esc(nm(S.nodes[id]))} ✕</button>`).join('')}</div>`:''}<input class="inp" id="dlq" placeholder="Find a page to link" value="${esc(q)}" autocomplete="off"><div id="dlr" style="margin-top:8px">${pages.map(n=>`<button class="opt ${cur.includes(n.id)?'on':''}" data-dm="linkpick" data-v="${n.id}">${kic(n,18)}${esc(nm(n))}</button>`).join('')||'<div class="empty">No pages.</div>'}</div><div class="btnrow"><button class="btn pri" data-dm="done">Done</button></div>`;
  if(q===''&&!$('#dlq')||!$('#dlq')){openSheet(`<h3>${esc(c.name)}</h3>`+html)}else{$('#sheet').innerHTML=`<h3>${esc(c.name)}</h3>`+html}
  const inp=$('#dlq');if(inp){inp.addEventListener('input',ev=>{const v=ev.target.value;openLinkPicker(b,rid,cid,v);const n=$('#dlq');n.focus();n.setSelectionRange(v.length,v.length)})}
 }
@@ -3611,7 +3626,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  function sibMenu(id){
   const n=S.nodes[id];if(!n)return;const pid=id==='root'?'root':(n.parent||'root'),par=S.nodes[pid];
   const ids=id==='root'?par.kids.slice():par.kids.slice();
-  const list=ids.map(k=>{const c=S.nodes[k];if(!c)return '';const col=nodeColor(k);return `<button class="opt" data-cs="${k}" ${k===id?'style="background:var(--accent-soft)"':''}>${ic(c.kind==='folder'?'folder':'page',18)}<span style="${col?'color:'+col:''}">${esc(nm(c))}</span></button>`}).join('');
+  const list=ids.map(k=>{const c=S.nodes[k];if(!c)return '';const col=nodeColor(k);return `<button class="opt" data-cs="${k}" ${k===id?'style="background:var(--accent-soft)"':''}>${kic(c,18)}<span style="${col?'color:'+col:''}">${esc(nm(c))}</span></button>`}).join('');
   openSheet(`<h3>In ${esc(pid==='root'?'Home':nm(par))}</h3>${pid!==S.cur&&pid!=='root'?`<button class="opt" data-cs="${pid}">${ic('up',18)}Open ${esc(nm(par))}</button>`:''}${list||'<p class="hint">Nothing else here.</p>'}`);
  }
  document.addEventListener('click',e=>{const b=e.target.closest('[data-cs]');if(!b)return;closeSheet();go(b.dataset.cs)});
@@ -3788,7 +3803,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  let lpH=0;
  function histMenu(){
   const seen=new Set(),items=[];for(let k=stack.length-1;k>=0&&items.length<16;k--){const id=stack[k];if(!ok(id)||seen.has(id))continue;seen.add(id);items.push([id,k])}
-  openSheet(`<h3>Recent pages</h3><div class="hlist">${items.map(([id,k])=>`<button class="opt" data-hn="${k}" ${k===pos?'style="background:var(--accent-soft)"':''}>${ic(S.nodes[id].kind==='folder'?'folder':'page',18)}<span>${esc(id==='root'?'Home':nm(S.nodes[id]))}</span>${k===pos?'<small>here</small>':''}</button>`).join('')}</div>`);
+  openSheet(`<h3>Recent pages</h3><div class="hlist">${items.map(([id,k])=>`<button class="opt" data-hn="${k}" ${k===pos?'style="background:var(--accent-soft)"':''}>${kic(S.nodes[id],18)}<span>${esc(id==='root'?'Home':nm(S.nodes[id]))}</span>${k===pos?'<small>here</small>':''}</button>`).join('')}</div>`);
  }
  document.addEventListener('click',e=>{const b=e.target.closest('[data-hn]');if(!b)return;const k=+b.dataset.hn;closeSheet();if(ok(stack[k])){navigating=true;pos=k;try{_go(stack[k])}finally{navigating=false}ui()}});
  (function(){let t=null;const cancel=()=>{clearTimeout(t);t=null};
@@ -3814,7 +3829,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   br={dir,list,base,idx:base<0?0:base,y0:null,aid};
   panel=document.createElement('div');panel.className='lad';
   const sc=$('#scroller');panel.style.top=(sc.getBoundingClientRect().top+10)+'px';
-  panel.innerHTML=`<h4>${esc(title)}</h4><div class="lw"><div>${list.map((k,i)=>{const c=S.nodes[k],col=nodeColor(k);return `<div class="li" data-i="${i}">${ic(c.kind==='folder'?'folder':'page',18)}<span style="${col?'color:'+col:''}">${esc(nm(c))}</span></div>`}).join('')}</div></div>`;
+  panel.innerHTML=`<h4>${esc(title)}</h4><div class="lw"><div>${list.map((k,i)=>{const c=S.nodes[k],col=nodeColor(k);return `<div class="li" data-i="${i}">${kic(c,18)}<span style="${col?'color:'+col:''}">${esc(nm(c))}</span></div>`}).join('')}</div></div>`;
   document.body.appendChild(panel);
   const lw=panel.querySelector('.lw');lw.style.maxHeight=Math.min(innerHeight*.5,list.length*44)+'px';
   hl();return true;
@@ -3917,7 +3932,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const all=[];(function w(id,d){S.nodes[id].kids.forEach(k=>{if(!S.nodes[k])return;all.push(k);w(k,d+1)})})('root',0);
   const recent=(S.recent||[]);
   const draw=q=>{const l=all.filter(k=>!taken.has(k)&&(!q||nm(S.nodes[k]).toLowerCase().includes(q))).slice(0,60);
-   $('#spl').innerHTML=l.map(k=>{const c=S.nodes[k],par=c.parent&&c.parent!=='root'?nm(S.nodes[c.parent]):'Home';return `<button class="opt" data-spn="${k}">${ic(c.kind==='folder'?'folder':'page',18)}<span>${esc(nm(c))}</span><small style="margin-left:auto;color:var(--muted)">${esc(par)}</small></button>`}).join('')||'<p class="hint">No notes found.</p>'};
+   $('#spl').innerHTML=l.map(k=>{const c=S.nodes[k],par=c.parent&&c.parent!=='root'?nm(S.nodes[c.parent]):'Home';return `<button class="opt" data-spn="${k}">${kic(c,18)}<span>${esc(nm(c))}</span><small style="margin-left:auto;color:var(--muted)">${esc(par)}</small></button>`}).join('')||'<p class="hint">No notes found.</p>'};
   openSheet(`<h3>Open beside</h3><input id="spq" class="inp" placeholder="Search notes" autocomplete="off" style="width:100%;margin-bottom:8px"><div id="spl" style="max-height:48vh;overflow:auto"></div>`);
   draw('');$('#spq').addEventListener('input',e=>draw(e.target.value.trim().toLowerCase()));
  }
