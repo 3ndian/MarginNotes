@@ -40,6 +40,9 @@
 
 
 
+
+
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -516,6 +519,7 @@ html.locked .app,html.locked .fab{visibility:hidden}
 .sheet:has(.qrbox) .qrbox canvas{max-width:min(340px,calc(100vh - 36px))!important}
 .sheet:has(.qrbox)::before{display:none}
 }
+.txt[data-zw]::before{content:attr(data-ph);color:var(--muted);opacity:.6;pointer-events:none;position:absolute}.row[data-type^=h] .txt[data-zw]::before{opacity:.45}
 </style>
 <script>try{if(localStorage.getItem("margin-lock"))document.documentElement.classList.add("locked")}catch(e){}</script>
 <div class="app">
@@ -732,10 +736,11 @@ function setCaret(el,pos){if(!el)return;el.focus({preventScroll:false});const s=
 function caretOffset(el){const s=getSelection();if(!s.rangeCount)return 0;const r=s.getRangeAt(0),p=document.createRange();p.selectNodeContents(el);p.setEnd(r.startContainer,r.startOffset);return p.toString().length}
 function syncText(b,t){b.text=t.textContent.replace(/ /g,' ')}
 /* ---------- markdown shortcuts ---------- */
-const MD=[[/^###\s/,'h3'],[/^##\s/,'h2'],[/^#\s/,'h1'],[/^[-*•]\s/,'bullet'],[/^\[\]\s/,'todo'],[/^>\s/,'toggle'],[/^"\s/,'quote'],[/^1[.)]\s/,'num'],[/^a[.)]\s/,'num','a'],[/^i[.)]\s/,'num','i']];
+const MD=[[/^###\s/,'h3'],[/^##\s/,'h2'],[/^#\s/,'h1'],[/^[-*•]\s/,'bullet'],[/^\[[ xX]?\]\s/,'todo'],[/^>\s/,'toggle'],[/^"\s/,'quote'],[/^1[.)]\s/,'num'],[/^a[.)]\s/,'num','a'],[/^i[.)]\s/,'num','i']];
 function mdLive(b,r,t){
- if(b.type!=='p')return false;const off=caretOffset(t);
- for(const [re,type,ns] of MD){const m=b.text.match(re);if(m&&off===m[0].length){snapshot();b.text=b.text.slice(m[0].length);t.textContent=b.text;b.type=type;if(ns)b.ns=ns;else delete b.ns;fill(r,b);setCaret(t,0);save();return true}}
+ const listy=['bullet','num','toggle','quote'].includes(b.type);
+ if(b.type!=='p'&&!listy)return false;const off=caretOffset(t);
+ for(const [re,type,ns] of MD){if(listy&&type!=='todo')continue;const m=b.text.match(re);if(m&&off===m[0].length){snapshot();b.text=b.text.slice(m[0].length);t.textContent=b.text;b.type=type;if(ns)b.ns=ns;else delete b.ns;b.done=type==='todo'&&/x/i.test(m[0]);fill(r,b);setCaret(t,0);save();return true}}
  return false;
 }
 function mdFinal(b,r,t){ // "##heading" without a space converts on Enter / blur
@@ -803,9 +808,13 @@ function split(i,t){
 function removeEmpty(i){
  const b=B[i];if(!b||b.text!==''||b.type==='divider'||b.type==='page')return false;
  if(b.type!=='p'){snapshot();b.type='p';b.done=false;fill(rowsEl().children[i],b);setCaret(txtOf(i),0);save();return true}
- if(i+1<B.length&&B[i+1].ind>b.ind)return false;
- const j=neighbor(i,-1);if(j<0)return false;
- snapshot();B.splice(i,1);rowsEl().children[i].remove();normalize();syncRows();setCaret(txtOf(j),Infinity);touch();return true;
+ const kids=i+1<B.length&&B[i+1].ind>b.ind,j=neighbor(i,-1);
+ if(j<0&&B.length<2)return false;
+ snapshot();
+ if(kids){const e=endOf(i);for(let k=i+1;k<e;k++)if(B[k].ind>0)B[k].ind--}
+ B.splice(i,1);rowsEl().children[i].remove();normalize();syncRows();
+ if(j>=0)setCaret(txtOf(j),Infinity);else{const ti=$('#title');if(ti)setCaret(ti,Infinity);else setCaret(txtOf(0),0)}
+ touch();return true;
 }
 function backspaceStart(i,t){
  const b=B[i],r=rowsEl().children[i];syncText(b,t);
@@ -881,7 +890,7 @@ page.addEventListener('beforeinput',e=>{
  const r=t.closest('.row'),i=idx(r.dataset.id);if(i<0)return;
  if(e.inputType==='insertParagraph'||e.inputType==='insertLineBreak'){if(B[i].type==='code'&&!slash.open){if(codeExit(i,t))e.preventDefault();return}e.preventDefault();if(slash.open)pickSlash();else split(i,t);return}
  if(e.inputType==='deleteContentBackward'||e.inputType==='deleteContentForward'){const s=getSelection();
-  if(s.isCollapsed&&t.textContent===''&&removeEmpty(i)){e.preventDefault();return}
+  if(s.isCollapsed&&tv(t)===''&&removeEmpty(i)){e.preventDefault();return}
   if(e.inputType==='deleteContentBackward'&&s.isCollapsed&&caretOffset(t)===0){e.preventDefault();backspaceStart(i,t)}}
 });
 page.addEventListener('paste',e=>{
@@ -900,8 +909,8 @@ page.addEventListener('keydown',e=>{
  }
  if(!t.classList.contains('txt'))return;
  const r=t.closest('.row'),i=idx(r.dataset.id);if(i<0)return;
- if((e.key==='Backspace'||e.key==='Delete')&&getSelection().isCollapsed&&t.textContent===''&&removeEmpty(i)){e.preventDefault();return}
- if(e.key==='Backspace'&&!e.isComposing&&getSelection().isCollapsed&&t.textContent!==''&&caretOffset(t)===0&&!(e.metaKey||e.ctrlKey||e.altKey)){e.preventDefault();backspaceStart(i,t);return}
+ if((e.key==='Backspace'||e.key==='Delete')&&getSelection().isCollapsed&&tv(t)===''&&removeEmpty(i)){e.preventDefault();return}
+ if(e.key==='Backspace'&&!e.isComposing&&getSelection().isCollapsed&&tv(t)!==''&&caretOffset(t)===0&&!(e.metaKey||e.ctrlKey||e.altKey)){e.preventDefault();backspaceStart(i,t);return}
  if(e.key==='Tab'){e.preventDefault();shiftSubtree(i,e.shiftKey?-1:1);return}
  if((e.metaKey||e.ctrlKey)&&e.shiftKey&&e.key==='ArrowUp'){e.preventDefault();toParent(i);return}
  if((e.metaKey||e.ctrlKey)&&e.shiftKey&&e.key==='ArrowDown'){e.preventDefault();exitSection(i);return}
@@ -4513,6 +4522,43 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   else if(m.dataset.lv==='save'){window.__receiveShared('(Partial) '+(c.title||'Scanned text'),c.text,true);closeScanner()}
  });
  window.__live={inflatePartial,preview,fxPrefix};
+})();
+/* Phone keyboards send nothing when Backspace is pressed in a truly empty line.
+   So an empty line being edited holds one invisible character (never saved) that Backspace can delete. */
+function tv(t){return t.textContent.replace(/​/g,'')}
+(function(){
+ const ZW='​',isTxt=t=>!!(t&&t.classList&&t.classList.contains('txt')&&t.isContentEditable);
+ syncText=function(b,t){b.text=t.textContent.replace(/​/g,'').replace(/\xa0/g,' ')};
+ caretOffset=function(el){const s=getSelection();if(!s.rangeCount)return 0;const r=s.getRangeAt(0),p=document.createRange();p.selectNodeContents(el);p.setEnd(r.startContainer,r.startOffset);return p.toString().replace(/​/g,'').length};
+ function endCaret(t){const n=t.firstChild;if(!n)return;const s=getSelection(),r=document.createRange();r.setStart(n,n.length);r.collapse(true);s.removeAllRanges();s.addRange(r)}
+ function arm(t){if(!isTxt(t)||t.textContent!=='')return;t.textContent=ZW;t.dataset.zw='1';if(document.activeElement===t)endCaret(t)}
+ function disarm(t){if(t&&t.dataset&&t.dataset.zw){if(t.textContent===ZW)t.textContent='';delete t.dataset.zw}}
+ function strip(t){
+  const s=getSelection(),an=s.anchorNode,ao=s.anchorOffset;let fixN=null,fixO=0;
+  const w=document.createTreeWalker(t,NodeFilter.SHOW_TEXT);const nodes=[];while(w.nextNode())nodes.push(w.currentNode);
+  for(const n of nodes){if(n.data.indexOf(ZW)<0)continue;
+   if(n===an&&s.isCollapsed){const before=(n.data.slice(0,ao).match(/​/g)||[]).length;fixN=n;fixO=ao-before}
+   n.data=n.data.replace(/​/g,'')}
+  delete t.dataset.zw;
+  if(fixN&&fixN.isConnected){const r=document.createRange();r.setStart(fixN,Math.max(0,Math.min(fixO,fixN.length)));r.collapse(true);s.removeAllRanges();s.addRange(r)}
+ }
+ const _sc=setCaret;
+ setCaret=function(el,pos){_sc(el,pos);if(isTxt(el)&&el.textContent===''&&document.activeElement===el)arm(el);else if(isTxt(el)&&el.textContent===ZW)endCaret(el)};
+ document.addEventListener('focusin',e=>{const t=e.target;if(isTxt(t)&&t.textContent==='')arm(t)});
+ document.addEventListener('focusout',e=>{disarm(e.target)});
+ document.addEventListener('input',e=>{
+  const t=e.target;if(!isTxt(t)||e.isComposing)return;
+  const raw=t.textContent;
+  if(raw==='')arm(t);
+  else if(raw!==ZW&&raw.indexOf(ZW)>=0)strip(t);
+ });
+ document.addEventListener('compositionend',e=>{const t=e.target&&e.target.closest?e.target.closest('.txt'):null;if(!t)return;setTimeout(()=>{if(isTxt(t)&&t.textContent!==ZW&&t.textContent.indexOf(ZW)>=0)strip(t)},0)});
+ document.addEventListener('selectionchange',()=>{
+  const a=document.activeElement;if(!a||!a.dataset||!a.dataset.zw)return;
+  const s=getSelection();if(!s.rangeCount||!s.isCollapsed)return;const n=a.firstChild;
+  if(n&&n.nodeType===3&&n.data===ZW&&!(s.anchorNode===n&&s.anchorOffset===1))endCaret(a);
+ });
+ window.__zw={arm,disarm,strip};
 })();
 /* ---------- hold on a line to select it (touch) ---------- */
 let hs=null,hsSwallow=false,hx=null,hxRaf=0;
