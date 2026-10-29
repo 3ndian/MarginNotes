@@ -34,6 +34,7 @@
 
 
 
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -497,6 +498,8 @@ html.locked .app,html.locked .fab{visibility:hidden}
 .qrpill{position:absolute;left:0;right:0;bottom:16px;display:flex;justify-content:center;pointer-events:none}
 .qrpill span{background:#0009;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fff;border-radius:999px;padding:8px 16px;font-size:13.5px;max-width:86%;text-align:center}
 .qrscan{overflow-y:auto;align-items:center}.qrscan>*{box-sizing:border-box}.qrhead,.qrhint{width:100%;max-width:520px}.qrprog,.qrpend{width:min(calc(100% - 40px),480px)}.qrhint{order:1;text-align:center;font-size:14.5px;opacity:.75;padding:0 24px 12px}.qrprog{order:3}.qrpend{order:4}.qrfoot{order:5;display:flex;flex-direction:column;gap:10px;margin:14px 0 0;width:min(calc(100% - 28px),500px);padding:18px 18px 16px;border-radius:26px;background:var(--accent-soft)}.qrfoot b{font-size:16px}.qrfoot span{font-size:13.5px;line-height:1.45;opacity:.75}.qrfoot .btn{border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 20px;margin-top:4px;min-height:48px}
+.qrcam{background:linear-gradient(160deg,var(--accent-soft),var(--paper));transition:background .3s}.qrcam.live{background:#0d0f12}.qrload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity .35s;pointer-events:none}.qrcam.live .qrload{opacity:0}.qrload svg{width:62%;max-width:300px;overflow:visible}.qrload .b1{fill:var(--accent);opacity:.16}.qrload .b2{fill:var(--accent);opacity:.12;transform-origin:100px 100px;animation:qrbl 5s ease-in-out infinite alternate}.qrload .gl rect,.qrload .gl circle{fill:none;stroke:var(--accent);stroke-width:5;opacity:.55}.qrload .gl circle{fill:var(--accent);stroke:none}.qrload .gl{animation:qrbr 2.4s ease-in-out infinite;transform-origin:100px 100px}@keyframes qrbl{to{transform:rotate(14deg) scale(1.06)}}@keyframes qrbr{50%{opacity:.55;transform:scale(1.04)}}@media (prefers-reduced-motion:reduce){.qrload .b2,.qrload .gl{animation:none}}
+.qrcam:not(.live) .qrguide{opacity:0}.qrguide{transition:opacity .3s}
 </style>
 <script>try{if(localStorage.getItem("margin-lock"))document.documentElement.classList.add("locked")}catch(e){}</script>
 <div class="app">
@@ -3112,15 +3115,15 @@ async function openScanner(){
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){return scanFallback('Camera is not available here. You can pick a photo of a QR code instead.')}
  closeScanner();
  const el=document.createElement('div');el.id='qrscan';el.className='qrscan';
- el.innerHTML=`<div class="qrhead"><span class="qrtitle">Scan a QR code</span><button class="cvbtn" data-qr="scanclose" aria-label="Close">${ic('x',18)}</button></div><div class="qrhint">Point your camera at a QR code. No need to line it up.</div><div class="qrcam"><video playsinline muted autoplay></video><canvas id="qrhl" class="qrhl"></canvas><div class="qrguide" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="qrpill"><span id="qrstat">Looking for a code…</span></div></div><div class="qrfoot"><b>Waiting for a code</b><span>Multi-part transfers show progress here. Missed parts come back around on the next loop.</span><button class="btn" data-qr="photo">${ic('page',16)} Use a photo</button></div>`;
+ el.innerHTML=`<div class="qrhead"><span class="qrtitle">Scan a QR code</span><button class="cvbtn" data-qr="scanclose" aria-label="Close">${ic('x',18)}</button></div><div class="qrhint">Point your camera at a QR code. No need to line it up.</div><div class="qrcam"><video playsinline muted autoplay></video><div class="qrload" aria-hidden="true"><svg viewBox="0 0 200 200"><path class="b1" d="M100 18C142 16 182 52 180 100C178 150 142 184 98 182C54 180 20 148 22 100C24 50 58 20 100 18Z"/><path class="b2" d="M112 30C152 36 176 70 170 112C164 152 126 176 88 170C48 164 26 128 34 88C42 48 78 24 112 30Z"/><g class="gl"><rect x="62" y="62" width="76" height="76" rx="20"/><rect x="74" y="74" width="18" height="18" rx="5"/><rect x="108" y="74" width="18" height="18" rx="5"/><rect x="74" y="108" width="18" height="18" rx="5"/><circle cx="117" cy="117" r="5"/></g></svg></div><canvas id="qrhl" class="qrhl"></canvas><div class="qrguide" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="qrpill"><span id="qrstat">Starting camera…</span></div></div><div class="qrfoot"><b>Waiting for a code</b><span>Multi-part transfers show progress here. Missed parts come back around on the next loop.</span><button class="btn" data-qr="photo">${ic('page',16)} Use a photo</button></div>`;
  document.body.appendChild(el);qrParts={};
  let stream;try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}},audio:false})}catch(e){closeScanner();return scanFallback('Camera permission was not given. You can pick a photo of a QR code instead.')}
- const v=el.querySelector('video');v.srcObject=stream;try{await v.play()}catch(e){}
+ const v=el.querySelector('video');const camEl=v.parentNode,live=()=>{if(camEl.classList.contains('live'))return;camEl.classList.add('live');const s=$('#qrstat');if(s&&s.textContent==='Starting camera…')s.textContent='Looking for a code…'};v.addEventListener('playing',live);v.addEventListener('loadeddata',live);v.srcObject=stream;try{await v.play()}catch(e){}
  const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});let det=null;try{if('BarcodeDetector' in window)det=new BarcodeDetector({formats:['qr_code']})}catch(e){}
  scan={stream,stop:false};
  const tick=async()=>{
   if(!scan||scan.stop)return;
-  if(v.videoWidth){const sc=Math.min(1,720/v.videoWidth);cv.width=Math.round(v.videoWidth*sc);cv.height=Math.round(v.videoHeight*sc);cx.drawImage(v,0,0,cv.width,cv.height);
+  if(v.videoWidth){live();const sc=Math.min(1,720/v.videoWidth);cv.width=Math.round(v.videoWidth*sc);cv.height=Math.round(v.videoHeight*sc);cx.drawImage(v,0,0,cv.width,cv.height);
    let txt=null,pts=null;try{if(det){const r=await det.detect(cv);if(r&&r[0]){txt=r[0].rawValue;pts=r[0].cornerPoints}}}catch(e){}
    if(!txt&&typeof jsQR==='function'){const im=cx.getImageData(0,0,cv.width,cv.height),r=jsQR(im.data,im.width,im.height,{inversionAttempts:'dontInvert'});if(r){txt=r.data;const l=r.location;pts=[l.topLeftCorner,l.topRightCorner,l.bottomRightCorner,l.bottomLeftCorner]}}
    if(pts&&pts.length>=3)qrHighlight(pts,v,cv);
@@ -4196,6 +4199,42 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  const _pb=document.createElement('div');
  document.addEventListener('click',e=>{const b=e.target.closest('[data-al2=savegrp]');if(!b)return;e.stopPropagation();window.__allSavePick&&saveCurrent(window.__allSavePick())},true);
  window.__groups={list:()=>groups(),open:id=>{const g=groups().find(x=>x.id===id);g&&openGroup(g)},saveCurrent};
+})();
+/* edge swipe: sidebar follows the thumb */
+(function(){
+ const side=document.getElementById('side'),scrim=document.getElementById('scrim');if(!side||!scrim)return;
+ let st=null;
+ const travel=()=>side.offsetWidth*1.25;
+ function blocked(){return document.documentElement.classList.contains('locked')||document.body.classList.contains('keeping')||document.querySelector('.qrscan')||(document.getElementById('sw')&&!document.getElementById('sw').hidden)||document.querySelector('.lockv:not([hidden])')}
+ function setP(p){side.style.transition='none';side.style.transform='translateX('+(-(1-p)*travel())+'px)';scrim.hidden=false;scrim.style.transition='none';scrim.style.opacity=String(p)}
+ function settle(open){
+  side.style.transition='';scrim.style.transition='opacity .25s';
+  if(open){side.style.transform='';side.classList.add('open');scrim.style.opacity='1';setTimeout(()=>{scrim.style.transition='';scrim.style.opacity=''},260)}
+  else{side.style.transform='';side.classList.remove('open');scrim.style.opacity='0';setTimeout(()=>{scrim.hidden=true;scrim.style.transition='';scrim.style.opacity=''},260)}
+ }
+ document.addEventListener('touchstart',e=>{
+  st=null;if(innerWidth>=900||e.touches.length!==1||blocked())return;
+  const t=e.touches[0],open=side.classList.contains('open');
+  if(!open&&t.clientX<=24&&!e.target.closest('.cv'))st={m:'open',x:t.clientX,y:t.clientY,on:false,lx:t.clientX,lt:Date.now(),v:0,p:0};
+  else if(open&&(e.target.closest('#side')||e.target===scrim))st={m:'close',x:t.clientX,y:t.clientY,on:false,lx:t.clientX,lt:Date.now(),v:0,p:1};
+ },{passive:true});
+ document.addEventListener('touchmove',e=>{
+  if(!st)return;const t=e.touches[0],dx=t.clientX-st.x,dy=t.clientY-st.y;
+  if(!st.on){
+   if(Math.abs(dy)>10&&Math.abs(dy)>Math.abs(dx)){st=null;return}
+   if(Math.abs(dx)<8||Math.abs(dx)<Math.abs(dy)*1.3)return;
+   if((st.m==='open'&&dx<0)||(st.m==='close'&&dx>0)){st=null;return}
+   st.on=true;const a=document.activeElement;if(a&&a.blur&&a!==document.body)a.blur();
+  }
+  e.preventDefault();
+  const now=Date.now();if(now>st.lt){st.v=(t.clientX-st.lx)/(now-st.lt)}st.lx=t.clientX;st.lt=now;
+  const W=travel()/1.25+20;
+  st.p=st.m==='open'?Math.max(0,Math.min(1,dx/W)):Math.max(0,Math.min(1,1+dx/W));
+  setP(st.p);
+ },{passive:false});
+ function end(){if(!st||!st.on){st=null;return}const s=st;st=null;const open=s.v>0.45?true:s.v<-0.45?false:s.p>0.5;settle(open)}
+ document.addEventListener('touchend',end);document.addEventListener('touchcancel',end);
+ window.__edge={setP,settle};
 })();
 /* ---------- hold on a line to select it (touch) ---------- */
 let hs=null,hsSwallow=false,hx=null,hxRaf=0;
