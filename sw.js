@@ -1,5 +1,5 @@
 // Margin Notes offline cache. Bump V whenever index.html changes.
-const V='margin-notes-v30';
+const V='margin-notes-v37';
 const CORE=['./','./index.html','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png'];
 const CDN='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
 self.addEventListener('install',e=>{e.waitUntil((async()=>{
