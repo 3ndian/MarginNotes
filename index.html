@@ -39,6 +39,7 @@
 
 
 
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -506,6 +507,15 @@ html.locked .app,html.locked .fab{visibility:hidden}
 .qrcam:not(.live) .qrguide{opacity:0}.qrguide{transition:opacity .3s}
 .qrta{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:16px;background:var(--paper);color:var(--ink);padding:12px;font:inherit;font-size:15px;resize:vertical;margin-bottom:12px}.qrfoot .btn.qrlink{background:transparent;box-shadow:none;margin-top:0;min-height:44px;opacity:.85}
 .qrlive{order:5;width:min(calc(100% - 28px),500px);box-sizing:border-box;margin:12px 0 0;padding:14px 16px;border-radius:22px;background:var(--paper);border:1px solid var(--line);display:flex;flex-direction:column;gap:8px}.qrlive[hidden]{display:none}.lvh{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px}.lvtag{background:var(--accent-soft);border-radius:99px;padding:3px 10px;font-weight:600}.lvnext{opacity:.7}.lvt{font-weight:700;font-size:16px}.lvb{margin:0;max-height:26vh;overflow:auto;white-space:pre-wrap;word-break:break-word;font:inherit;font-size:14.5px;line-height:1.5;user-select:text;-webkit-user-select:text}.lvn{margin:0;font-size:12px;opacity:.65}.lvbtn{display:flex;gap:8px}.lvbtn .btn{flex:1;border-radius:999px;min-height:42px}.qrfoot{order:6!important}
+
+.qrtext{max-height:min(46vh,360px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}.qrraw{overscroll-behavior:contain;touch-action:pan-y;user-select:text;-webkit-user-select:text}
+@media (orientation:landscape) and (max-height:540px){
+.sheet:has(.qrbox){display:grid;grid-template-columns:min(calc(100vh - 36px),340px) 1fr;column-gap:20px;align-items:center;left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));top:8px;bottom:8px;width:auto;transform:none;max-height:none;overflow:auto}
+.sheet:has(.qrbox)>.qrbox{grid-column:1;grid-row:1 / span 8;padding:0}
+.sheet:has(.qrbox)>:not(.qrbox){grid-column:2}
+.sheet:has(.qrbox) .qrbox canvas{max-width:min(340px,calc(100vh - 36px))!important}
+.sheet:has(.qrbox)::before{display:none}
+}
 </style>
 <script>try{if(localStorage.getItem("margin-lock"))document.documentElement.classList.add("locked")}catch(e){}</script>
 <div class="app">
@@ -3368,7 +3378,7 @@ async function sealCached(key,make){const c=sealCache[key];if(c&&Date.now()-c.t<
 let strm=null;
 async function streamQR(title,u8,note){
  const ctx=await fxPrepare(u8);clearTimeout(strm&&strm.timer);
- strm={ctx,idx:0,fps:4,timer:null};const S0=strm;
+ strm={ctx,idx:0,fps:8,timer:null};const S0=strm;
  const single=('MN1.'+(u8[0]?'z':'r')+'.'+b64u(u8.subarray(1)));
  if(single.length<=640){openSheet(`<h3>${esc(title)}</h3><div class="qrbox" id="qrbox"></div><p class="hint" style="text-align:center">${esc(note||'')}</p><div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);$('#qrbox').appendChild(qrCanvas(single,340));return}
  openSheet(`<h3>${esc(title)}</h3><div class="qrbox" id="qrbox"></div><p class="hint" id="qrnote" style="text-align:center"></p>
@@ -3382,7 +3392,7 @@ async function streamQR(title,u8,note){
 showQR=async function(title,obj,note,cacheKey){
  const u8=cacheKey?await sealCached(cacheKey,()=>obj):await sealBytes(obj);return streamQR(title,u8,note);
 };
-document.addEventListener('click',e=>{const m=e.target.closest('#sheet [data-qs]');if(!m||!strm)return;strm.fps=Math.max(1,Math.min(10,strm.fps+(m.dataset.qs==='+'?1:-1)));const f=$('#qrfps');if(f)f.textContent=strm.fps+' per second'});
+document.addEventListener('click',e=>{const m=e.target.closest('#sheet [data-qs]');if(!m||!strm)return;const FL=[1,2,3,4,5,6,8,10,12,15,20,24];let ix=FL.indexOf(strm.fps);if(ix<0)ix=6;ix=Math.max(0,Math.min(FL.length-1,ix+(m.dataset.qs==='+'?1:-1)));strm.fps=FL[ix];const f=$('#qrfps');if(f)f.textContent=strm.fps+' per second'});
 /* page + database + vault senders */
 shareNodeQR=async function(id){
  const n=S.nodes[id];if(!n||n.kind!=='page')return;
@@ -3453,6 +3463,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   sheet.addEventListener('touchstart',e=>{
    d=null;if(innerWidth>=700||e.touches.length!==1)return;
    if(e.target.closest('input,textarea,select,canvas,[contenteditable],.qrspeed,.sl,input[type=range]'))return;
+   {const sc=e.target.closest('.qrtext,.qrraw,.lvb');if(sc&&sc.scrollHeight>sc.clientHeight+2)return}
    const r=sheet.getBoundingClientRect(),t=e.touches[0];
    d={y:t.clientY,x:t.clientX,on:false,id:t.identifier,v:0,ly:t.clientY,lt:Date.now(),top:t.clientY-r.top<44};
   },{passive:true});
