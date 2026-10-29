@@ -35,6 +35,10 @@
 
 
 
+
+
+
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -500,6 +504,8 @@ html.locked .app,html.locked .fab{visibility:hidden}
 .qrscan{overflow-y:auto;align-items:center}.qrscan>*{box-sizing:border-box}.qrhead,.qrhint{width:100%;max-width:520px}.qrprog,.qrpend{width:min(calc(100% - 40px),480px)}.qrhint{order:1;text-align:center;font-size:14.5px;opacity:.75;padding:0 24px 12px}.qrprog{order:3}.qrpend{order:4}.qrfoot{order:5;display:flex;flex-direction:column;gap:10px;margin:14px 0 0;width:min(calc(100% - 28px),500px);padding:18px 18px 16px;border-radius:26px;background:var(--accent-soft)}.qrfoot b{font-size:16px}.qrfoot span{font-size:13.5px;line-height:1.45;opacity:.75}.qrfoot .btn{border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 20px;margin-top:4px;min-height:48px}
 .qrcam{background:linear-gradient(160deg,var(--accent-soft),var(--paper));transition:background .3s}.qrcam.live{background:#0d0f12}.qrload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity .35s;pointer-events:none}.qrcam.live .qrload{opacity:0}.qrload svg{width:62%;max-width:300px;overflow:visible}.qrload .b1{fill:var(--accent);opacity:.16}.qrload .b2{fill:var(--accent);opacity:.12;transform-origin:100px 100px;animation:qrbl 5s ease-in-out infinite alternate}.qrload .gl rect,.qrload .gl circle{fill:none;stroke:var(--accent);stroke-width:5;opacity:.55}.qrload .gl circle{fill:var(--accent);stroke:none}.qrload .gl{animation:qrbr 2.4s ease-in-out infinite;transform-origin:100px 100px}@keyframes qrbl{to{transform:rotate(14deg) scale(1.06)}}@keyframes qrbr{50%{opacity:.55;transform:scale(1.04)}}@media (prefers-reduced-motion:reduce){.qrload .b2,.qrload .gl{animation:none}}
 .qrcam:not(.live) .qrguide{opacity:0}.qrguide{transition:opacity .3s}
+.qrta{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:16px;background:var(--paper);color:var(--ink);padding:12px;font:inherit;font-size:15px;resize:vertical;margin-bottom:12px}.qrfoot .btn.qrlink{background:transparent;box-shadow:none;margin-top:0;min-height:44px;opacity:.85}
+.qrlive{order:5;width:min(calc(100% - 28px),500px);box-sizing:border-box;margin:12px 0 0;padding:14px 16px;border-radius:22px;background:var(--paper);border:1px solid var(--line);display:flex;flex-direction:column;gap:8px}.qrlive[hidden]{display:none}.lvh{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px}.lvtag{background:var(--accent-soft);border-radius:99px;padding:3px 10px;font-weight:600}.lvnext{opacity:.7}.lvt{font-weight:700;font-size:16px}.lvb{margin:0;max-height:26vh;overflow:auto;white-space:pre-wrap;word-break:break-word;font:inherit;font-size:14.5px;line-height:1.5;user-select:text;-webkit-user-select:text}.lvn{margin:0;font-size:12px;opacity:.65}.lvbtn{display:flex;gap:8px}.lvbtn .btn{flex:1;border-radius:999px;min-height:42px}.qrfoot{order:6!important}
 </style>
 <script>try{if(localStorage.getItem("margin-lock"))document.documentElement.classList.add("locked")}catch(e){}</script>
 <div class="app">
@@ -3115,7 +3121,7 @@ async function openScanner(){
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){return scanFallback('Camera is not available here. You can pick a photo of a QR code instead.')}
  closeScanner();
  const el=document.createElement('div');el.id='qrscan';el.className='qrscan';
- el.innerHTML=`<div class="qrhead"><span class="qrtitle">Scan a QR code</span><button class="cvbtn" data-qr="scanclose" aria-label="Close">${ic('x',18)}</button></div><div class="qrhint">Point your camera at a QR code. No need to line it up.</div><div class="qrcam"><video playsinline muted autoplay></video><div class="qrload" aria-hidden="true"><svg viewBox="0 0 200 200"><path class="b1" d="M100 18C142 16 182 52 180 100C178 150 142 184 98 182C54 180 20 148 22 100C24 50 58 20 100 18Z"/><path class="b2" d="M112 30C152 36 176 70 170 112C164 152 126 176 88 170C48 164 26 128 34 88C42 48 78 24 112 30Z"/><g class="gl"><rect x="62" y="62" width="76" height="76" rx="20"/><rect x="74" y="74" width="18" height="18" rx="5"/><rect x="108" y="74" width="18" height="18" rx="5"/><rect x="74" y="108" width="18" height="18" rx="5"/><circle cx="117" cy="117" r="5"/></g></svg></div><canvas id="qrhl" class="qrhl"></canvas><div class="qrguide" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="qrpill"><span id="qrstat">Starting camera…</span></div></div><div class="qrfoot"><b>Waiting for a code</b><span>Multi-part transfers show progress here. Missed parts come back around on the next loop.</span><button class="btn" data-qr="photo">${ic('page',16)} Use a photo</button></div>`;
+ el.innerHTML=`<div class="qrhead"><span class="qrtitle">Scan a QR code</span><button class="cvbtn" data-qr="scanclose" aria-label="Close">${ic('x',18)}</button></div><div class="qrhint">Point your camera at a QR code. No need to line it up.</div><div class="qrcam"><video playsinline muted autoplay></video><div class="qrload" aria-hidden="true"><svg viewBox="0 0 200 200"><path class="b1" d="M100 18C142 16 182 52 180 100C178 150 142 184 98 182C54 180 20 148 22 100C24 50 58 20 100 18Z"/><path class="b2" d="M112 30C152 36 176 70 170 112C164 152 126 176 88 170C48 164 26 128 34 88C42 48 78 24 112 30Z"/><g class="gl"><rect x="62" y="62" width="76" height="76" rx="20"/><rect x="74" y="74" width="18" height="18" rx="5"/><rect x="108" y="74" width="18" height="18" rx="5"/><rect x="74" y="108" width="18" height="18" rx="5"/><circle cx="117" cy="117" r="5"/></g></svg></div><canvas id="qrhl" class="qrhl"></canvas><div class="qrguide" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="qrpill"><span id="qrstat">Starting camera…</span></div></div><div class="qrfoot"><b>Waiting for a code</b><span>Multi-part transfers show progress here. Missed parts come back around on the next loop.</span><button class="btn" data-qr="photo">${ic('page',16)} Use a photo</button><button class="btn qrlink" data-qrp="open">Paste code text</button></div>`;
  document.body.appendChild(el);qrParts={};
  let stream;try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}},audio:false})}catch(e){closeScanner();return scanFallback('Camera permission was not given. You can pick a photo of a QR code instead.')}
  const v=el.querySelector('video');const camEl=v.parentNode,live=()=>{if(camEl.classList.contains('live'))return;camEl.classList.add('live');const s=$('#qrstat');if(s&&s.textContent==='Starting camera…')s.textContent='Looking for a code…'};v.addEventListener('playing',live);v.addEventListener('loadeddata',live);v.srcObject=stream;try{await v.play()}catch(e){}
@@ -3175,7 +3181,7 @@ async function receiveMsg(str){
   const bl=cleanBlocks(o.blocks),title=sstr(o.title,200)||'Untitled',prev=bl.filter(b=>b.text).slice(0,4).map(b=>esc(b.text.slice(0,90))).join('<br>');
   QP={kind:'page',k:r.k,name:from,title,blocks:bl};
   return openSheet(`<h3>Received a page</h3>${who}<div class="qrprev"><b>${esc(title)}</b><div>${prev||'<i>Empty page</i>'}</div><small>${bl.length} blocks</small></div>`
-   +`<div class="btnrow"><button class="btn" data-qr="close">Cancel</button>${known?'':'<button class="btn" data-qr="once">Import once</button>'}<button class="btn pri" data-qr="${known?'import':'trustimp'}">${known?'Import':'Trust and import'}</button></div>`);
+   +`<div class="btnrow"><button class="btn" data-qr="copypage">Copy all text</button></div><div class="btnrow"><button class="btn" data-qr="close">Cancel</button>${known?'':'<button class="btn" data-qr="once">Import once</button>'}<button class="btn pri" data-qr="${known?'import':'trustimp'}">${known?'Import':'Trust and import'}</button></div>`);
  }
  if(o.t==='text'){
   const tx=sstr(o.text,60000);QP={kind:'text',k:r.k,name:from,title:sstr(o.title,200),text:tx};
@@ -3208,12 +3214,13 @@ $('#sheet').addEventListener('click',async e=>{
  else if(k==='trustonly'){addTrust();closeSheet();toast('Device trusted')}
  else if(k==='trustimp'){addTrust();importPage()}
  else if(k==='once'||k==='import')importPage();
+ else if(k==='copypage'){try{const t=(QP.title?QP.title+'\n\n':'')+blocksToMD(QP.blocks||[]).trim();await navigator.clipboard.writeText(t);m.textContent='Copied';setTimeout(()=>{m.textContent='Copy all text'},1400)}catch(er){toast('Could not copy')}}
  else if(k==='copy'){try{await navigator.clipboard.writeText(String(QP&&QP.raw||''));toast('Copied')}catch(er){}}
  else if(k==='rmdev'){const i=+m.dataset.i;if(m.dataset.arm!=='1'){m.dataset.arm='1';m.textContent='Tap again';return}trusted().splice(i,1);save();openDevices()}
 });
 document.addEventListener('click',e=>{const m=e.target.closest('#qrscan [data-qr]');if(!m)return;const k=m.dataset.qr;if(k==='scanclose')closeScanner();else if(k==='photo')scanPhoto()});
 
-window.__qr={feed:(t,s)=>qrFeed(t,s)};
+window.__qr={feed:(t,s)=>qrFeed(t,s),seal:o=>sealMsg(o)};
 
 /* ---------- share sheet (any app, including LocalSend) + receiving shared text ---------- */
 function openShare(id){
@@ -3590,7 +3597,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
    try{await showQR('Text of “'+nm(n)+'”',{t:'text',n:devName(),ts:Date.now(),title:nm(n),text:(nm(n)+'\n\n'+mdOf(n)).slice(0,60000)},'Scan on the other device. It shows the text with a Copy button.')}catch(er){toast('Could not make the codes')}return}
   const q=e.target.closest('#sheet [data-qr=copytext],#sheet [data-qr=text2page]');if(!q||!QP||QP.kind!=='text')return;e.stopPropagation();
   if(q.dataset.qr==='copytext'){try{await navigator.clipboard.writeText(QP.text);toast('Copied');closeSheet()}catch(er){toast('Could not copy')}}
-  else{const tx=QP.text;closeSheet();window.__receiveShared('',tx)}
+  else{const tx=QP.text;closeSheet();window.__receiveShared('',tx,true)}
  },true);
 })();
 /* ---- desktop selection: drag across bullets for text, drag in the margin for whole rows ---- */
@@ -4235,6 +4242,266 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  function end(){if(!st||!st.on){st=null;return}const s=st;st=null;const open=s.v>0.45?true:s.v<-0.45?false:s.p>0.5;settle(open)}
  document.addEventListener('touchend',end);document.addEventListener('touchcancel',end);
  window.__edge={setP,settle};
+})();
+/* codes shared or pasted as text: the app reads them like a scan */
+(function(){
+ const RX=/MN1\.[A-Za-z0-9_.\-]+|MNQ\|[^\s]+|MNF1\|[^\s]+/g;
+ const tokens=s=>{const m=String(s||'').match(RX)||[];return [...new Set(m)]};
+ const _rs=window.__receiveShared;
+ async function feedText(text){
+  const tk=tokens(text);if(!tk.length)return false;
+  tk.sort((a,b)=>(a.startsWith('MN1.')?0:1)-(b.startsWith('MN1.')?0:1));
+  let done=false;
+  for(const t of tk){try{if(await qrFeed(t,true)){done=true;break}}catch(e){}}
+  if(!done)toast('Got a piece of a longer code. Share or paste the rest to finish.');
+  return true;
+ }
+ window.__receiveShared=async function(title,text,raw){
+  if(!raw&&await feedText(text))return;
+  return _rs(title,text);
+ };
+ window.__pasteQR=feedText;
+ function openPaste(){
+  closeScanner();
+  openSheet(`<h3>Paste code text</h3><p class="hint">Scanned a code with another camera app? Copy its text and paste it here to open it. Pasting several pieces of a long code at once works too.</p><textarea id="qrpaste" class="qrta" rows="5" placeholder="Paste here" spellcheck="false" autocapitalize="off"></textarea><div class="btnrow"><button class="btn" data-qrp="clip">Paste from clipboard</button><button class="btn pri" data-qrp="go">Open</button></div>`);
+  setTimeout(()=>{const t=$('#qrpaste');if(t)t.focus()},120);
+ }
+ async function go(){
+  const t=$('#qrpaste'),v=t?t.value:'';if(!v.trim())return toast('Nothing to open yet');
+  closeSheet();
+  if(!(await feedText(v)))showUnknown(v.trim());
+ }
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('[data-qrp]');if(!m)return;const k=m.dataset.qrp;
+  if(k==='open')openPaste();
+  else if(k==='go')go();
+  else if(k==='clip'){try{const x=await navigator.clipboard.readText();const t=$('#qrpaste');if(t){t.value=x;if(tokens(x).length)go()}}catch(err){toast('Paste into the box by hand instead')}}
+ });
+ /* Android and desktop installed web app: the system Share sheet hands us ?title=&text=&url= */
+ try{
+  const q=new URLSearchParams(location.search);
+  if(q.has('text')||q.has('url')||q.has('title')){
+   const txt=[q.get('text'),q.get('url')].filter(Boolean).join('\n');
+   history.replaceState(null,'',location.pathname);
+   setTimeout(()=>{window.__receiveShared(q.get('title')||'',txt)},700);
+  }
+ }catch(e){}
+})();
+/* Connect: a QR (or pasted code) sets up a direct, encrypted device-to-device link; then pages and vaults go over it */
+(function(){
+ Object.assign(IC,{link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'});
+ const show=(t,o,n)=>{window.__link.lastObj=o;return showQR(t,o,n)};
+ const slim=s=>{let c=0;return String(s).split(/\r?\n/).filter(l=>{if(!l)return false;if(/^a=(ice-options|max-message-size|msid-semantic)/.test(l))return false;if(l.startsWith('a=candidate')){if(/ tcp /i.test(l)||/ fe80:/i.test(l)||c>=4)return false;c++}return true}).join('\r\n')+'\r\n'};
+ let L=null; /* {pc,dc,role,name,state,rx} */
+ const stunOn=()=>!!S.set.stun;
+ const ice=()=>({iceServers:stunOn()?[{urls:'stun:stun.l.google.com:19302'}]:[]});
+ const rtcOk=()=>typeof RTCPeerConnection==='function';
+ function drop(){if(L){try{L.dc&&L.dc.close()}catch(e){}try{L.pc&&L.pc.close()}catch(e){}L=null}}
+ function gathered(pc){return new Promise(res=>{if(pc.iceGatheringState==='complete')return res();const t=setTimeout(done,stunOn()?5000:2500);function done(){clearTimeout(t);pc.removeEventListener('icegatheringstatechange',ch);res()}function ch(){if(pc.iceGatheringState==='complete')done()}pc.addEventListener('icegatheringstatechange',ch)})}
+ function wire(dc){
+  L.dc=dc;dc.onopen=()=>{L.state='open';connected()};
+  dc.onclose=()=>{if(L&&L.dc===dc){L.state='closed';if(document.getElementById('lnkst'))toast('Connection closed')}};
+  dc.onmessage=async ev=>{
+   if(typeof ev.data!=='string')return;
+   if(ev.data.charAt(0)==='{'){let h;try{h=JSON.parse(ev.data)}catch(e){return}
+    if(h.t==='start'){L.rx={id:h.id,len:h.len|0,buf:''}}
+    else if(h.t==='end'&&L.rx&&L.rx.id===h.id){const s=L.rx.buf;L.rx=null;try{dc.send(JSON.stringify({t:'ack',id:h.id}))}catch(e){}closeSheet();await receiveMsg(s)}
+    else if(h.t==='ack'){toast('Sent');if(document.getElementById('lnkst'))connected()}
+    else if(h.t==='chunk'&&L.rx)L.rx.buf+=String(h.d||'');
+    return}
+  };
+ }
+ async function sendStr(s){
+  if(!L||!L.dc||L.dc.readyState!=='open')return toast('Not connected');
+  const id=uid(),dc=L.dc,CH=14000;
+  dc.send(JSON.stringify({t:'start',id,len:s.length}));
+  for(let i=0;i<s.length;i+=CH){
+   while(dc.bufferedAmount>1<<20)await new Promise(r=>setTimeout(r,30));
+   dc.send(JSON.stringify({t:'chunk',d:s.slice(i,i+CH)}));
+  }
+  dc.send(JSON.stringify({t:'end',id}));
+ }
+ function connected(){
+  const nm=L.name||'the other device';
+  openSheet(`<h3 id="lnkst">Connected to ${esc(nm)}</h3><p class="hint">This link is encrypted and goes straight between the two devices. Choose what to send. They will be asked to accept it.</p><div class="btnrow col"><button class="btn pri" data-cn="page">Send this page</button><button class="btn" data-cn="vault">Send my whole vault</button><button class="btn" data-cn="bye">Disconnect</button></div>`);
+ }
+ async function host(){
+  if(!rtcOk())return openSheet('<h3>Not available here</h3><p class="hint">This device cannot make direct connections. You can still send with QR codes.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>');
+  drop();toast('Getting ready…');
+  const pc=new RTCPeerConnection(ice());L={pc,role:'host',state:'wait'};
+  wire(pc.createDataChannel('mn',{ordered:true}));
+  await pc.setLocalDescription(await pc.createOffer());await gathered(pc);
+  await show('Connect: step 1',{t:'conn',k:'o',n:devName(),ts:Date.now(),sdp:slim(pc.localDescription.sdp)},'On the other device: Connect → I have a code, then scan this.');
+  const br=document.querySelector('#sheet .btnrow');
+  if(br)br.innerHTML='<button class="btn" data-cn="cancel">Cancel</button><button class="btn" data-cn="paste">Paste reply</button><button class="btn pri" data-cn="scan">Scan their reply</button>';
+ }
+ async function accept(o,known){
+  drop();toast('Connecting…');
+  const pc=new RTCPeerConnection(ice());L={pc,role:'guest',state:'wait',name:sstr(o.n,40)};
+  pc.ondatachannel=e=>wire(e.channel);
+  await pc.setRemoteDescription({type:'offer',sdp:String(o.sdp||'').slice(0,20000)});
+  await pc.setLocalDescription(await pc.createAnswer());await gathered(pc);
+  await show('Connect: step 2',{t:'conn',k:'a',n:devName(),ts:Date.now(),sdp:slim(pc.localDescription.sdp)},'On the first device, choose Scan their reply and point it at this.');
+  const br=document.querySelector('#sheet .btnrow');if(br)br.innerHTML='<button class="btn" data-cn="cancel">Cancel</button>';
+ }
+ async function gotAnswer(o){
+  if(!L||L.role!=='host'||L.state!=='wait'||!L.pc||L.pc.signalingState!=='have-local-offer'){return openSheet('<h3>No connection waiting</h3><p class="hint">Start a connection first, then scan the reply.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>')}
+  L.name=sstr(o.n,40);toast('Connecting…');
+  try{await L.pc.setRemoteDescription({type:'answer',sdp:String(o.sdp||'').slice(0,20000)})}catch(e){toast('That reply did not work. Try again.')}
+ }
+ /* hook incoming signed messages */
+ const _rm=receiveMsg;
+ receiveMsg=async function(str){
+  let r=null;try{r=await openMsg(str)}catch(e){}
+  if(!r||!r.obj||r.obj.t!=='conn')return _rm(str);
+  const o=r.obj,known=isTrusted(r.k),from=sstr(o.n,40)||'Unknown device';
+  if(o.k==='a'){closeSheet();return gotAnswer(o)}
+  if(o.k==='o'){
+   QP={kind:'conn',o,k:r.k};
+   return openSheet(`<h3>Connect with ${esc(from)}?</h3><div class="qrwho ${known?'ok':'new'}"><b>${esc(from)}</b><code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet'}</span></div><p class="hint">This opens a direct, encrypted link. Nothing is added to your notes until you accept something they send.</p><div class="btnrow"><button class="btn" data-qr="close">Cancel</button><button class="btn pri" data-cn="join">Connect</button></div>`);
+  }
+ };
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('[data-cn]');if(!m)return;const k=m.dataset.cn;
+  try{
+  if(k==='start')host();
+  else if(k==='have'){closeSheet();openScanner()}
+  else if(k==='join'){const o=QP&&QP.kind==='conn'&&QP.o;if(o){closeSheet();await accept(o)}}
+  else if(k==='scan'){closeSheet();openScanner()}
+  else if(k==='paste'){closeSheet();const b=document.createElement('button');b.dataset.qrp='open';document.body.appendChild(b);b.click();b.remove()}
+  else if(k==='cancel'){drop();closeSheet()}
+  else if(k==='bye'){drop();closeSheet();toast('Disconnected')}
+  else if(k==='page'){const n=S.nodes[S.cur];if(!n||n.kind!=='page')return toast('Open a page first');await sendStr(await sealMsg({t:'page',n:devName(),ts:Date.now(),title:nm(n),blocks:exportBlocks(n)}))}
+  else if(k==='vault'){toast('Packing your vault…');const z=await buildVaultZip();await sendStr(await sealMsg({t:'vault',n:devName(),ts:Date.now(),z:b64u(z)}))}
+  else if(k==='stun'){S.set.stun=m.checked;save()}
+  }catch(err){toast('That did not work')}
+ });
+ function menu(){
+  if(L&&L.state==='open')return connected();
+  openSheet(`<h3>Connect a device</h3><p class="hint">Scan a code on each device once to open a direct, encrypted link. Then send pages or your whole vault, even big ones. The codes carry no notes.</p><div class="btnrow col"><button class="btn pri" data-cn="start">Show my code</button><button class="btn" data-cn="have">I have a code</button></div><label class="hint" style="display:flex;gap:10px;align-items:flex-start;margin-top:14px"><input type="checkbox" data-cn="stun" ${stunOn()?'checked':''}><span>Also work across different networks. This asks a public server for your device’s internet address. Leave off to stay local only.</span></label>`);
+ }
+ const _rside=renderSide;
+ renderSide=function(){_rside.apply(this,arguments);const row=document.querySelectorAll('#side .sb')[1];if(row&&!$('#sConn')){const d=document.createElement('div');d.className='sb';d.innerHTML=`<button class="pill" id="sConn">${ic('link',18)}Connect a device</button>`;row.after(d)}};
+ document.addEventListener('click',e=>{if(e.target.closest('#sConn')){if(innerWidth<900)closeSide();menu()}});
+ window.__link={host,menu,sendStr,state:()=>L&&{role:L.role,state:L.state,name:L.name},drop};
+})();
+/* live preview: show the start of a received text/page while the codes are still coming in */
+(function(){
+ const EOF={};
+ function inflatePartial(src){
+  let pos=0,bb=0,bc=0;const out=[];
+  const bits=n=>{while(bc<n){if(pos>=src.length)throw EOF;bb|=src[pos++]<<bc;bc+=8}const v=bb&((1<<n)-1);bb>>>=n;bc-=n;return v};
+  const LB=[3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258],LE=[0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0];
+  const DB=[1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577],DE=[0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13];
+  const mkH=lens=>{const count=new Array(16).fill(0),symbol=[];for(const l of lens)count[l]++;count[0]=0;const offs=[0,0];for(let i=1;i<15;i++)offs[i+1]=offs[i]+count[i];lens.forEach((l,s)=>{if(l)symbol[offs[l]++]=s});return {count,symbol}};
+  const dec=h=>{let code=0,first=0,index=0;for(let len=1;len<=15;len++){code|=bits(1);const c=h.count[len];if(code-c<first)return h.symbol[index+(code-first)];index+=c;first+=c;first<<=1;code<<=1}throw new Error('bad')};
+  let FL=null,FD=null;
+  try{
+   let last=0;
+   while(!last){
+    last=bits(1);const type=bits(2);
+    if(type===0){bb=0;bc=0;if(pos+4>src.length)throw EOF;const len=src[pos]|(src[pos+1]<<8);pos+=4;for(let i=0;i<len;i++){if(pos>=src.length)throw EOF;out.push(src[pos++])}}
+    else if(type===1||type===2){
+     let hl,hd;
+     if(type===1){if(!FL){const l=[];for(let i=0;i<144;i++)l.push(8);for(let i=144;i<256;i++)l.push(9);for(let i=256;i<280;i++)l.push(7);for(let i=280;i<288;i++)l.push(8);FL=mkH(l);FD=mkH(new Array(30).fill(5))}hl=FL;hd=FD}
+     else{
+      const nl=bits(5)+257,nd=bits(5)+1,nc=bits(4)+4,ord=[16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15],cl=new Array(19).fill(0);
+      for(let i=0;i<nc;i++)cl[ord[i]]=bits(3);const ch=mkH(cl),lens=[];
+      while(lens.length<nl+nd){const s=dec(ch);if(s<16)lens.push(s);else{let rep,v=0;if(s===16){if(!lens.length)throw new Error('bad');v=lens[lens.length-1];rep=3+bits(2)}else if(s===17)rep=3+bits(3);else rep=11+bits(7);for(let i=0;i<rep;i++)lens.push(v)}}
+      hl=mkH(lens.slice(0,nl));hd=mkH(lens.slice(nl,nl+nd));
+     }
+     for(;;){
+      const s=dec(hl);
+      if(s<256)out.push(s);
+      else if(s===256)break;
+      else{const si=s-257;if(si>=29)throw new Error('bad');const len=LB[si]+bits(LE[si]),ds=dec(hd);if(ds>=30)throw new Error('bad');const dist=DB[ds]+bits(DE[ds]);if(dist>out.length)throw new Error('bad');for(let i=0;i<len;i++)out.push(out[out.length-dist])}
+     }
+    }else throw new Error('bad');
+   }
+  }catch(e){}
+  return Uint8Array.from(out);
+ }
+ function unesc(s){ /* partial JSON string body -> text; stops at an unescaped quote */
+  let o='';for(let i=0;i<s.length;i++){const c=s[i];
+   if(c==='"')return {s:o,done:true};
+   if(c!=='\\'){o+=c;continue}
+   if(i+1>=s.length)break;const n=s[++i];
+   if(n==='n')o+='\n';else if(n==='t')o+='\t';else if(n==='r')o+='\r';else if(n==='b')o+='\b';else if(n==='f')o+='\f';
+   else if(n==='u'){if(i+4>=s.length)break;const h=s.slice(i+1,i+5);if(!/^[0-9a-fA-F]{4}$/.test(h))break;o+=String.fromCharCode(parseInt(h,16));i+=4}
+   else o+=n}
+  return {s:o,done:false};
+ }
+ function fields(inner,key){
+  const re=new RegExp('"'+key+'":"((?:[^"\\\\]|\\\\.)*\\\\?)("|$)','g'),r=[];let m;
+  while((m=re.exec(inner))){r.push(unesc(m[1]).s);if(!m[2])break}
+  return r;
+ }
+ function fxPrefix(st){
+  const K=st.K,known=new Array(K).fill(false);
+  for(let c=K-1;c>=0;c--){const r=st.piv[c];if(!r)continue;let ok=true;for(let j=c+1;j<K;j++){if(bit(r.mask,j)&&!known[j]){ok=false;break}}known[c]=ok}
+  let n=0;while(n<K&&known[n])n++;if(!n)return {n:0};
+  const need=new Array(K).fill(false);for(let i=0;i<n;i++)need[i]=true;
+  for(let c=0;c<K;c++){if(!need[c])continue;const r=st.piv[c];for(let j=c+1;j<K;j++)if(bit(r.mask,j))need[j]=true}
+  const val=new Array(K);
+  for(let c=K-1;c>=0;c--){if(!need[c])continue;const r=st.piv[c],d=r.data.slice();for(let j=c+1;j<K;j++)if(bit(r.mask,j))xorInto(d,val[j]);val[c]=d}
+  const out=new Uint8Array(n*st.B);for(let i=0;i<n;i++)out.set(val[i],i*st.B);
+  return {n,bytes:out.subarray(0,Math.min(out.length,st.len))};
+ }
+ function preview(st){
+  const pf=fxPrefix(st);if(!pf.n)return {n:0};
+  const flag=pf.bytes[0],body=pf.bytes.subarray(1);
+  const raw=flag?inflatePartial(body):body;
+  const env=new TextDecoder('utf-8').decode(raw,{stream:true});
+  const k=env.indexOf('"d":"');if(k<0)return {n:pf.n};
+  const inner=unesc(env.slice(k+5)).s,t=/"t":"(\w+)"/.exec(inner);
+  if(!t||(t[1]!=='text'&&t[1]!=='page'))return {n:pf.n,kind:t?t[1]:''};
+  const title=(fields(inner,'title')[0]||'').slice(0,200);
+  let text;
+  if(t[1]==='text')text=(fields(inner,'text')[0]||'');
+  else text=fields(inner,'text').join('\n');
+  return {n:pf.n,kind:t[1],title,text};
+ }
+ /* ---- ui ---- */
+ const LV={tid:null,n:-1,t:0,cost:0,timer:null,cur:null};
+ function card(){
+  let c=document.getElementById('qrlive');if(c)return c;
+  const s=document.getElementById('qrscan');if(!s)return null;
+  c=document.createElement('div');c.id='qrlive';c.className='qrlive';c.hidden=true;
+  c.innerHTML='<div class="lvh"><span class="lvtag">Incomplete</span><span class="lvnext"></span></div><div class="lvt"></div><pre class="lvb" tabindex="0"></pre><p class="lvn">Not checked yet. Nothing is saved until the whole code is read and verified.</p><div class="lvbtn"><button class="btn" data-lv="copy">Copy so far</button><button class="btn" data-lv="save">Save as page</button></div>';
+  s.appendChild(c);return c;
+ }
+ function paint(st){
+  LV.timer=null;if(typeof scan==='undefined'||!scan||!document.getElementById('qrscan'))return;
+  const t0=performance.now();
+  if(LV.tid!==st.tid){LV.tid=st.tid;LV.n=-1;const o=document.getElementById('qrlive');if(o)o.hidden=true}
+  const p=preview(st);
+  if(p.n!==LV.n){
+   LV.n=p.n;LV.cur=p;
+   const c=card();
+   if(c&&p.text){
+    c.hidden=false;
+    const b=c.querySelector('.lvb'),near=b.scrollHeight-b.scrollTop-b.clientHeight<40;
+    c.querySelector('.lvt').textContent=p.title||'';c.querySelector('.lvt').hidden=!p.title;
+    b.textContent=p.text;if(near)b.scrollTop=b.scrollHeight;
+    c.querySelector('.lvnext').textContent=p.n<st.K?'Next needed: part '+(p.n+1)+' of '+st.K:'';
+   }
+  }
+  LV.cost=performance.now()-t0;LV.t=Date.now();
+ }
+ const _ui=fxUi;
+ fxUi=function(st){
+  _ui(st);
+  if(!document.getElementById('qrscan')||LV.timer)return;
+  const wait=Math.max(250,LV.cost*4),since=Date.now()-LV.t;
+  LV.timer=setTimeout(()=>paint(st),Math.max(0,wait-since));
+ };
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('[data-lv]');if(!m||!LV.cur)return;const c=LV.cur;
+  const full=(c.title?c.title+'\n\n':'')+c.text;
+  if(m.dataset.lv==='copy'){try{await navigator.clipboard.writeText(full);m.textContent='Copied (so far)';setTimeout(()=>{m.textContent='Copy so far'},1400)}catch(err){toast('Could not copy')}}
+  else if(m.dataset.lv==='save'){window.__receiveShared('(Partial) '+(c.title||'Scanned text'),c.text,true);closeScanner()}
+ });
+ window.__live={inflatePartial,preview,fxPrefix};
 })();
 /* ---------- hold on a line to select it (touch) ---------- */
 let hs=null,hsSwallow=false,hx=null,hxRaf=0;
