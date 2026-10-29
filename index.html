@@ -43,6 +43,10 @@
 
 
 
+
+
+
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -806,7 +810,7 @@ function split(i,t){
  applyCollapse();setCaret(row.querySelector('.txt'),0);touch();
 }
 function removeEmpty(i){
- const b=B[i];if(!b||b.text!==''||b.type==='divider'||b.type==='page')return false;
+ const b=B[i];if(!b||b.text!==''||b.type==='divider'||b.type==='page'||b.type==='image')return false;
  if(b.type!=='p'){snapshot();b.type='p';b.done=false;fill(rowsEl().children[i],b);setCaret(txtOf(i),0);save();return true}
  const kids=i+1<B.length&&B[i+1].ind>b.ind,j=neighbor(i,-1);
  if(j<0&&B.length<2)return false;
@@ -824,13 +828,13 @@ function backspaceStart(i,t){
  if(j<0){const ti=$('#title');if(ti)setCaret(ti,Infinity);return}
  const p=B[j];
  if(p.type==='divider'){snapshot();B.splice(j,1);rowsEl().children[j].remove();return}
- if(p.type==='page'||p.type==='table'||p.type==='db')return;
+ if(p.type==='page'||p.type==='table'||p.type==='db'||p.type==='image')return;
  snapshot();const len=p.text.length;p.text+=b.text;B.splice(i,1);r.remove();
  const pt=txtOf(j);pt.textContent=p.text;normalize();syncRows();setCaret(pt,len);touch();
 }
 function shiftSubtree(i,d){const b=B[i];if(d>0&&!(i>0&&b.ind<=B[i-1].ind))return false;if(d<0&&b.ind<1)return false;
  snapshot();const e=endOf(i);for(let k=i;k<e;k++)B[k].ind+=d;syncRows();touch();return true}
-function neighbor(i,d){let j=i+d;while(j>=0&&j<B.length){const rw=rowsEl().children[j];if(!rw.hidden&&!['page','divider','table','db'].includes(B[j].type))return j;j+=d}return -1}
+function neighbor(i,d){let j=i+d;while(j>=0&&j<B.length){const rw=rowsEl().children[j];if(!rw.hidden&&!['page','divider','table','db','image'].includes(B[j].type))return j;j+=d}return -1}
 function lineEdge(t,up){
  const s=getSelection();if(!s.rangeCount)return true;const rg=s.getRangeAt(0).cloneRange();rg.collapse(true);
  let rc=rg.getClientRects()[0];if(!rc||!rc.height)return true;const tr=t.getBoundingClientRect();
@@ -841,7 +845,7 @@ function toParent(i){const j=parentIdx(i);if(j<0)return toast('Already at the to
 function exitSection(i){
  const j=parentIdx(i);if(j<0)return toast('Already at the top level');
  const e=endOf(j);
- if(e<B.length){const n=B[e];if(['page','divider','table','db'].includes(n.type)){const nb=blk('p','',B[j].ind);snapshot();B.splice(e,0,nb);renderBlocks(nb.id,0);touch()}else setCaret(txtOf(e),0)}
+ if(e<B.length){const n=B[e];if(['page','divider','table','db','image'].includes(n.type)){const nb=blk('p','',B[j].ind);snapshot();B.splice(e,0,nb);renderBlocks(nb.id,0);touch()}else setCaret(txtOf(e),0)}
  else{snapshot();const nb=blk('p','',B[j].ind);B.push(nb);renderBlocks(nb.id,0);touch()}
 }
 function moveFocused(i,d){ // move block+children among siblings
@@ -1322,7 +1326,7 @@ function markDirty(id){if(!S.dirty)S.dirty={};S.dirty[id]=Date.now();updBadge()}
 const dirtyIds=()=>Object.keys(S.dirty||{}).filter(k=>S.nodes[k]);
 const dirtyCount=()=>Object.keys(S.dirty||{}).filter(k=>k.startsWith('del:')||S.nodes[k]).length;
 function updBadge(){
- const b=$('#sBadge'),n=$('#sNote');if(b){const c=dirtyCount();b.textContent=c;b.hidden=!c}
+ const b=$('#sBadge'),n=$('#sNote');if(b){const c=dirtyCount();b.textContent=c;b.hidden=!c||!!window.NativeBridge}
  if(n)n.textContent=((S.set.saveFmt||'vault')==='json'?'Full backup':'Markdown vault')+' · '+((S.set.saveKind||'main')==='dated'?'dated files':'main file')+(S.lastFile?' · saved '+ago(S.lastFile)+' ago':' · not saved yet');
 }
 const DK='margin-notes-draft';
@@ -1344,6 +1348,11 @@ async function checkStart(){
  const d=await readDraft();let lost=[];
  if(d&&d.pages)lost=Object.entries(d.pages).filter(([id,p])=>!S.nodes[id]||S.nodes[id].t+2000<p.t);
  if(lost.length){banner(`Found newer text for ${lost.length} page${lost.length>1?'s':''} that did not reach your notes.`,[['Recover',()=>recover(lost)],['Dismiss']]);return}
+ if(window.NativeBridge){ // installed Android app: no "save a file" nagging, just a gentle monthly backup reminder
+  S.set.since=S.set.since||Date.now();
+  if(window.__abOpen){if(S.set.autoBk)return;if(Date.now()-Math.max(S.set.bkSnooze||0,S.set.since)>2*864e5)banner('Turn on automatic backup and your notes are copied to a folder you choose, with no saving by hand.',[['Set up',()=>window.__abOpen()],['Later',()=>{S.set.bkSnooze=Date.now();save()}]]);return}
+  if(Date.now()-Math.max(S.lastFile||0,S.set.bkSnooze||0,S.set.since)>30*864e5)banner('A quick backup copy keeps your notes safe if you change phones or reinstall.',[['Back up',quickSave],['Later',()=>{S.set.bkSnooze=Date.now();save()}]]);
+  return}
  const c=dirtyCount();
  if(c){banner(`Welcome back. ${c} change${c>1?'s':''} since your last saved file${S.lastFile?' ('+ago(S.lastFile)+' ago)':''}.`,[['Save vault',quickSave],['Later']]);return}
  if(!S.lastFile&&Object.keys(S.nodes).length>4)banner('Your notes only live in this browser. Save a vault file to keep a copy.',[['Save vault',quickSave],['Later']]);
@@ -1362,6 +1371,7 @@ function mdRange(bl,i,end,base){
    L.push('');prevList=false;i=e;continue;
   }
   if(b.type==='code'||b.type==='table'||b.type==='db'){const ls=b.type==='code'?['```'].concat(b.text.split('\n'),['```']):b.type==='db'?dbMD(b):tableMD(b);if(L.length&&L[L.length-1]!=='')L.push('');ls.forEach(x=>L.push(x?pad+x:''));L.push('');prevList=false;i++;continue}
+  if(b.type==='image'){if(b.img){if(L.length&&L[L.length-1]!=='')L.push('');L.push(pad+'!['+String(b.cap||'').replace(/[\[\]\n]/g,' ')+'](attachments/'+b.img+'.'+imgExt(b.img)+')');L.push('')}prevList=false;i++;continue}
   const listy=b.type==='bullet'||b.type==='todo'||b.type==='num'||(rel>0&&b.type!=='divider');
   let line;
   switch(b.type){
@@ -1391,6 +1401,7 @@ async function buildVaultZip(){
   else if(c.kids.length){z.file(dir+nmv+'/'+nmv+'.md',pageMD(c));walk(k,dir+nmv+'/')}
   else z.file(dir+nmv+'.md',pageMD(c))});
  walk('root','');
+ {const seen=new Set();Object.values(S.nodes).forEach(n=>(n.blocks||[]).forEach(b=>{if(b.type==='image'&&b.img&&IMG[b.img]&&!seen.has(b.img)){seen.add(b.img);const u=IMG[b.img];z.file('attachments/'+b.img+'.'+imgExt(b.img),u.slice(u.indexOf(',')+1),{base64:true})}}))}
  z.file('_margin/vault.json',payload(S));
  return await z.generateAsync({type:'uint8array',compression:'DEFLATE'});
 }
@@ -1802,7 +1813,7 @@ page.addEventListener('focusout',e=>{
  const t=e.target;if(rendering||!t.isConnected||!isTxt(t))return;
  const b=byId(t.closest('.row').dataset.id);if(!b)return;
  if(b.type==='code'){if(b.text.endsWith('\n')){b.text=b.text.slice(0,-1);t.textContent=b.text}return}
- if(['page','divider','table','db'].includes(b.type))return;
+ if(['page','divider','table','db','image'].includes(b.type))return;
  const h=richHTML(b.text);if(h!=null){rendering=true;try{t.innerHTML=h}finally{rendering=false}}
 });
 function selOffsets(t){
@@ -1819,7 +1830,7 @@ function setSelRange(t,s,e){
 const MKS={b:['**','**'],i:['*','*'],code:['`','`'],s:['~~','~~']};
 function applyFmt(kind){
  const i=focusId?idx(focusId):-1;if(i<0)return;const b=B[i];
- if(['code','page','divider','table','db'].includes(b.type))return;
+ if(['code','page','divider','table','db','image'].includes(b.type))return;
  const t=txtOf(i);syncText(b,t);const [s,e]=selOffsets(t);let x=b.text,ns,ne;
  snapshot();
  if(kind==='link'){
@@ -1846,7 +1857,7 @@ $('#acc').addEventListener('click',e=>{const a=e.target.closest('[data-acc]');if
 page.addEventListener('paste',e=>{
  const t=e.target;if(!isTxt(t))return;const tx=(e.clipboardData&&e.clipboardData.getData('text/plain')||'').trim();
  if(!/^https?:\/\/\S+$/i.test(tx))return;const [s,en]=selOffsets(t);if(s===en)return;
- const b=byId(t.closest('.row').dataset.id);if(!b||['code','page','divider'].includes(b.type))return;
+ const b=byId(t.closest('.row').dataset.id);if(!b||['code','page','divider','image'].includes(b.type))return;
  e.preventDefault();e.stopImmediatePropagation();syncText(b,t);snapshot();
  b.text=b.text.slice(0,s)+'['+b.text.slice(s,en)+']('+tx+')'+b.text.slice(en);t.textContent=b.text;setCaret(t,s+(en-s)+tx.length+4);touch();
 },true);
@@ -2765,6 +2776,7 @@ function noteInfo(n){
  for(const b of n.blocks||[]){
   if(b.type==='db'&&b.db){const ic0=b.db.cols.find(c=>c.type==='image');if(ic0&&!img){for(const r of b.db.rows){const id=(r.cells[ic0.id]||[])[0];if(id&&IMG[id]){img=id;break}}}
    lines.push('▦ '+(b.db.rows.length)+' rows');continue}
+  if(b.type==='image'){if(b.img&&IMG[b.img]&&!img)img=b.img;continue}
   if(b.type==='divider')continue;
   let t=cleanSnip(b.type==='table'?(b.rows||[]).slice(0,2).map(r=>r.join(' · ')).join('\n'):b.text);if(!t.trim())continue;
   if(b.type==='todo')t=(b.done?'☑ ':'☐ ')+t;else if(b.type==='bullet')t='• '+t;else if(b.type==='page'){const rn=S.nodes[b.ref];t='↗ '+(rn?nm(rn):t)}
@@ -2885,6 +2897,7 @@ function cvBlocks(n){
    case 'toggle':return `<div class="cb li"${st}><i>▸</i><span>${inl()}</span></div>`;
    case 'quote':return `<div class="cb q"${st}>${inl()}</div>`;
    case 'divider':return '<hr class="cb">';
+   case 'image':return b.img?`<figure class="cb" style="margin:8px 0;text-align:${b.al==='l'?'left':b.al==='r'?'right':'center'}"><img src="${imgSrc(b.img)}" data-img="${b.img}" style="width:${b.w||100}%;max-width:100%;border-radius:10px" alt="">${b.cap?`<figcaption style="font-size:13px;color:var(--muted)">${esc(b.cap)}</figcaption>`:''}</figure>`:'';
    case 'code':return `<pre class="cb code">${esc(tx)}</pre>`;
    case 'page':{const t=S.nodes[b.ref];return t?`<button class="cb pg" data-open="${t.id}">${ic('page',15)}${esc(nm(t))}</button>`:''}
    case 'table':{const rows=b.rows||[];return `<div class="cb tw"><table>${rows.map((r,ri)=>`<tr>${r.map((_,ci)=>`<${ri?'td':'th'}>${esc(cellShow(rows,ri,ci))}</${ri?'td':'th'}>`).join('')}</tr>`).join('')}</table></div>`}
@@ -3206,6 +3219,7 @@ async function receiveMsg(str){
   const tx=sstr(o.text,60000);QP={kind:'text',k:r.k,name:from,title:sstr(o.title,200),text:tx};
   return openSheet(`<h3>Received text</h3>${who}<pre class="qrtext">${esc(tx)}</pre><p class="hint">Nothing is imported. Copy it, or keep it as a page.</p><div class="btnrow"><button class="btn" data-qr="close">Close</button><button class="btn" data-qr="text2page">Save as page</button><button class="btn pri" data-qr="copytext">Copy text</button></div>`);
  }
+ if(o.t==='img'&&window.__imgRecv)return window.__imgRecv(r,o,who,from,known);
  openSheet(`<h3>Unsupported code</h3><p class="hint">This code comes from a newer version. Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
 }
 function addTrust(){if(QP&&QP.k&&!isTrusted(QP.k)){trusted().push({k:QP.k,name:QP.name,t:Date.now()});save()}}
@@ -3666,7 +3680,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  }
  const txtVal=i=>{const t=txtOf(i);return t?t.textContent.replace(/ /g,' '):(B[i].text||'')};
  function xText(r){
-  const out=[];for(let i=r.s.i;i<=r.e.i;i++){const rw=rowsEl().children[i];if(!rw||rw.hidden)continue;const b=B[i];if(['divider','table','db','page'].includes(b.type))continue;
+  const out=[];for(let i=r.s.i;i<=r.e.i;i++){const rw=rowsEl().children[i];if(!rw||rw.hidden)continue;const b=B[i];if(['divider','table','db','page','image'].includes(b.type))continue;
    const full=txtVal(i);let t=full,part=false;if(i===r.e.i&&r.e.o<t.length){t=t.slice(0,r.e.o);part=true}if(i===r.s.i&&r.s.o>0){t=t.slice(r.s.o);part=true}
    if(part||!t){out.push(t);continue}
    try{out.push(blocksToMD([Object.assign({},b,{text:t})]).replace(/\n+$/,''))}catch(e){out.push(t)}}
@@ -3675,7 +3689,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  function xDelete(r){
   const rs=rowsEl().children;snapshot();
   const bs=B[r.s.i];const head=txtVal(r.s.i).slice(0,r.s.o),tail=txtVal(r.e.i).slice(r.e.o);
-  for(let k=r.e.i;k>r.s.i;k--){const b=B[k];if(!b||['table','db','page','divider'].includes(b.type))continue;if(rs[k].hidden)continue;B.splice(k,1);rs[k].remove()}
+  for(let k=r.e.i;k>r.s.i;k--){const b=B[k];if(!b||['table','db','page','divider','image'].includes(b.type))continue;if(rs[k].hidden)continue;B.splice(k,1);rs[k].remove()}
   bs.text=head+tail;const t=txtOf(r.s.i);t.textContent=bs.text;normalize();syncRows();
   xRelease(false);setCaret(txtOf(r.s.i),r.s.o);touch();
  }
@@ -3761,6 +3775,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   if(p<0||p>=stack.length)return;
   navigating=true;pos=p;try{_go(stack[p])}finally{navigating=false}ui();hap&&hap(8)}
  function ui(){const b=$('#bBack'),f=$('#bFwd');if(b)b.disabled=!(stack.length&&pos>0);if(f)f.disabled=!(pos<stack.length-1)}
+ window.__histBack=()=>{if(stack.length&&pos>0){step(-1);return true}return false};
  const _rt=renderTop;
  renderTop=function(){_rt.apply(this,arguments);
   const u=$('#bUndo'),r=$('#bRedo');if(u)u.remove();if(r)r.remove();
@@ -4560,6 +4575,392 @@ function tv(t){return t.textContent.replace(/​/g,'')}
  });
  window.__zw={arm,disarm,strip};
 })();
+/* installed Android app: back button, backup wording, screen stays on while showing or scanning codes */
+(function(){
+ const native=!!window.NativeBridge;
+ if(native){
+  const _upd=updBadge;
+  updBadge=function(){_upd.apply(this,arguments);const n=$('#sNote');if(n)n.textContent=S.lastFile?'Last backup '+ago(S.lastFile)+' ago':'No backup yet'};
+  const _rs=renderSide;
+  renderSide=function(){_rs.apply(this,arguments);const b=$('#sSave');if(b){const t=[...b.childNodes].find(x=>x.nodeType===3&&/Save vault/.test(x.data));if(t)t.data=t.data.replace('Save vault','Back up')}try{updBadge()}catch(e){}};
+ }
+ /* Android system Back: close what is open, then go back through pages, then leave the app */
+ window.__androidBack=function(){
+  try{
+   if(document.documentElement.classList.contains('locked'))return false;
+   if(document.getElementById('qrscan')){closeScanner();return true}
+   const sw=document.getElementById('sw');if(sw&&!sw.hidden){closeSheet();return true}
+   if(window.__keep&&__keep.active()){__keep.collapse();return true}
+   const sd=document.getElementById('side');if(innerWidth<900&&sd&&sd.classList.contains('open')){closeSide();return true}
+   if(document.getElementById('allv')){closeAll();return true}
+   if(window.__split&&__split.active()){__split.exit();return true}
+   if(window.__histBack&&__histBack())return true;
+   const n=S.nodes[S.cur];if(n&&S.cur!=='root'){const par=n.parent&&S.nodes[n.parent]?n.parent:'root';window.navQuiet?navQuiet(()=>go(par)):go(par);return true}
+  }catch(e){}
+  return false;
+ };
+ /* keep the screen on while a code is showing or the camera is scanning */
+ let wl=null;
+ async function want(){
+  const need=!!(document.getElementById('qrscan')||document.getElementById('qrbox'));
+  if(need&&!wl&&navigator.wakeLock&&document.visibilityState==='visible'){try{wl=await navigator.wakeLock.request('screen');wl.addEventListener('release',()=>{wl=null})}catch(e){}}
+  else if(!need&&wl){try{wl.release()}catch(e){}wl=null}
+ }
+ setInterval(want,1500);
+})();
+/* Android automatic backup to a chosen folder */
+(function(){
+ const NB=window.NativeBridge;if(!NB||!NB.writeBackup)return;
+ const MIN_GAP=30000,IDLE=90000;let timer=null,busy=false,lastRun=0;
+ const on=()=>!!(S.set.autoBk&&folder());
+ function folder(){try{return NB.backupFolderName()||''}catch(_){return ''}}
+ function b64(u8){let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s)}
+ function day(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())}
+ async function run(why){
+  if(!on()||busy)return false;
+  if(why!=='now'&&!(dirtyCount()>0))return false;
+  if(why==='idle'&&Date.now()-lastRun<MIN_GAP)return false;
+  const st=S.set;
+  if(st.saveEnc&&!sessionPw){st.abNote='Needs your passphrase: save once from Backups';save();return false}
+  busy=true;
+  try{
+   let vault=(st.saveFmt||'vault')==='vault'&&!!window.JSZip;
+   const bytes=vault?await buildVaultZip():new TextEncoder().encode(payload(S));
+   let data=bytes,ext=vault?'.zip':'.json',mime=vault?'application/zip':'application/json',lock='';
+   if(st.saveEnc){data=await encryptBytes(bytes,sessionPw,vault?'zip':'json');ext='.json';mime='application/json';lock='-locked'}
+   const base=vault?'margin-vault':'margin-backup',enc=b64(data);
+   let ok=NB.writeBackup(base+'-auto'+lock+ext,mime,enc);
+   if(ok){
+    const dn=base+'-daily-'+day()+lock+ext;
+    NB.writeBackup(dn,mime,enc);
+    NB.pruneBackups(base+'-daily-',lock+ext,7);
+    S.set.abLast=Date.now();S.set.abNote='';lastRun=Date.now();markSaved();
+   }else{st.abNote='Could not write to the folder. Choose it again.';save()}
+   return ok;
+  }catch(e){st.abNote='Backup failed. Will try again.';save();return false}
+  finally{busy=false;if($('#abSt'))paint()}
+ }
+ function sched(){clearTimeout(timer);if(!on())return;timer=setTimeout(()=>run('idle'),IDLE)}
+ const _md=markDirty;markDirty=function(id){_md(id);sched()};
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)run('leave')});
+ window.addEventListener('pagehide',()=>{run('leave')});
+ setTimeout(()=>{if(on()&&dirtyCount()>0)run('start')},4000);
+ function paint(){
+  const st=S.set,f=folder(),el=$('#abSt');if(!el)return;
+  el.innerHTML=f?`Saving to <b>${esc(f)}</b><br>${st.autoBk?(st.abLast?'Last automatic backup '+stamp(st.abLast):'No automatic backup yet'):'Automatic backup is off'}${st.abNote?'<br>'+esc(st.abNote):''}`:'No folder chosen yet.';
+  const t=$('#abTog');if(t)t.checked=!!st.autoBk;
+ }
+ function open(){
+  openSheet(`<h3>Automatic backup</h3>
+  <p class="hint">Choose a folder on your phone. Margin Notes keeps a fresh backup there after you edit and whenever you leave the app, plus a daily copy for the last 7 days. Pick a folder that syncs (Drive, Dropbox) to also have it off-device.</p>
+  <p class="hint" id="abSt"></p>
+  <label class="crow"><input type="checkbox" id="abTog">Back up automatically</label>
+  <div class="btnrow" style="flex-wrap:wrap"><button class="btn" data-ab="pick">${folder()?'Change folder':'Choose folder'}</button><button class="btn" data-ab="now">Back up now</button></div>
+  <div class="btnrow"><button class="btn pri" data-ab="done">Done</button></div>`);
+  paint();
+  $('#abTog').onchange=e=>{if(e.target.checked&&!folder()){e.target.checked=false;NB.pickBackupFolder();return}S.set.autoBk=e.target.checked;save();paint();sched()};
+ }
+ document.addEventListener('click',async e=>{
+  const b=e.target.closest&&e.target.closest('[data-ab]');if(!b)return;const a=b.dataset.ab;
+  if(a==='open')open();
+  else if(a==='pick')NB.pickBackupFolder();
+  else if(a==='done')closeSheet();
+  else if(a==='now'){if(!folder()){NB.pickBackupFolder();return}toast('Backing up…');const ok=await run('now');toast(ok?'Backed up':'Could not back up');paint()}
+ });
+ window.__backupFolderSet=function(name){
+  if(name){S.set.autoBk=true;S.set.abNote='';save();toast('Automatic backup is on')}
+  if($('#abSt')){const bt=document.querySelector('[data-ab=pick]');if(bt)bt.textContent='Change folder';paint()}
+  sched();
+ };
+ const _os=openSave;openSave=function(){
+  _os();const row=document.querySelector('#sheet .btnrow');if(!row)return;
+  const o=document.createElement('button');o.className='btn';o.dataset.ab='open';o.style.cssText='width:100%;margin-bottom:10px';
+  o.textContent='Automatic backup · '+(on()?'on':'off');row.parentNode.insertBefore(o,row);
+ };
+ // monthly banner replaced: offer setup when no folder
+ window.__abOpen=open;
+})();
+/* Shared text/documents: ask what to do with them */
+(function(){
+ const _p=window.__receiveShared,RX=/MN1\.[A-Za-z0-9_.\-]+|MNQ\|[^\s]+|MNF1\|[^\s]+/;
+ let cur=null;
+ window.__receiveShared=function(title,text,raw){
+  text=String(text||'');
+  if(raw||RX.test(text)||!text.trim())return _p(title,text,raw);
+  cur={title:String(title||'').trim(),text:text.slice(0,200000)};
+  const lines=cur.text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const nmT=cur.title||(lines[0]||'Shared text').replace(/^#+\s*/,'').slice(0,60);
+  const prev=lines.slice(0,4).join('\n').slice(0,220);
+  openSheet(`<h3>Shared with Margin Notes</h3>
+  <p class="hint"><b>${esc(nmT)}</b><br>${cur.text.length.toLocaleString()} characters</p>
+  <pre class="qrraw" style="max-height:110px;overflow:hidden;white-space:pre-wrap;margin:0 0 12px">${esc(prev)}${cur.text.length>prev.length?'…':''}</pre>
+  <button class="opt" data-shr="new">${ic('plus',18)}Save as a new page</button>
+  <button class="opt" data-shr="add">${ic('page',18)}Add to an existing page…</button>
+  <button class="opt" data-shr="qr">${ic('scan',18)}Send to another device by QR</button>
+  <div class="btnrow"><button class="btn" data-shr="x">Cancel</button></div>`);
+ };
+ function blocksOf(){let bl=null;try{bl=parseMD(cur.text).blocks}catch(e){}if(!bl||!bl.length)bl=cur.text.split('\n').map(l=>blk('p',l));return bl}
+ function pick(q){
+  q=(q||'').trim().toLowerCase();
+  const pages=Object.values(S.nodes).filter(x=>x.kind==='page'&&nm(x).toLowerCase().includes(q)).sort((a,b)=>b.t-a.t).slice(0,40);
+  $('#shres').innerHTML=pages.map(x=>{const p=path(x.id).filter(y=>y!=='root').map(y=>nm(S.nodes[y])).join(' › ');
+   return `<button class="opt" data-shr="to" data-id="${x.id}">${ic('page',18)}<span style="min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis">${esc(nm(x))}</span>${p?`<small style="color:var(--muted)">${esc(p)}</small>`:''}</span></button>`}).join('')||'<p class="hint">No page matches.</p>';
+ }
+ function addTo(id){
+  const items=blocksOf().map(b=>Object.assign({},b,{id:uid()})),n=S.nodes[id];if(!n)return;
+  snapshot&&snapshot();
+  if(id===S.cur){const l=B[B.length-1];if(l&&l.type==='p'&&!l.text)B.pop();B.push(...items);normalize();renderBlocks();touch()}
+  else{n.blocks=n.blocks||[];const l=n.blocks[n.blocks.length-1];if(l&&l.type==='p'&&!l.text)n.blocks.pop();n.blocks.push(...items);n.t=Date.now();markDirty(id);save()}
+  closeSheet();go(id);toast('Added to “'+nm(n)+'”');
+ }
+ document.addEventListener('click',async e=>{
+  const b=e.target.closest&&e.target.closest('[data-shr]');if(!b||!cur)return;const k=b.dataset.shr;
+  if(k==='x'){cur=null;closeSheet()}
+  else if(k==='new'){const c=cur;cur=null;closeSheet();_p(c.title,c.text,true)}
+  else if(k==='add'){
+   openSheet(`<h3>Add to which page?</h3><input class="inp" id="shq" placeholder="Find a page" autocomplete="off"><div id="shres" style="margin-top:8px"></div>`);
+   pick('');$('#shq').addEventListener('input',ev=>pick(ev.target.value));
+  }
+  else if(k==='to'){addTo(b.dataset.id);cur=null}
+  else if(k==='qr'){
+   const c=cur;cur=null;closeSheet();
+   const t=c.title||(c.text.split('\n').find(l=>l.trim())||'Shared text').replace(/^#+\s*/,'').slice(0,60);
+   try{await showQR('Text “'+t+'”',{t:'text',n:devName(),ts:Date.now(),title:t,text:c.text.slice(0,60000)},'Scan on the other device. It shows the text with a Copy button.')}catch(er){toast('Could not make the codes')}
+  }
+ });
+})();
+/* Image blocks (Notion-style) and sending images by QR */
+function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png':/webp/.test(u)?'webp':'jpg'}
+(function(){
+ const kb=n=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
+ const st=document.createElement('style');st.textContent=`
+.row[data-type=image] .mark{display:none}.row[data-type=image] .inner{padding-left:2px}.row[data-type=image] .txt{white-space:normal;overflow:visible;min-height:0}
+.imgph{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px dashed var(--line);border-radius:14px;color:var(--muted);font-size:14px}
+.imgb{margin:6px 0;display:flex;flex-direction:column;align-items:center}.imgb.l{align-items:flex-start}.imgb.r{align-items:flex-end}
+.imgw{position:relative;max-width:100%;line-height:0}.imgw img{width:100%;height:auto;display:block;border-radius:14px;cursor:zoom-in;background:var(--line);-webkit-user-drag:none;user-select:none}
+.imgb.sel .imgw img{outline:2.5px solid var(--accent);outline-offset:2px}
+.imgh{position:absolute;right:-9px;top:50%;width:14px;height:44px;margin-top:-22px;border-radius:8px;background:var(--paper);border:2px solid var(--accent);touch-action:none;display:none;cursor:ew-resize;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.imgw[style*="width:100%"] .imgh{right:6px}.imgb.r .imgh{right:auto;left:-9px}.imgb.sel .imgh{display:block}
+.imgt{align-self:center;display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 2px;padding:5px;border-radius:14px;background:var(--paper);border:1px solid var(--line);box-shadow:var(--shadow);max-width:100%;line-height:1}
+.imgt button{font:inherit;font-size:13px;padding:7px 10px;border-radius:9px;border:0;background:transparent;color:var(--ink);cursor:pointer}.imgt button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}.imgt button:active{background:var(--accent-soft)}
+.imgt button.del{color:var(--danger)}.imgt i{width:1px;background:var(--line);margin:3px 2px}
+.imgc{font-size:14px;color:var(--muted);text-align:center;margin-top:6px;outline:0;min-width:40px;max-width:100%;line-height:1.35;white-space:pre-wrap}
+.imgc:empty::before{content:attr(data-ph);color:var(--muted);opacity:.7}.imgb:not(.sel) .imgc:empty:not(:focus){display:none}
+#imgv{position:fixed;inset:0;z-index:400;background:rgba(10,11,14,.94);display:flex;flex-direction:column;color:#fff}
+.ivbar{display:flex;gap:6px;align-items:center;padding:calc(env(safe-area-inset-top) + 10px) 12px 10px;flex-wrap:wrap}.ivbar span{flex:1;min-width:0;font-size:14px;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ivbar button{font:inherit;font-size:14px;padding:8px 13px;border-radius:11px;border:0;background:rgba(255,255,255,.14);color:#fff}
+.ivbody{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:8px;-webkit-overflow-scrolling:touch}.ivbody img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+.ivbody.zoom{display:block}.ivbody.zoom img{max-width:none;max-height:none;width:240%;cursor:zoom-out}
+.imgpv{display:flex;justify-content:center;margin:0 0 12px}.imgpv img{max-width:100%;max-height:34vh;border-radius:12px;background:var(--line)}
+`;document.head.appendChild(st);
+ /* ---- image helpers ---- */
+ const dataBlob=u=>{const i=u.indexOf(','),m=u.slice(5,i).split(';')[0],s=atob(u.slice(i+1)),a=new Uint8Array(s.length);for(let k=0;k<s.length;k++)a[k]=s.charCodeAt(k);return new Blob([a],{type:m||'image/jpeg'})};
+ const readURL=b=>new Promise((res,rej)=>{const f=new FileReader();f.onload=()=>res(f.result);f.onerror=rej;f.readAsDataURL(b)});
+ async function bitmap(src){const blob=typeof src==='string'?dataBlob(src):src;try{return await createImageBitmap(blob,{imageOrientation:'from-image'})}catch(e){const im=new Image(),u=URL.createObjectURL(blob);im.src=u;await im.decode();return im}}
+ const toBlob=(cv,t,q)=>new Promise(r=>cv.toBlob(r,t,q));
+ async function shrink(src,maxDim,target,q0){
+  const bm=await bitmap(src),W=bm.width||bm.naturalWidth,H=bm.height||bm.naturalHeight;let sc=Math.min(1,maxDim/Math.max(W,H)),out=null;
+  for(let pass=0;pass<9;pass++){
+   const w=Math.max(1,Math.round(W*sc)),h=Math.max(1,Math.round(H*sc)),cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,w,h);cx.drawImage(bm,0,0,w,h);
+   for(const q of [q0,.72,.6,.5]){const b=await toBlob(cv,'image/jpeg',q);out={blob:b,w,h};if(b.size<=target)break}
+   if(out.blob.size<=target)break;sc*=.8;
+  }
+  try{bm.close&&bm.close()}catch(e){}
+  out.url=await readURL(out.blob);out.bytes=new Uint8Array(await out.blob.arrayBuffer());return out;
+ }
+ const fitPage=src=>shrink(src,1600,450000,.85);
+ /* ---- blocks ---- */
+ let selImg=null;
+ const mkImg=(id,cap)=>({img:id,w:100,al:'c',cap:cap||''});
+ function toolsHTML(b){
+  const w=b.w||100,al=b.al||'c',sz=[[25,'S'],[50,'M'],[75,'L'],[100,'Full']].map(([v,l])=>`<button data-ib="w" data-v="${v}" class="${w===v?'on':''}">${l}</button>`).join('');
+  const aa=[['l','Left'],['c','Center'],['r','Right']].map(([v,l])=>`<button data-ib="al" data-v="${v}" class="${al===v?'on':''}">${l}</button>`).join('');
+  return `<div class="imgt">${sz}<i></i>${aa}<i></i><button data-ib="expand">Expand</button><button data-ib="copy">Copy</button><button data-ib="qr">Send by QR</button><button data-ib="replace">Replace</button><button data-ib="save">Save</button><button data-ib="del" class="del">Delete</button></div>`;
+ }
+ function imgRender(t,b){
+  t.contentEditable='false';
+  const r=t.closest('.row');if(r)r.querySelector('.mark').innerHTML='';
+  if(!b.img){t.innerHTML=`<div class="imgph"><button class="btn" data-ib="pick">${ic('plus',16)}Add an image</button><span>or paste one</span></div>`;return}
+  const sel=selImg===b.id;
+  t.innerHTML=`<figure class="imgb ${b.al||'c'}${sel?' sel':''}"><div class="imgw" style="width:${b.w||100}%"><img data-img="${b.img}" src="${imgSrc(b.img)}" alt="${esc(b.cap||'')}" draggable="false"><i class="imgh" data-ih></i></div>${sel?toolsHTML(b):''}<figcaption class="imgc" data-ph="Add a caption" contenteditable="${PT}" spellcheck="true">${esc(b.cap||'')}</figcaption></figure>`;
+ }
+ const _fill=fill;fill=function(r,b){_fill(r,b);if(b.type==='image'){b.text='';imgRender(r.querySelector('.txt'),b)}};
+ function refresh(b){const r=rowsEl().querySelector('.row[data-id="'+b.id+'"]');if(r)fill(r,b)}
+ function setSel(id){const old=selImg;selImg=id;[old,id].forEach(x=>{if(!x)return;const b=byId(x);if(b)refresh(b)})}
+ function pickFor(bid,after){
+  const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.style.display='none';document.body.appendChild(inp);
+  inp.onchange=async()=>{const f=inp.files&&inp.files[0];inp.remove();if(!f)return;try{toast('Adding image…');const res=await fitPage(f);const b=byId(bid);if(!b)return;const id=uid();await putImg(id,res.url);snapshot();b.img=id;b.w=b.w||100;b.al=b.al||'c';b.cap=b.cap||'';refresh(b);touch()}catch(e){toast('Could not read that image')}};
+  inp.addEventListener('cancel',()=>inp.remove());inp.click();
+ }
+ async function placeAt(i,res,cap){
+  const id=uid();await putImg(id,res.url);snapshot();const b=B[i];
+  if(b&&b.type==='p'&&!b.text){b.type='image';Object.assign(b,mkImg(id,cap))}else{B.splice(i+1,0,blk('image','',b?b.ind:0,mkImg(id,cap)));i++}
+  const nx=B[i+1];if(!nx||nx.type==='image')B.splice(i+1,0,blk('p','',B[i].ind));
+  normalize();renderBlocks();touch();return B[i];
+ }
+ function delBlock(b){snapshot();selImg=null;const i=B.indexOf(b);if(i<0)return;B.splice(i,1);if(!B.length)B.push(blk('p',''));renderBlocks();touch()}
+ CMDS.push({t:'Image',d:'Upload or paste a picture',g:'▣',type:'image',kw:'picture photo upload',init:b=>{b.text='';Object.assign(b,mkImg('',''))},after:i=>{const nx=B[i+1];if(!nx||nx.type==='image'){B.splice(i+1,0,blk('p','',B[i].ind))}renderBlocks();pickFor(B[i].id)}});
+ /* ---- clipboard, save, viewer ---- */
+ async function copyImg(url){
+  try{
+   const png=(async()=>{const bm=await bitmap(url),cv=document.createElement('canvas');cv.width=bm.width||bm.naturalWidth;cv.height=bm.height||bm.naturalHeight;cv.getContext('2d').drawImage(bm,0,0);return await toBlob(cv,'image/png')})();
+   await navigator.clipboard.write([new ClipboardItem({'image/png':png})]);toast('Image copied');return true;
+  }catch(e){toast('Copying a picture is not available here. Use Save instead.');return false}
+ }
+ async function saveImg(url,name){
+  const mime=url.slice(5,url.indexOf(';')),ext=/png/.test(mime)?'png':/webp/.test(mime)?'webp':'jpg';name=(name||'margin-image').replace(/[^\w\- ]+/g,'').trim().slice(0,40).replace(/\s+/g,'-')||'margin-image';name+='.'+ext;
+  try{
+   if(window.NativeBridge&&NativeBridge.saveFile){const ok=await new Promise(res=>{window.__nativeDone=res;NativeBridge.saveFile(name,mime,url.slice(url.indexOf(',')+1))});if(ok)toast('Saved');return}
+   const f=new File([dataBlob(url)],name,{type:mime});
+   if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:name});
+   else{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=name;document.body.appendChild(a);a.click();a.remove()}
+  }catch(e){}
+ }
+ let view=null;
+ function closeView(){if(view){view.el.remove();view=null;return true}return false}
+ function openView(id,cap){
+  const u=IMG[id];if(!u)return;closeView();const el=document.createElement('div');el.id='imgv';
+  el.innerHTML=`<div class="ivbar"><button data-iv="x">Close</button><span>${esc(cap||'')}</span><button data-iv="copy">Copy</button><button data-iv="qr">Send by QR</button><button data-iv="save">Save</button></div><div class="ivbody"><img src="${u}" alt=""></div>`;
+  document.body.appendChild(el);view={el,u,cap};
+ }
+ document.addEventListener('click',e=>{
+  if(!view)return;const m=e.target.closest('[data-iv]'),body=e.target.closest('.ivbody');
+  if(m){const k=m.dataset.iv,v=view;if(k==='x')closeView();else if(k==='copy')copyImg(v.u);else if(k==='save')saveImg(v.u,v.cap);else if(k==='qr'){closeView();openSend(v.u,v.cap)}}
+  else if(body&&e.target.tagName==='IMG')body.classList.toggle('zoom');
+ });
+ const _ab=window.__androidBack;window.__androidBack=function(){if(closeView())return true;return _ab?_ab():false};
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&closeView())return;
+  if(selImg&&(e.key==='Backspace'||e.key==='Delete')){const a=document.activeElement;if(a&&(a.isContentEditable||/INPUT|TEXTAREA/.test(a.tagName)))return;const b=byId(selImg);if(b){e.preventDefault();delBlock(b)}}});
+ /* ---- interactions on the page ---- */
+ document.addEventListener('click',async e=>{
+  const fig=e.target.closest&&e.target.closest('#page .imgb, #page .imgph');
+  if(!fig){if(selImg&&!e.target.closest('#sheet,#imgv'))setSel(null);return}
+  if(sel.size)return;
+  const row=fig.closest('.row'),b=row&&byId(row.dataset.id);if(!b)return;
+  const a=e.target.closest('[data-ib]');
+  if(e.target.closest('.imgc'))return;
+  e.stopPropagation();e.preventDefault();
+  if(!a){if(e.target.tagName==='IMG'){if(selImg===b.id)openView(b.img,b.cap);else setSel(b.id)}return}
+  const k=a.dataset.ib;
+  if(k==='pick'||k==='replace')pickFor(b.id);
+  else if(k==='w'){snapshot();b.w=+a.dataset.v;refresh(b);touch()}
+  else if(k==='al'){snapshot();b.al=a.dataset.v;refresh(b);touch()}
+  else if(k==='expand')openView(b.img,b.cap);
+  else if(k==='copy')copyImg(IMG[b.img]);
+  else if(k==='qr')openSend(IMG[b.img],b.cap);
+  else if(k==='save')saveImg(IMG[b.img],b.cap);
+  else if(k==='del')delBlock(b);
+ },true);
+ document.addEventListener('input',e=>{const c=e.target;if(!c.classList||!c.classList.contains('imgc'))return;const r=c.closest('.row'),b=r&&byId(r.dataset.id);if(!b)return;b.cap=c.textContent.replace(/\n/g,' ');touch()});
+ document.addEventListener('keydown',e=>{const c=e.target;if(c.classList&&c.classList.contains('imgc')&&e.key==='Enter'){e.preventDefault();c.blur()}},true);
+ document.addEventListener('pointerdown',e=>{
+  const h=e.target.closest&&e.target.closest('#page .imgh');if(!h)return;
+  const row=h.closest('.row'),b=row&&byId(row.dataset.id);if(!b)return;e.preventDefault();e.stopPropagation();
+  const fig=h.closest('.imgb'),wrap=h.closest('.imgw'),Wc=fig.clientWidth||1,w0=wrap.offsetWidth,x0=e.clientX,f=(b.al==='c'||!b.al)?2:(b.al==='r'?-1:1);let pct=b.w||100;snapshot();
+  try{h.setPointerCapture(e.pointerId)}catch(_){}
+  const mv=ev=>{pct=Math.max(12,Math.min(100,(w0+(ev.clientX-x0)*f)/Wc*100));wrap.style.width=pct+'%'};
+  const up=()=>{h.removeEventListener('pointermove',mv);h.removeEventListener('pointerup',up);h.removeEventListener('pointercancel',up);b.w=Math.round(pct);touch();refresh(b)};
+  h.addEventListener('pointermove',mv);h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);
+ },true);
+ /* paste / drop */
+ document.addEventListener('paste',async e=>{
+  const f=[...(e.clipboardData&&e.clipboardData.files||[])].find(x=>/^image\//.test(x.type));if(!f)return;
+  const a=document.activeElement;if(!(a&&a.classList&&a.classList.contains('txt')&&a.closest('#page')))return;
+  e.preventDefault();const i=idx(a.closest('.row').dataset.id);if(i<0)return;
+  try{toast('Adding image…');const res=await fitPage(f);await placeAt(i,res)}catch(er){toast('Could not read that image')}
+ });
+ const pg=document.getElementById('page');
+ if(pg){pg.addEventListener('dragover',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files'))e.preventDefault()});
+  pg.addEventListener('drop',async e=>{const f=e.dataTransfer&&[...e.dataTransfer.files].find(x=>/^image\//.test(x.type));if(!f)return;e.preventDefault();
+   const r=e.target.closest('.row'),i=r?idx(r.dataset.id):B.length-1;try{const res=await fitPage(f);await placeAt(i,res)}catch(er){toast('Could not read that image')}})}
+ /* ---- page picker ---- */
+ let pp=null;
+ function pickPage(title,cb){pp={cb};openSheet(`<h3>${esc(title)}</h3><button class="opt" data-ip="new">${ic('plus',18)}New page</button><input class="inp" id="ipq" placeholder="Find a page" autocomplete="off" style="margin-top:8px"><div id="ipres" style="margin-top:8px"></div>`);
+  const draw=q=>{q=(q||'').trim().toLowerCase();const pages=Object.values(S.nodes).filter(x=>x.kind==='page'&&nm(x).toLowerCase().includes(q)).sort((a,b)=>b.t-a.t).slice(0,40);
+   $('#ipres').innerHTML=pages.map(x=>{const p=path(x.id).filter(y=>y!=='root').map(y=>nm(S.nodes[y])).join(' › ');return `<button class="opt" data-ip="${x.id}">${ic('page',18)}<span style="min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis">${esc(nm(x))}</span>${p?`<small style="color:var(--muted)">${esc(p)}</small>`:''}</span></button>`}).join('')||'<p class="hint">No page matches.</p>'};
+  draw('');$('#ipq').addEventListener('input',e=>draw(e.target.value));
+ }
+ async function addToNode(id,res,cap,title){
+  const iid=uid();await putImg(iid,res.url);let n;
+  if(id==='new'){let rec=S.nodes.root.kids.map(k=>S.nodes[k]).find(x=>x&&x.kind==='folder'&&x.title==='Received');if(!rec)rec=mk('root','folder','Received');rec.open=true;n=mk(rec.id,'page',(title||'Image').slice(0,200),[blk('image','',0,mkImg(iid,cap)),blk('p','')]);save();go(n.id);toast('Saved to Received');return}
+  n=S.nodes[id];if(!n)return;
+  if(id===S.cur){const l=B[B.length-1];if(l&&l.type==='p'&&!l.text)B.pop();B.push(blk('image','',0,mkImg(iid,cap)),blk('p',''));renderBlocks();touch()}
+  else{n.blocks=n.blocks||[];const l=n.blocks[n.blocks.length-1];if(l&&l.type==='p'&&!l.text)n.blocks.pop();n.blocks.push(blk('image','',0,mkImg(iid,cap)),blk('p',''));n.t=Date.now();markDirty(id);save()}
+  go(id);toast('Added to “'+nm(n)+'”');
+ }
+ document.addEventListener('click',e=>{const m=e.target.closest('#sheet [data-ip]');if(!m||!pp)return;const cb=pp.cb;pp=null;closeSheet();cb(m.dataset.ip)});
+ /* ---- send by QR ---- */
+ const PRE={s:{l:'Small',dim:720,target:40000,q:.7},m:{l:'Medium',dim:1280,target:120000,q:.78},l:{l:'Large',dim:1800,target:300000,q:.82}};
+ let SD=null;
+ async function openSend(url,title){
+  if(!url)return;SD={url,title:title||'',pre:'m',cache:{}};
+  openSheet(`<h3>Send image by QR</h3><div class="imgpv"><img src="${url}" alt=""></div>
+  <div class="seg" id="isz">${Object.keys(PRE).map(k=>`<button data-is="pre" data-v="${k}" class="${k==='m'?'on':''}">${PRE[k].l}</button>`).join('')}</div>
+  <p class="hint" id="isinfo" style="text-align:center">Preparing…</p>
+  <p class="hint" style="text-align:center">Bigger pictures take longer to scan. The other device sees it with a Copy button.</p>
+  <div class="btnrow"><button class="btn" data-is="x">Cancel</button><button class="btn pri" data-is="go" disabled>Show codes</button></div>`);
+  prep();
+ }
+ async function prep(){
+  const s=SD;if(!s)return;const k=s.pre;let c=s.cache[k];const info=$('#isinfo'),go=document.querySelector('[data-is=go]');if(go)go.disabled=true;
+  if(!c){if(info)info.textContent='Preparing…';
+   try{const p=PRE[k],r=await shrink(s.url,p.dim,p.target,p.q);
+    const u8=await sealBytes({t:'img',n:devName(),ts:Date.now(),title:s.title.slice(0,200),m:'image/jpeg',w:r.w,h:r.h,d:b64u(r.bytes)});
+    c=s.cache[k]={r,u8,K:Math.ceil(u8.length/300)}}catch(e){if(SD===s&&info)info.textContent='Could not prepare this image.';return}}
+  if(SD!==s||s.pre!==k)return;
+  if($('#isinfo'))$('#isinfo').textContent=`${c.r.w}×${c.r.h} · ${kb(c.r.bytes.length)} · about ${c.K} codes, ${Math.max(1,Math.ceil(c.K*1.1/8))} s at 8 per second`;
+  const g=document.querySelector('[data-is=go]');if(g)g.disabled=false;
+ }
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('#sheet [data-is]');if(!m||!SD)return;const k=m.dataset.is;
+  if(k==='x'){SD=null;closeSheet()}
+  else if(k==='pre'){SD.pre=m.dataset.v;document.querySelectorAll('#isz button').forEach(x=>x.classList.toggle('on',x===m));prep()}
+  else if(k==='go'){const c=SD.cache[SD.pre];if(!c)return;const s=SD;SD=null;try{await streamQR('Send image',c.u8,'On the other device: Scan. It shows the picture with a Copy button.')}catch(er){toast('Could not make the codes')}}
+ });
+ /* ---- receiving ---- */
+ let RI=null;
+ window.__imgRecv=function(r,o,who,from,known){
+  let bytes;try{bytes=unb64u(String(o.d||''))}catch(e){bytes=null}
+  const mg=bytes&&bytes.length>12?(bytes[0]===0xFF&&bytes[1]===0xD8?'image/jpeg':(bytes[0]===0x89&&bytes[1]===0x50?'image/png':(bytes[8]===0x57&&bytes[9]===0x45&&bytes[10]===0x42&&bytes[11]===0x50?'image/webp':null))):null;
+  if(!mg||bytes.length>6000000)return openSheet(`<h3>Could not read this image</h3><p class="hint">The picture was damaged or is not a supported type. Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
+  const url='data:'+mg+';base64,'+b64(bytes);RI={url,title:sstr(o.title,200),res:{url}};
+  openSheet(`<h3>Received an image</h3>${who}<div class="imgpv"><img src="${url}" alt=""></div><p class="hint" style="text-align:center">${(+o.w|0)&&(+o.h|0)?(+o.w|0)+'×'+(+o.h|0)+' · ':''}${kb(bytes.length)}. Nothing is imported until you choose.</p>
+  <div class="btnrow" style="flex-wrap:wrap"><button class="btn pri" data-ir="copy">Copy image</button><button class="btn" data-ir="page">Add to a page…</button><button class="btn" data-ir="save">Save</button></div><div class="btnrow"><button class="btn" data-qr="close">Close</button></div>`);
+ };
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('#sheet [data-ir]');if(!m||!RI)return;const k=m.dataset.ir,c=RI;
+  if(k==='copy'){const ok=await copyImg(c.url);if(ok){m.textContent='Copied';setTimeout(()=>{m.textContent='Copy image'},1400)}}
+  else if(k==='save')saveImg(c.url,c.title||'received-image');
+  else if(k==='page')pickPage('Add image to…',id=>addToNode(id,c.res,c.title,c.title||'Image'));
+ });
+ /* ---- shared from another app (Android share sheet) ---- */
+ let SI=null;
+ window.__receiveSharedImage=async function(name,mime,b64d){
+  try{const raw='data:'+(mime||'image/jpeg')+';base64,'+b64d;toast('Preparing image…');const res=await fitPage(raw);SI={res,name:String(name||'').replace(/\.[A-Za-z0-9]{1,5}$/,'')};
+   openSheet(`<h3>Shared with Margin Notes</h3><div class="imgpv"><img src="${res.url}" alt=""></div><p class="hint" style="text-align:center">${res.w}×${res.h} · ${kb(res.bytes.length)}</p>
+   <button class="opt" data-si="new">${ic('plus',18)}Save as a new page</button><button class="opt" data-si="add">${ic('page',18)}Add to an existing page…</button><button class="opt" data-si="qr">${ic('scan',18)}Send to another device by QR</button><div class="btnrow"><button class="btn" data-si="x">Cancel</button></div>`);
+  }catch(e){toast('Could not read that image')}
+ };
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('#sheet [data-si]');if(!m||!SI)return;const k=m.dataset.si,c=SI;
+  if(k==='x'){SI=null;closeSheet()}
+  else if(k==='new'){SI=null;closeSheet();addToNode('new',c.res,'',c.name||'Image')}
+  else if(k==='add'){SI=null;pickPage('Add image to…',id=>addToNode(id,c.res,'',c.name))}
+  else if(k==='qr'){SI=null;closeSheet();openSend(c.res.url,c.name)}
+ });
+ window.__img={shrink,placeAt,openSend,copyImg,openView,fitPage};
+})();
+/* markdown vault: images travel as attachments/ID.ext */
+{
+ const _pm=parseMD;parseMD=function(t){const r=_pm(t);if(window.__zipImp)r.blocks.forEach(b=>{const m=b.type==='p'&&b.text.match(/^!\[([^\]]*)\]\((attachments\/[^)\s]+)\)$/);if(m){b.type='image';b.text='';b.cap=m[1];b.src=m[2];b.img='';b.w=100;b.al='c'}});return r};
+ const _iz=importZipInto;importZipInto=async function(z,pid){
+  const before=new Set(Object.keys(S.nodes));window.__zipImp=true;let r;try{r=await _iz(z,pid)}finally{window.__zipImp=false}
+  for(const k of Object.keys(S.nodes)){if(before.has(k))continue;const n=S.nodes[k];for(const b of n.blocks||[]){if(b.type!=='image'||!b.src)continue;
+   let f=null;try{f=z.file(decodeURIComponent(b.src))||z.file(b.src)}catch(e){f=z.file(b.src)}
+   if(f){const u8=await f.async('uint8array'),ex=b.src.split('.').pop().toLowerCase(),mime=ex==='png'?'image/png':ex==='webp'?'image/webp':'image/jpeg',id=uid();await putImg(id,'data:'+mime+';base64,'+b64(u8));b.img=id}
+   else{b.type='p';b.text='(image missing: '+b.src+')'}delete b.src}}
+  return r};
+}
 /* ---------- hold on a line to select it (touch) ---------- */
 let hs=null,hsSwallow=false,hx=null,hxRaf=0;
 page.addEventListener('pointerdown',e=>{
