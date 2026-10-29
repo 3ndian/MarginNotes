@@ -29,6 +29,11 @@
 
 
 
+
+
+
+
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -1169,7 +1174,7 @@ function seedCustom(){const cs=getComputedStyle(document.documentElement);
  const g=k=>{const h=cs.getPropertyValue(k).trim();return/^#/.test(h)?rgb2ok(...hexRgb(h)):[.5,.05,250]};
  S.set.custom={paper:g('--paper'),shell:g('--shell'),ink:g('--ink'),accent:g('--accent')}}
 const FONTS={default:{l:'Default',s:null,pv:"'Figtree',system-ui,sans-serif"},system:{l:'System',s:"system-ui,-apple-system,'Segoe UI',sans-serif"},rounded:{l:'Rounded',s:"'Nunito',system-ui,sans-serif"},plex:{l:'Plex Sans',s:"'IBM Plex Sans',system-ui,sans-serif"},atkinson:{l:'Atkinson',s:"'Atkinson Hyperlegible',system-ui,sans-serif"},newsreader:{l:'Newsreader',s:"'Newsreader',Georgia,serif"},source:{l:'Source Serif',s:"'Source Serif 4',Georgia,serif"},serif:{l:'System serif',s:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif"},mono:{l:'Mono',s:"var(--font-mono)"},hand:{l:'Handwritten',s:"'Caveat','Bradley Hand',cursive"}};
-const DEF={patOp:7,patSize:26,patW:1,lh:26,maxw:760,rad:24,fs:17};
+const DEF={patOp:10,patSize:42,patW:1.8,lh:26,maxw:760,rad:24,fs:17};
 const FMT={patOp:v=>v+'%',patSize:v=>v+' px',patW:v=>v+' px',fs:v=>v+' px',lh:v=>v+' px',maxw:v=>v+' px',rad:v=>v+' px'};
 function applySettings(){
  const r=document.documentElement,s=S.set,st=r.style,g=k=>s[k]==null?DEF[k]:s[k];
