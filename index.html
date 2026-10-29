@@ -56,6 +56,8 @@
 
 
 
+
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -1373,11 +1375,7 @@ async function checkStart(){
  if(window.NativeBridge){ // installed Android app: no "save a file" nagging, just a gentle monthly backup reminder
   S.set.since=S.set.since||Date.now();
   if(window.__abOpen){if(S.set.autoBk)return;if(Date.now()-Math.max(S.set.bkSnooze||0,S.set.since)>2*864e5)banner('Turn on automatic backup and your notes are copied to a folder you choose, with no saving by hand.',[['Set up',()=>window.__abOpen()],['Later',()=>{S.set.bkSnooze=Date.now();save()}]]);return}
-  if(Date.now()-Math.max(S.lastFile||0,S.set.bkSnooze||0,S.set.since)>30*864e5)banner('A quick backup copy keeps your notes safe if you change phones or reinstall.',[['Back up',quickSave],['Later',()=>{S.set.bkSnooze=Date.now();save()}]]);
-  return}
- const c=dirtyCount();
- if(c){banner(`Welcome back. ${c} change${c>1?'s':''} since your last saved file${S.lastFile?' ('+ago(S.lastFile)+' ago)':''}.`,[['Save vault',quickSave],['Later']]);return}
- if(!S.lastFile&&Object.keys(S.nodes).length>4)banner('Your notes only live in this browser. Save a vault file to keep a copy.',[['Save vault',quickSave],['Later']]);
+   return}
 }
 /* ---------- markdown: write ---------- */
 const escH=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -4455,14 +4453,25 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const t=e.touches[0],open=side.classList.contains('open');
   const body=document.body.classList,skip=e.target.closest('.cv,.tbl,table,.dbw,pre,.imgh,.imgb,input,textarea,select,.sheet,#qrscan,.cvbar,[data-dbscroll]');
   if(!open&&t.clientX<=44&&!e.target.closest('.cv'))st={m:'open',x:t.clientX,y:t.clientY,on:false,lx:t.clientX,lt:Date.now(),v:0,p:0,w:false};
-  else if(!open&&t.clientX<=Math.min(130,innerWidth*0.34)&&!skip&&!body.contains('selmode')&&!body.contains('dragging')&&!body.contains('cvopen'))st={m:'open',x:t.clientX,y:t.clientY,on:false,lx:t.clientX,lt:Date.now(),v:0,p:0,w:true};
+  else if(!open&&!skip&&!body.contains('selmode')&&!body.contains('dragging')&&!body.contains('cvopen')&&!e.target.closest('.grip,.ib,.fab,.selbar,#top,.banner')){
+   const sel=window.getSelection&&window.getSelection();if(sel&&!sel.isCollapsed)return;
+   const near=t.clientX<=Math.min(130,innerWidth*0.34);
+   st={m:'open',x:t.clientX,y:t.clientY,on:false,lx:t.clientX,lt:Date.now(),t0:Date.now(),v:0,p:0,w:near?true:'p'};
+  }
   else if(open&&(e.target.closest('#side')||e.target===scrim))st={m:'close',x:t.clientX,y:t.clientY,on:false,lx:t.clientX,lt:Date.now(),v:0,p:1};
  },{passive:true});
  document.addEventListener('touchmove',e=>{
   if(!st)return;const t=e.touches[0],dx=t.clientX-st.x,dy=t.clientY-st.y;
   if(!st.on){
+   if(st.w==='p'){
+    const sel=window.getSelection&&window.getSelection();
+    if(Date.now()-st.t0>380||(sel&&!sel.isCollapsed)||dx<-6||Math.abs(dy)>16){st=null;return}
+    if(dx<9||dx<Math.abs(dy)*3)return;
+    if(dx/Math.max(Date.now()-st.t0,16)<0.3){st=null;return}
+   }else{
    if(Math.abs(dy)>(st.w?8:10)&&Math.abs(dy)>Math.abs(dx)*(st.w?0.6:1)){st=null;return}
    if(Math.abs(dx)<(st.w?14:8)||Math.abs(dx)<Math.abs(dy)*(st.w?2.2:1.3))return;
+   }
    if((st.m==='open'&&dx<0)||(st.m==='close'&&dx>0)){st=null;return}
    st.on=true;const a=document.activeElement;if(a&&a.blur&&a!==document.body)a.blur();
   }
@@ -4472,7 +4481,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   st.p=st.m==='open'?Math.max(0,Math.min(1,dx/W)):Math.max(0,Math.min(1,1+dx/W));
   setP(st.p);
  },{passive:false});
- function end(){if(!st||!st.on){st=null;return}const s=st;st=null;const open=s.v>0.45?true:s.v<-0.45?false:s.p>0.5;settle(open)}
+ function end(){if(!st||!st.on){st=null;return}const s=st;st=null;const pg=s.w==='p'&&s.m==='open',open=s.v>(pg?0.28:0.45)?true:s.v<-0.45?false:s.p>(pg?0.3:0.5);settle(open)}
  document.addEventListener('touchend',end);document.addEventListener('touchcancel',end);
  window.__edge={setP,settle};
 })();
@@ -4876,7 +4885,7 @@ function tv(t){return t.textContent.replace(/​/g,'')}
   o.textContent='Automatic backup · '+(on()?'on':'off');row.parentNode.insertBefore(o,row);
  };
  // monthly banner replaced: offer setup when no folder
- window.__abOpen=open;
+ window.__abOpen=open;window.__abOn=on;window.__abNow=()=>run('now');
 })();
 /* Shared text/documents: ask what to do with them */
 (function(){
@@ -5373,6 +5382,23 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
  document.addEventListener('visibilitychange',q);
  sync();setTimeout(sync,400);
  try{if(NB.getInset){const n=NB.getInset();if(n>=0){document.documentElement.style.setProperty('--sab',n+'px');document.documentElement.classList.add('nbar')}}}catch(e){}
+})();
+/* save icon with a dot when there is something to save (replaces the save banners) */
+(function(){
+ const st=document.createElement('style');st.textContent='.ib{position:relative}.ib .nd{position:absolute;top:8px;right:8px;width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--shell);transform:scale(0);transition:transform .18s}.ib.need .nd{transform:scale(1)}.ib.need{color:var(--ink)}';document.head.appendChild(st);
+ const need=()=>dirtyCount()>0||(!window.NativeBridge&&!S.lastFile&&Object.keys(S.nodes).length>4);
+ function paint(){const b=$('#bSave');if(!b)return;const n=need(),c=dirtyCount();b.classList.toggle('need',n);
+  b.title=b.ariaLabel=n?(c?c+' unsaved change'+(c>1?'s':''):'Not saved yet')+'. Tap to save':(S.lastFile?'Saved '+ago(S.lastFile)+' ago':'Save a copy')}
+ const _rt=renderTop;renderTop=function(){_rt.apply(this,arguments);const s=$('#bSearch');if(s&&!$('#bSave'))s.insertAdjacentHTML('beforebegin',`<button class="ib" id="bSave" aria-label="Save">${ic('save')}<i class="nd"></i></button>`);paint()};
+ const _ub=updBadge;updBadge=function(){_ub.apply(this,arguments);paint()};
+ document.addEventListener('click',async e=>{
+  if(!e.target.closest('#bSave'))return;
+  if(window.NativeBridge){
+   if(window.__abOn&&window.__abOn()){const ok=await window.__abNow();toast(ok?'Backed up':'Could not back up. Check the folder in Backups')}
+   else if(window.__abOpen)window.__abOpen();else quickSave();
+  }else quickSave();
+ });
+ paint();
 })();
 /* ---------- hold on a line to select it (touch) ---------- */
 let hs=null,hsSwallow=false,hx=null,hxRaf=0;
