@@ -3295,16 +3295,24 @@ async function devKey(){
  if(!rec||!rec.priv||!rec.pub){
   const kp=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
   rec={priv:kp.privateKey,pub:new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey))};
-  try{await idbSet('devkey',rec)}catch(e){}
+  let kept=false;try{await idbSet('devkey',rec);const back=await idbGet('devkey');kept=!!(back&&back.priv&&back.pub)}catch(e){}
+  if(!kept){window.__devKeyVolatile=true;try{toast('This browser is not keeping this device’s ID between visits, so other devices will see it as new each time. Try a normal (not private) window or the installed app.')}catch(e){}}
  }
  if(!rec.ek||!rec.ek.priv||!rec.ek.pub){
   try{const ep=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},false,['deriveBits']);rec.ek={priv:ep.privateKey,pub:new Uint8Array(await crypto.subtle.exportKey('raw',ep.publicKey))};await idbSet('devkey',rec)}catch(e){rec.ek=null}
  }
  DEV={priv:rec.priv,pub:b64u(rec.pub),fp:await fpOf(rec.pub),ek:rec.ek?b64u(rec.ek.pub):'',ekPriv:rec.ek?rec.ek.priv:null,ekRaw:rec.ek?rec.ek.pub:null};return DEV;
 }
-const devName=()=>(S.set.devName||'My device').slice(0,40);
+const DEVTYPES=['android-app','android','ios','windows','mac','linux','other'];
+const devType=()=>{const u=navigator.userAgent||'';if(window.NativeBridge)return 'android-app';if(/Android/i.test(u))return 'android';if(/iPhone|iPad|iPod/i.test(u))return 'ios';if(/Windows/i.test(u))return 'windows';if(/Mac/i.test(u))return 'mac';if(/Linux|CrOS|X11/i.test(u))return 'linux';return 'other'};
+const devLabel=t=>({'android-app':'Android app',android:'Android browser',ios:'iPhone or iPad browser',windows:'Windows browser',mac:'Mac browser',linux:'Linux browser'}[t]||'Device');
+const devIconName=t=>(t==='android-app'||t==='android'||t==='ios')?'phone':(t==='windows'||t==='mac'||t==='linux')?'desk':'device';
+const devIcon=t=>`<i class="dvi" title="${esc(devLabel(t))}">${ic(devIconName(t),17)}</i>`;
+const devName=()=>{ /* every device gets its own name the first time, so two devices are never both called “My device” */
+ if(!S.set.devName){const u=navigator.userAgent||'';let p='Device';if(/Android/i.test(u))p='Android';else if(/iPhone|iPad/i.test(u))p='iPhone';else if(/Windows/i.test(u))p='Windows PC';else if(/Mac/i.test(u))p='Mac';else if(/Linux/i.test(u))p='Linux PC';S.set.devName=p+' '+(1000+Math.floor(Math.random()*9000));try{save()}catch(e){}}
+ return String(S.set.devName).slice(0,40)};
 async function sealBytes(obj){
- const k=await devKey(),d=JSON.stringify(k.ek?Object.assign({ek:k.ek},obj):obj),sig=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},k.priv,new TextEncoder().encode(d)));
+ const k=await devKey(),o0=(obj&&typeof obj==='object'&&obj.n!==undefined&&obj.dt===undefined)?Object.assign({dt:devType()},obj):obj,d=JSON.stringify(k.ek?Object.assign({ek:k.ek},o0):o0),sig=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},k.priv,new TextEncoder().encode(d)));
  const env=JSON.stringify({v:1,k:k.pub,s:b64u(sig),d}),raw=new TextEncoder().encode(env);
  let flag=0,body=raw;try{if(typeof CompressionStream==='function'){body=await streamBytes('z',raw);flag=1}}catch(e){body=raw;flag=0}
  const out=new Uint8Array(body.length+1);out[0]=flag;out.set(body,1);return out;
@@ -3517,9 +3525,9 @@ const isTrusted=k=>trusted().some(x=>x.k===k);
 async function receiveMsg(str){
  let r;try{r=await openMsg(str)}catch(e){return openSheet(`<h3>Could not read this code</h3><p class="hint">It is damaged, incomplete, or was changed after it was made. Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`)}
  const o=r.obj||{},known=isTrusted(r.k);LASTEK={k:r.k,ek:/^[A-Za-z0-9_-]{86,88}$/.test(o.ek||'')?o.ek:''};if(known&&LASTEK.ek){const te=trusted().find(x=>x.k===r.k);if(te&&te.ek!==LASTEK.ek){te.ek=LASTEK.ek;save()}}
- const from=sstr(o.n,40)||'Unknown device',clash=!known&&trusted().find(x=>x.name===from);
- const who=`<div class="qrwho ${known?'ok':'new'}"><b>${esc(from)}</b><code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet'}</span></div>`
-  +(clash?`<p class="hint warn">You already trust a device called “${esc(from)}”, but this one has a different key. Be careful.</p>`:'');
+ const from=sstr(o.n,40)||'Unknown device',clash=!known&&trusted().find(x=>x.name===from);let clashFp='';if(clash){try{clashFp=await fpOf(unb64u(clash.k))}catch(e){}}
+ const who=`<div class="qrwho ${known?'ok':'new'}"><b>${devIcon(r.dt)}${esc(from)}</b>${r.dt?`<small class="dvt">${esc(devLabel(r.dt))}</small>`:''}<code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet'}</span></div>`
+  +(clash?`<p class="hint warn">You already trust a device called “${esc(from)}”${clashFp?' (ID '+esc(clashFp)+')':''}, but this one has a different ID (${esc(r.fp)}). It is either a different device with the same name, or the same device that lost its ID (a private window or cleared browser data does that). If you know it is yours, trust it again and the warning stops.</p>`:'');
  if(o.t==='id'){
   QP={kind:'id',k:r.k,name:from};
   return openSheet(`<h3>Add a device</h3>${who}<p class="hint">Only trust this if the code above matches what is shown on <b>that</b> device under Devices.</p><div class="btnrow"><button class="btn" data-qr="close">Cancel</button><button class="btn pri" data-qr="trustonly">${known?'Already trusted':'Trust this device'}</button></div>`);
@@ -3763,7 +3771,7 @@ receiveMsg=async function(str){
  const known=isTrusted(r.k),from=sstr(o.n,40)||'Unknown device';QP={kind:'vault',k:r.k,name:from};
  let z=null;try{z=unb64u(o.z)}catch(e){}
  if(!z||z.length<30||z[0]!==0x50||z[1]!==0x4B)return openSheet('<h3>Could not read this vault</h3><p class="hint">Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>');
- openSheet(`<h3>Received a vault</h3><div class="qrwho ${known?'ok':'new'}"><b>${esc(from)}</b><code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet. You can add its notes but not replace yours.'}</span></div>${known?'':'<div class="btnrow" style="margin-bottom:6px"><button class="btn" data-qr="trustonly">Trust this device</button></div>'}<div id="bkPrev"></div><div class="btnrow"><button class="btn" data-qr="close">Cancel</button></div>`);
+ openSheet(`<h3>Received a vault</h3><div class="qrwho ${known?'ok':'new'}"><b>${devIcon(r.dt)}${esc(from)}</b>${r.dt?`<small class="dvt">${esc(devLabel(r.dt))}</small>`:''}<code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet. You can add its notes but not replace yours.'}</span></div>${known?'':'<div class="btnrow" style="margin-bottom:6px"><button class="btn" data-qr="trustonly">Trust this device</button></div>'}<div id="bkPrev"></div><div class="btnrow"><button class="btn" data-qr="close">Cancel</button></div>`);
  try{await handleBytes('vault from '+from+'.zip',z,$('#bkPrev'));if(!known){const rb=$('#fRep');if(rb)rb.remove()}}catch(e){toast('Could not read that vault')}
 };
 window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,sealBytes,fxPrepare,fxFrame,fxFeed,fxParse,reset:()=>{FX={}},pending:fxPending,persistNow:async()=>{for(const k in FX)await fxPersist(FX[k],true)},crc32,b64u,buildVaultZip:()=>buildVaultZip()};
@@ -5210,7 +5218,9 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  st2.textContent=`.sf .pill:not(.save){border:1px solid color-mix(in srgb,var(--ink) 8%,transparent);background:color-mix(in srgb,var(--ink) 6%,transparent);border-radius:14px;color:var(--ink);font-weight:600;cursor:pointer;transition:background .12s,border-color .12s,transform .08s}
 @media (hover:hover){.sf .pill:not(.save):hover{background:color-mix(in srgb,var(--ink) 11%,transparent);border-color:color-mix(in srgb,var(--ink) 17%,transparent)}.sf .pill.save:hover{filter:brightness(1.08)}.sf .optb:hover{background:color-mix(in srgb,var(--ink) 11%,transparent)}}
 .sf .pill:not(.save):active{background:color-mix(in srgb,var(--ink) 17%,transparent);transform:scale(.96)}.sf .pill.save{transition:filter .12s,transform .08s}.sf .pill.save:active{transform:scale(.98);filter:brightness(.92)}.sf .optb{transition:background .12s,transform .08s}.sf .optb:active{background:color-mix(in srgb,var(--ink) 17%,transparent);transform:scale(.94)}
-.qwarn{color:#b4540a;font-weight:600}#sFolder,#sPaper{display:none!important}.csteps{margin:2px 0 12px;padding-left:20px;font-size:13.5px;line-height:1.5;color:var(--ink)}.csteps li{margin:4px 0}.csteps b{font-weight:650}#sheet .btn small{font-weight:400;opacity:.75}.qfile[data-qv]{cursor:pointer}.qfile[data-qv]:active{background:var(--accent-soft)}.qfiles .qhint{font-weight:400;color:var(--muted);font-size:12px}
+.qwarn{color:#b4540a;font-weight:600}#sFolder,#sPaper{display:none!important}.cnext{margin:10px 0 12px;padding:12px 14px;border-radius:14px;background:var(--accent-soft);color:var(--ink);font-size:13.5px;line-height:1.45;text-align:left}.cnext b{display:inline!important}.cnext>b:first-child{display:block!important;margin-bottom:4px}.btnrow.cstack{flex-direction:column;align-items:stretch}.btnrow.cstack .btn{width:100%}.cnext ol{margin:4px 0 0;padding-left:20px}.cnext li{margin:3px 0}
+@keyframes cpulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 45%,transparent)}60%{box-shadow:0 0 0 9px transparent}}.cpulse{animation:cpulse 1.8s ease-out infinite}
+.csteps{margin:2px 0 12px;padding-left:20px;font-size:13.5px;line-height:1.5;color:var(--ink)}.csteps li{margin:4px 0}.csteps b{font-weight:650}#sheet .btn small{font-weight:400;opacity:.75}.qfile[data-qv]{cursor:pointer}.qfile[data-qv]:active{background:var(--accent-soft)}.qfiles .qhint{font-weight:400;color:var(--muted);font-size:12px}
 #pimv{position:fixed;inset:0;z-index:700;background:#000;display:flex;flex-direction:column;color:#fff;touch-action:none;user-select:none;-webkit-user-select:none}
 #pimv .ivtop{display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top)) 12px 10px;position:relative;z-index:2}
 #pimv .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;opacity:.85}
@@ -5315,6 +5325,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   <button class="opt qopt" data-sf="qr" id="sfqr">${ic('scan',18)}<span><b>Send by QR</b><small></small></span></button>
   <button class="opt qopt" data-sf="parts" id="sfparts">${ic('scan',18)}<span><b>Send by QR in parts</b><small></small></span></button>
   <button class="opt qopt" data-sf="conn" id="sfconn">${ic('link',18)}<span><b>Send over Connect</b><small></small></span></button>
+  <button class="opt qopt" data-sf="sound" id="sfsound">${ic('recv',18)}<span><b>Send by sound</b><small></small></span></button>
   <div class="btnrow"><button class="btn" data-sf="x">Cancel</button><button class="btn" data-sf="add">Add more</button></div>`);
   info();
  }
@@ -5325,6 +5336,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const fits=r<=QR_CAP,np=chosen().reduce((a,f)=>a+Math.max(1,Math.ceil(f.u8.length/PART)),0);
   qr.disabled=!n||!fits;small('sfqr').textContent=!n?'':fits?'About '+est(r)+'. The other phone scans the codes.':'Too big for one go. Use parts or Connect.';
   pt.hidden=fits;pt.disabled=!n||r>MAXPARTS;small('sfparts').textContent=r>MAXPARTS?'Over 8 MB. Use Connect for this much.':np+' parts, about '+est(r)+' in all. The other phone scans one part at a time.';
+  const sd=btn('sfsound'),sc=window.__soundCap&&window.__soundCap();if(sd){if(!sc){sd.hidden=true}else{const est2=Math.ceil(r*1.37/sc.pk)*sc.sec,mins=est2<90?Math.max(1,Math.round(est2))+' seconds':Math.round(est2/60)+' minutes',okS=n&&r*1.37<sc.max*0.9;sd.disabled=!okS;small('sfsound').textContent=!n?'':okS?'About '+mins+'. The other device taps Listen. Tiny files only.':'Too big for sound (about '+Math.floor(sc.max*0.9/1.37/1000)+' KB at most). Use QR or Connect.'}}
   const on=linked();cn.disabled=!n;small('sfconn').textContent=on?'Connected. Sends it straight across, any size up to 20 MB each.':'Not connected yet. Tap to set up a Connect link first.';
  }
  const msgOf=fl=>({t:'files',n:devName(),ts:Date.now(),files:fl.map(f=>({name:f.name,m:f.m,d:b64u(f.u8)}))});
@@ -5354,6 +5366,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const fl=chosen();if(!fl.length)return;
   if(k==='qr'){if(raw()>QR_CAP)return;SF=null;try{await showQR(fl.length>1?'Send '+fl.length+' files':'Send “'+fl[0].name+'”',msgOf(fl),'On the other device: Scan. It lists the files so they can save each one.')}catch(er){toast('Could not make the codes')}return}
   if(k==='parts'){SF=null;SP={g:uid(),fl,plan:planOf(fl),j:0};sendPart(0);return}
+  if(k==='sound'){SF=null;try{await window.__sendSound(fl.length>1?fl.length+' files':fl[0].name,msgOf(fl))}catch(er){toast('Could not send by sound')}return}
   if(k==='conn'){
    if(!linked()){SF=null;closeSheet();try{window.__link.menu()}catch(er){toast('Open Connect from the Home menu')}return}
    SF=null;toast('Sending…');
@@ -5593,6 +5606,87 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  });
  window.__tiles={order,setOrder,reg:REG,get edit(){return edit},get target(){return target},build};
 })();
+/* Devices: which device a code came from (type icon), a name you can change for it, and a list of devices you have connected */
+(function(){
+ Object.assign(IC,{phone:'<rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/>',desk:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',device:'<rect x="4" y="6" width="16" height="11" rx="2"/><path d="M9 21h6"/>'});
+ const devs=()=>(S.set.devs=S.set.devs||{});
+ const when=t=>{if(!t)return 'not seen yet';const d=Math.floor((Date.now()-t)/864e5);return d<1?'today':d===1?'yesterday':d<30?d+' days ago':new Date(t).toLocaleDateString()};
+ const nameOf=e=>(e&&(e.alias||e.name))||'Unknown device';
+ let lastSave=0;
+ /* every opened code tells us who sent it: remember the device, its type, and apply the name you gave it */
+ const _om=openMsg;
+ openMsg=async function(){
+  const r=await _om.apply(this,arguments);
+  try{
+   if(r&&r.k&&r.obj&&typeof r.obj==='object'){
+    const D=devs(),isNew=!D[r.k],e=D[r.k]||(D[r.k]={}),o=r.obj,nm=sstr(o.n,40);let ch=isNew;
+    if(nm&&e.name!==nm){e.name=nm;ch=true}
+    const dt=DEVTYPES.includes(o.dt)?o.dt:'';if(dt&&e.dt!==dt){e.dt=dt;ch=true}
+    if(r.fp&&e.fp!==r.fp){e.fp=r.fp;ch=true}
+    if(!e.last||Date.now()-e.last>600000){e.last=Date.now();ch=true}
+    r.dt=e.dt||'';if(e.alias)o.n=e.alias;
+    if(ch&&Date.now()-lastSave>400){lastSave=Date.now();save()}
+   }
+  }catch(er){}
+  return r;
+ };
+ const css=document.createElement('style');
+ css.textContent=`.dvi{display:inline-flex;vertical-align:-3px;margin-right:6px;color:var(--accent)}.qrwho .dvt{font-size:12px;color:var(--muted)}
+.dvrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:11px 12px;border-radius:14px;border:1px solid color-mix(in srgb,var(--ink) 8%,transparent);background:color-mix(in srgb,var(--ink) 5%,transparent);margin:0 0 6px;cursor:pointer;font:inherit;color:var(--ink)}
+.dvrow:active{background:color-mix(in srgb,var(--ink) 14%,transparent)}.dvrow .dvic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);flex:none}
+.dvrow .dvm{flex:1;min-width:0}.dvrow .dvm b{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dvrow .dvm small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.dvbadge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);flex:none}.dvbadge.no{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted)}
+.dvhead{display:flex;align-items:center;gap:12px;margin:2px 0 10px}.dvhead .dvic{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}`;
+ document.head.appendChild(css);
+ const list=()=>{
+  const D=devs(),rows=[];
+  Object.keys(D).forEach(k=>rows.push({k,e:D[k]}));
+  trusted().forEach(t=>{if(!D[t.k])rows.push({k:t.k,e:{name:t.name,last:t.t,fp:''}})});
+  rows.sort((a,b)=>(b.e.last||0)-(a.e.last||0));return rows;
+ };
+ openDevices=async function(){
+  const k=await devKey();
+  const rows=list();
+  openSheet(`<h3>Devices</h3><p class="hint">Codes are signed by the device that made them. Devices you have connected with appear here. Give one a name you will recognise, or choose whether to trust it. Nothing is ever imported without your tap.</p>
+  <label class="vlab">This device</label><div class="dvhead"><span class="dvic">${ic(devIconName(devType()),22)}</span><div style="flex:1;min-width:0"><input class="inp" id="devnm" value="${esc(devName())}" maxlength="40" autocomplete="off" style="margin:0"><small class="hint" style="display:block;margin-top:4px">${esc(devLabel(devType()))} · ${esc(k.fp)}</small></div></div>
+  <div class="dbrow2"><button class="opt" data-qr="showid">${ic('table',18)}Show my code</button><button class="opt" data-qr="scan">${ic('search',18)}Scan a device</button></div>
+  <label class="vlab">Devices you have connected${rows.length?' ('+rows.length+')':''}</label>
+  ${rows.length?rows.map(({k:kk,e})=>`<button class="dvrow" data-dv="open" data-k="${esc(kk)}"><span class="dvic">${ic(devIconName(e.dt),20)}</span><span class="dvm"><b>${esc(nameOf(e))}</b><small>${esc(devLabel(e.dt))} · seen ${esc(when(e.last))}</small></span><span class="dvbadge ${isTrusted(kk)?'':'no'}">${isTrusted(kk)?'Trusted':'Not trusted'}</span></button>`).join(''):'<p class="hint">None yet. A device shows up here the first time you scan a code from it or connect to it.</p>'}
+  <div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);
+ };
+ async function detail(kk){
+  const D=devs(),t=trusted().find(x=>x.k===kk),e=D[kk]||(D[kk]={name:t&&t.name||'Unknown device',last:t&&t.t});
+  let fp=e.fp;if(!fp){try{fp=await fpOf(unb64u(kk))}catch(er){fp=''}}
+  const tr=isTrusted(kk);
+  openSheet(`<h3>Device</h3><div class="dvhead"><span class="dvic">${ic(devIconName(e.dt),24)}</span><div style="flex:1;min-width:0"><b>${esc(nameOf(e))}</b><small class="hint" style="display:block">${esc(devLabel(e.dt))} · seen ${esc(when(e.last))}</small></div></div>
+  <label class="vlab">Name you see for it</label><input class="inp" id="dvname" value="${esc(e.alias||e.name||'')}" maxlength="40" autocomplete="off" placeholder="${esc(e.name||'Name')}">
+  ${e.name&&e.alias&&e.alias!==e.name?`<small class="hint">It calls itself “${esc(e.name)}”. You see your name for it whenever it appears.</small>`:''}
+  <div class="qrwho ${tr?'ok':'new'}"><code>${esc(fp)}</code><span>${tr?'Trusted: its pages can be imported with one tap':'Not trusted: you are asked each time'}</span></div>
+  <div class="btnrow cstack"><button class="btn pri" data-dv="save" data-k="${esc(kk)}">Save name</button><button class="btn" data-dv="trust" data-k="${esc(kk)}">${tr?'Stop trusting this device':'Trust this device'}</button><button class="btn" data-dv="forget" data-k="${esc(kk)}">Remove from this list</button><button class="btn" data-dv="back">Back</button></div>`);
+ }
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('[data-dv]');if(!m)return;const a=m.dataset.dv,kk=m.dataset.k,D=devs();
+  if(a==='open')return detail(kk);
+  if(a==='back')return openDevices();
+  const ent=D[kk]||(D[kk]={});
+  if(a==='save'){
+   const v=($('#dvname').value||'').trim().slice(0,40);
+   if(v&&v!==ent.name)ent.alias=v;else delete ent.alias;
+   const t=trusted().find(x=>x.k===kk);if(t)t.name=ent.alias||ent.name||t.name;
+   save();toast('Saved');return openDevices();
+  }
+  if(a==='trust'){
+   const i=trusted().findIndex(x=>x.k===kk);
+   if(i>=0)trusted().splice(i,1);else trusted().push({k:kk,name:nameOf(ent),t:Date.now(),ek:ent.ek||undefined});
+   save();return detail(kk);
+  }
+  if(a==='forget'){
+   if(m.dataset.arm!=='1'){m.dataset.arm='1';m.textContent='Tap again to remove';return}
+   delete D[kk];const i=trusted().findIndex(x=>x.k===kk);if(i>=0)trusted().splice(i,1);save();return openDevices();
+  }
+ });
+ window.__devs={list,devs};
+})();
 /* Connect: a QR (or pasted code) sets up a direct, encrypted device-to-device link; then pages and vaults go over it */
 (function(){
  Object.assign(IC,{link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'});
@@ -5629,7 +5723,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  }
  function connected(){
   const nm=L.name||'the other device';
-  openSheet(`<h3 id="lnkst">✓ Connected to ${esc(nm)}</h3><p class="hint">This link is direct and encrypted. Choose what to send. The other device is asked to accept it, and can send things back the same way.</p><div class="btnrow col"><button class="btn pri" data-cn="file">${ic('send',18)}Send a file…</button><button class="btn" data-cn="page">Send this page</button><button class="btn" data-cn="vault">Send my whole vault</button><button class="btn" data-cn="bye">Disconnect</button></div>`);
+  openSheet(`<h3 id="lnkst">✓ Connected to ${devIcon(L.dt)}${esc(nm)}</h3><p class="hint">This link is direct and encrypted. Choose what to send. The other device is asked to accept it, and can send things back the same way.</p><div class="btnrow col"><button class="btn pri" data-cn="file">${ic('send',18)}Send a file…</button><button class="btn" data-cn="page">Send this page</button><button class="btn" data-cn="vault">Send my whole vault</button><button class="btn" data-cn="bye">Disconnect</button></div>`);
  }
  function cands(pc){const c={hidden:0,local:0,inet:0};try{((pc.localDescription&&pc.localDescription.sdp)||'').split(/\r?\n/).forEach(l=>{if(!l.startsWith('a=candidate'))return;if(/ typ srflx/.test(l))c.inet++;else if(/\.local /.test(l))c.hidden++;else c.local++})}catch(e){}return c}
  function failSheet(){
@@ -5652,20 +5746,20 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   await pc.setLocalDescription(await pc.createOffer());await gathered(pc);
   await show('Connect: step 1 of 3',{t:'conn',k:'o',n:devName(),ts:Date.now(),sdp:slim(pc.localDescription.sdp)},'On the other device: Home → Connect a device → I have a code, then scan this. Keep this screen open.');
   const br=document.querySelector('#sheet .btnrow');
-  if(br)br.innerHTML='<button class="btn" data-cn="cancel">Cancel</button><button class="btn" data-cn="paste">Paste reply</button><button class="btn pri" data-cn="scan">Scan their reply</button>';
+  if(br){br.className='btnrow cstack';br.innerHTML='<button class="btn" data-cn="paste">Paste their reply instead</button><button class="btn" data-cn="cancel">Cancel</button>';(document.getElementById('qrbox')||br).insertAdjacentHTML('afterend','<div class="cnext"><b>What happens next</b><ol><li>The other device scans this code.</li><li>It then shows its own <b>reply code</b>.</li><li>Come back to this device, tap <b>Scan their reply</b> and point this camera at that code.</li></ol><button class="btn pri cpulse" data-cn="scan" style="width:100%;margin-top:8px">Scan their reply</button></div>')}
  }
  async function accept(o,known){
-  drop();toast('Connecting…');
-  const pc=new RTCPeerConnection(ice());L={pc,role:'guest',state:'wait',name:sstr(o.n,40)};watch(pc);
+  drop();
+  const pc=new RTCPeerConnection(ice());L={pc,role:'guest',state:'wait',name:sstr(o.n,40),dt:DEVTYPES.includes(o.dt)?o.dt:''};watch(pc);
   pc.ondatachannel=e=>wire(e.channel);
   await pc.setRemoteDescription({type:'offer',sdp:String(o.sdp||'').slice(0,20000)});
   await pc.setLocalDescription(await pc.createAnswer());await gathered(pc);
   await show('Connect: step 2 of 3',{t:'conn',k:'a',n:devName(),ts:Date.now(),sdp:slim(pc.localDescription.sdp)},'Now go back to the first device, tap Scan their reply and point it at this. Keep this screen open until it says Connected.');
-  const br=document.querySelector('#sheet .btnrow');if(br)br.innerHTML='<button class="btn" data-cn="cancel">Cancel</button>';
+  const br=document.querySelector('#sheet .btnrow');if(br){br.innerHTML='<button class="btn" data-cn="cancel">Cancel</button>';(document.getElementById('qrbox')||br).insertAdjacentHTML('afterend','<div class="cnext"><b>Last step, on the first device</b>Tap <b>Scan their reply</b> and point its camera at this code. Nothing happens here until it does.</div>')}
  }
  async function gotAnswer(o){
   if(!L||L.role!=='host'||L.state!=='wait'||!L.pc||L.pc.signalingState!=='have-local-offer'){return openSheet('<h3>No connection waiting</h3><p class="hint">Start a connection first, then scan the reply.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>')}
-  L.name=sstr(o.n,40);
+  L.name=sstr(o.n,40);L.dt=DEVTYPES.includes(o.dt)?o.dt:'';
   try{await L.pc.setRemoteDescription({type:'answer',sdp:String(o.sdp||'').slice(0,20000)})}catch(e){return toast('That reply did not work. Try again.')}
   const ref=L;openSheet('<h3>Connecting…</h3><p class="hint">Step 3 of 3. This takes a few seconds. This screen turns into the send screen as soon as the link is open.</p><p class="hint" id="lnkdiag">Status: starting</p><div class="btnrow"><button class="btn" data-cn="cancel">Cancel</button></div>');
   ref.to=setTimeout(()=>{if(L===ref&&ref.state!=='open')failSheet()},25000);
@@ -5679,7 +5773,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   if(o.k==='a'){closeSheet();return gotAnswer(o)}
   if(o.k==='o'){
    QP={kind:'conn',o,k:r.k};
-   return openSheet(`<h3>Connect with ${esc(from)}?</h3><div class="qrwho ${known?'ok':'new'}"><b>${esc(from)}</b><code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet'}</span></div><p class="hint">This opens a direct, encrypted link. Nothing is added to your notes until you accept something they send.</p><div class="btnrow"><button class="btn" data-qr="close">Cancel</button><button class="btn pri" data-cn="join">Connect</button></div>`);
+   return openSheet(`<h3>Connect with ${esc(from)}?</h3><div class="qrwho ${known?'ok':'new'}"><b>${devIcon(r.dt)}${esc(from)}</b>${r.dt?`<small class="dvt">${esc(devLabel(r.dt))}</small>`:''}<code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet'}</span></div><p class="hint">This opens a direct, encrypted link. Nothing is added to your notes until you accept something they send.</p><div class="btnrow"><button class="btn" data-qr="close">Cancel</button><button class="btn pri" data-cn="join">Connect</button></div>`);
   }
  };
  document.addEventListener('click',async e=>{
@@ -5687,6 +5781,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   try{
   if(k==='start')host();
   else if(k==='have'){closeSheet();openScanner()}
+  else if(k==='devices'){openDevices()}
   else if(k==='join'){const o=QP&&QP.kind==='conn'&&QP.o;if(o){closeSheet();await accept(o)}}
   else if(k==='scan'){closeSheet();openScanner()}
   else if(k==='paste'){closeSheet();const b=document.createElement('button');b.dataset.qrp='open';document.body.appendChild(b);b.click();b.remove()}
@@ -5701,7 +5796,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  });
  function menu(){
   if(L&&L.state==='open')return connected();
-  openSheet(`<h3>Connect a device</h3><p class="hint">Link two devices once, then send files, pages or your whole vault straight across. The codes carry no notes.</p><ol class="csteps"><li><b>First device:</b> tap Show my code.</li><li><b>Second device:</b> tap I have a code, scan it, then tap Connect. It shows a reply code.</li><li><b>First device:</b> tap Scan their reply and scan that.</li><li>Both devices say Connected, and you can send.</li></ol><div class="btnrow col"><button class="btn pri" data-cn="start">Show my code <small>(first device)</small></button><button class="btn" data-cn="have">I have a code <small>(second device)</small></button></div><label class="hint" style="display:flex;gap:10px;align-items:flex-start;margin-top:14px"><input type="checkbox" data-cn="stun" ${stunOn()?'checked':''}><span>Also work across different networks. This asks a public server for your device’s internet address. Leave off to stay local only.</span></label>`);
+  openSheet(`<h3>Connect a device</h3><p class="hint">Link two devices once, then send files, pages or your whole vault straight across. The codes carry no notes.</p><ol class="csteps"><li><b>First device:</b> tap Show my code.</li><li><b>Second device:</b> tap I have a code, scan it, then tap Connect. It shows a reply code.</li><li><b>First device:</b> tap Scan their reply and scan that.</li><li>Both devices say Connected, and you can send.</li></ol><div class="btnrow col"><button class="btn pri" data-cn="start">Show my code <small>(first device)</small></button><button class="btn" data-cn="have">I have a code <small>(second device)</small></button><button class="btn" data-cn="devices">Devices${(window.__devs&&window.__devs.list().length)?' ('+window.__devs.list().length+')':''}</button></div><label class="hint" style="display:flex;gap:10px;align-items:flex-start;margin-top:14px"><input type="checkbox" data-cn="stun" ${stunOn()?'checked':''}><span>Also work across different networks. This asks a public server for your device’s internet address. Leave off to stay local only.</span></label>`);
  }
  const _rside=renderSide;
  renderSide=function(){_rside.apply(this,arguments);const row=document.querySelectorAll('#side .sb')[1];if(row&&!$('#sConn')){const d=document.createElement('div');d.className='sb';d.innerHTML=`<button class="pill" id="sConn">${ic('link',18)}Connect a device</button>`;row.after(d)}};
@@ -6308,6 +6403,7 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
   if(u8.length>MAXB)return openSheet(`<h3>Too big for sound</h3><p class="hint">This is ${kb(u8.length)} once packed. Sound carries about 10 to 20 bytes a second, so it works for short pages. Use the QR codes for this one.</p><div class="btnrow"><button class="btn pri" data-snd="x">Close</button></div>`);
   SX={title,u8,orig:u8,lock:null,n:Math.ceil(u8.length/PK),tid:Math.floor(Math.random()*65536),spd:'f',us:!!(S.set&&S.set.sndUs)};drawSendData();
  }
+ window.__sendSound=(t,o)=>sendData(t,o);window.__soundCap=()=>({max:MAXB,pk:PK,sec:SEC.f});
  function drawSendData(){
   const s=SX;if(!s)return;
   openSheet(`<div class="snd" id="snd"><h3>Send by sound</h3><p class="hint">“${esc(s.title||'Page')}” · ${kb(s.u8.length)} in ${s.n} part${s.n>1?'s':''}. Turn the volume up and hold the phones close, speaker toward the other microphone.</p>
