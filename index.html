@@ -4561,11 +4561,14 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
 })();
 /* Share as a link: the signed message rides in the #fragment of the web address. The fragment is never sent to a server, so GitHub Pages only ever serves the app. */
 (function(){
+ /* Set this once to where you host the web app, e.g. 'https://yourname.github.io/margin-notes/'. Then nobody is ever asked for an address. */
+ const LINK_BASE_DEFAULT='https://3ndian.github.io/MarginNotes/';
  const LIMIT=8000,TTLS=[[600000,'10 min'],[3600000,'1 hour'],[86400000,'1 day']],OKT=['page','text','id'];
  let C=null; /* {title,obj,link} */
  const baseUrl=()=>{
   let b=String((S.set&&S.set.linkBase)||'').trim();
   if(b){if(!/^https?:\/\//i.test(b))b='https://'+b;return b.replace(/[#?].*$/,'')}
+  if(LINK_BASE_DEFAULT)return LINK_BASE_DEFAULT.replace(/[#?].*$/,'');
   if(/^https?:$/.test(location.protocol)&&location.hostname!=='appassets.androidplatform.net')return location.origin+location.pathname;
   return '';
  };
