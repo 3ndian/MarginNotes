@@ -61,6 +61,12 @@
 
 
 
+
+
+
+
+
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -192,7 +198,7 @@ button.crumb:hover{background:var(--accent-soft);color:var(--ink)}
 .btn.pri{background:var(--accent);color:var(--on-accent)}
 .btn.bad{background:var(--danger);color:#fff}
 /* fab, bars */
-.fab{position:fixed;z-index:20;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(24px + var(--sab,env(safe-area-inset-bottom,0px)));width:58px;height:58px;border-radius:calc(var(--r)*.8);background:var(--accent);color:var(--on-accent);display:grid;place-items:center;box-shadow:var(--shadow)}
+.fab{position:fixed;z-index:20;right:max(40px,env(safe-area-inset-right,0px));bottom:calc(24px + var(--sab,env(safe-area-inset-bottom,0px)));width:58px;height:58px;border-radius:calc(var(--r)*.8);background:var(--accent);color:var(--on-accent);display:grid;place-items:center;box-shadow:var(--shadow)}
 body.editing .fab,body.selmode .fab,body.dragging .fab{display:none}
 .selbar,.acc{position:fixed;z-index:40;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:6px;border-radius:20px;background:var(--paper);border:1px solid var(--line);box-shadow:var(--shadow);max-width:calc(100vw - 20px);overflow-x:auto}
 .selbar{bottom:calc(18px + var(--sab,env(safe-area-inset-bottom,0px)));align-items:center}
@@ -549,6 +555,10 @@ html.locked .app,html.locked .fab{visibility:hidden}
 .page{padding-top:18px}.title{margin-bottom:16px}
 @media (max-width:600px){.title{margin-left:20px}}
 html.nbar .app{box-sizing:border-box;padding-bottom:var(--sab,0px)}
+.qrcam video{background:transparent}.qrcam:not(.live) video{visibility:hidden}video::-webkit-media-controls,video::-webkit-media-controls-start-playback-button,video::-webkit-media-controls-overlay-play-button{display:none!important;-webkit-appearance:none}
+.qrcam:not(.live) .qrpill span{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;color:var(--muted)}
+html.nbar .qrhead{padding-top:calc(28px + env(safe-area-inset-top,0px))}
+.qrpaused{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;font-size:12.5px;color:var(--muted);line-height:1.4;padding:0 8px}.qrpaused .btn.qrlink{min-height:36px;padding:0 14px;font-size:13px;background:transparent;box-shadow:none;color:var(--muted);text-decoration:underline}
 </style>
 <script>try{if(localStorage.getItem("margin-lock"))document.documentElement.classList.add("locked")}catch(e){}</script>
 <div class="app">
@@ -914,7 +924,14 @@ page.addEventListener('input',e=>{
 });
 page.addEventListener('beforeinput',e=>{
  const t=e.target;
- if(t.id==='title'){if(e.inputType==='insertParagraph'||e.inputType==='insertLineBreak'){e.preventDefault();if(B.length)setCaret(txtOf(0),0)}return}
+ if(t.id==='title'){if(e.inputType==='insertParagraph'||e.inputType==='insertLineBreak'){e.preventDefault();
+  const sel=getSelection(),txt=t.textContent;let off=txt.length;
+  if(sel&&sel.rangeCount&&sel.isCollapsed&&t.contains(sel.anchorNode)){const rg=document.createRange();rg.selectNodeContents(t);rg.setEnd(sel.anchorNode,sel.anchorOffset);off=rg.toString().length}
+  const after=txt.slice(off);
+  if(cur()&&cur().kind==='page'&&after.trim()){ /* split the title: the part after the caret becomes the first paragraph */
+   t.textContent=txt.slice(0,off).replace(/\s+$/,'');B.unshift(blk('p',after.replace(/^\s+/,'')));flushTitle();renderBlocks();touch();refreshChrome();
+   if(off===0)setCaret(t,0);else setCaret(txtOf(0),0);return}
+  if(B.length)setCaret(txtOf(0),0)}return}
  if(!t.classList||!t.classList.contains('txt'))return;
  if(e.inputType==='historyUndo'){e.preventDefault();undo();return}
  if(e.inputType==='historyRedo'){e.preventDefault();redoIt();return}
@@ -3258,16 +3275,20 @@ async function devKey(){
   rec={priv:kp.privateKey,pub:new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey))};
   try{await idbSet('devkey',rec)}catch(e){}
  }
- DEV={priv:rec.priv,pub:b64u(rec.pub),fp:await fpOf(rec.pub)};return DEV;
+ if(!rec.ek||!rec.ek.priv||!rec.ek.pub){
+  try{const ep=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},false,['deriveBits']);rec.ek={priv:ep.privateKey,pub:new Uint8Array(await crypto.subtle.exportKey('raw',ep.publicKey))};await idbSet('devkey',rec)}catch(e){rec.ek=null}
+ }
+ DEV={priv:rec.priv,pub:b64u(rec.pub),fp:await fpOf(rec.pub),ek:rec.ek?b64u(rec.ek.pub):'',ekPriv:rec.ek?rec.ek.priv:null,ekRaw:rec.ek?rec.ek.pub:null};return DEV;
 }
 const devName=()=>(S.set.devName||'My device').slice(0,40);
 async function sealBytes(obj){
- const k=await devKey(),d=JSON.stringify(obj),sig=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},k.priv,new TextEncoder().encode(d)));
+ const k=await devKey(),d=JSON.stringify(k.ek?Object.assign({ek:k.ek},obj):obj),sig=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},k.priv,new TextEncoder().encode(d)));
  const env=JSON.stringify({v:1,k:k.pub,s:b64u(sig),d}),raw=new TextEncoder().encode(env);
  let flag=0,body=raw;try{if(typeof CompressionStream==='function'){body=await streamBytes('z',raw);flag=1}}catch(e){body=raw;flag=0}
  const out=new Uint8Array(body.length+1);out[0]=flag;out.set(body,1);return out;
 }
-async function sealMsg(obj){const u=await sealBytes(obj);return 'MN1.'+(u[0]?'z':'r')+'.'+b64u(u.subarray(1))}
+const flagCh=u=>['r','z','p','d'][u[0]]||'r';
+async function sealMsg(obj){const u=await sealBytes(obj);return 'MN1.'+flagCh(u)+'.'+b64u(u.subarray(1))}
 async function openMsg(str){
  const m=/^MN1\.([zr])\.([A-Za-z0-9_-]+)$/.exec(str);if(!m)throw new Error('format');
  if(str.length>16000000)throw new Error('big');
@@ -3321,8 +3342,8 @@ function exportBlocks(n){
   return b});
 }
 /* ---- showing a QR ---- */
-function qrCanvas(text,px){
- const q=qrcode(0,'M');q.addData(text);q.make();const n=q.getModuleCount(),qz=4,cell=Math.max(3,Math.floor(px*2/(n+qz*2))),size=(n+qz*2)*cell,c=document.createElement('canvas');c.width=c.height=size;
+function qrCanvas(text,px,lvl){
+ const q=qrcode(0,lvl||'M');q.addData(text);q.make();const n=q.getModuleCount(),qz=4,cell=Math.max(3,Math.floor(px*2/(n+qz*2))),size=(n+qz*2)*cell,c=document.createElement('canvas');c.width=c.height=size;
  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,size,size);x.fillStyle='#000';
  for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect((k+qz)*cell,(r+qz)*cell,cell,cell);
  c.style.width='100%';c.style.maxWidth='340px';c.style.imageRendering='pixelated';return c;
@@ -3350,12 +3371,13 @@ async function openScanner(){
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){return scanFallback('Camera is not available here. You can pick a photo of a QR code instead.')}
  closeScanner();
  const el=document.createElement('div');el.id='qrscan';el.className='qrscan';
- el.innerHTML=`<div class="qrhead"><span class="qrtitle">Scan a QR code</span><button class="cvbtn" data-qr="scanclose" aria-label="Close">${ic('x',18)}</button></div><div class="qrhint">Point your camera at a QR code. No need to line it up.</div><div class="qrcam"><video playsinline muted autoplay></video><div class="qrload" aria-hidden="true"><svg viewBox="0 0 200 200"><path class="b1" d="M100 18C142 16 182 52 180 100C178 150 142 184 98 182C54 180 20 148 22 100C24 50 58 20 100 18Z"/><path class="b2" d="M112 30C152 36 176 70 170 112C164 152 126 176 88 170C48 164 26 128 34 88C42 48 78 24 112 30Z"/><g class="gl"><rect x="62" y="62" width="76" height="76" rx="20"/><rect x="74" y="74" width="18" height="18" rx="5"/><rect x="108" y="74" width="18" height="18" rx="5"/><rect x="74" y="108" width="18" height="18" rx="5"/><circle cx="117" cy="117" r="5"/></g></svg></div><canvas id="qrhl" class="qrhl"></canvas><div class="qrguide" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="qrpill"><span id="qrstat">Starting camera…</span></div></div><div class="qrfoot"><b>Waiting for a code</b><span>Multi-part transfers show progress here. Missed parts come back around on the next loop.</span><button class="btn" data-qr="photo">${ic('page',16)} Use a photo</button><button class="btn qrlink" data-qrp="open">Paste code text</button></div>`;
+ el.innerHTML=`<div class="qrhead"><span class="qrtitle">Scan a QR code</span><button class="cvbtn" data-qr="scanclose" aria-label="Close">${ic('x',18)}</button></div><div class="qrhint">Point your camera at a QR code. No need to line it up.</div><div class="qrcam"><video playsinline muted autoplay poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video><div class="qrload" aria-hidden="true"><svg viewBox="0 0 200 200"><path class="b1" d="M100 18C142 16 182 52 180 100C178 150 142 184 98 182C54 180 20 148 22 100C24 50 58 20 100 18Z"/><path class="b2" d="M112 30C152 36 176 70 170 112C164 152 126 176 88 170C48 164 26 128 34 88C42 48 78 24 112 30Z"/><g class="gl"><rect x="62" y="62" width="76" height="76" rx="20"/><rect x="74" y="74" width="18" height="18" rx="5"/><rect x="108" y="74" width="18" height="18" rx="5"/><rect x="74" y="108" width="18" height="18" rx="5"/><circle cx="117" cy="117" r="5"/></g></svg></div><canvas id="qrhl" class="qrhl"></canvas><div class="qrguide" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="qrpill"><span id="qrstat">Starting camera…</span></div></div><div class="qrfoot"><b>Waiting for a code</b><span>Multi-part transfers show progress here. Missed parts come back around on the next loop.</span><button class="btn" data-qr="photo">${ic('page',16)} Use a photo</button><button class="btn qrlink" data-qrp="open">Paste code text</button></div>`;
  document.body.appendChild(el);qrParts={};
  let stream;try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}},audio:false})}catch(e){closeScanner();return scanFallback('Camera permission was not given. You can pick a photo of a QR code instead.')}
  const v=el.querySelector('video');const camEl=v.parentNode,live=()=>{if(camEl.classList.contains('live'))return;camEl.classList.add('live');const s=$('#qrstat');if(s&&s.textContent==='Starting camera…')s.textContent='Looking for a code…'};v.addEventListener('playing',live);v.addEventListener('loadeddata',live);v.srcObject=stream;try{await v.play()}catch(e){}
  const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});let det=null;try{if('BarcodeDetector' in window)det=new BarcodeDetector({formats:['qr_code']})}catch(e){}
  scan={stream,stop:false};
+ const next=()=>{if(!scan||scan.stop)return;if(v.requestVideoFrameCallback)v.requestVideoFrameCallback(()=>tick());else setTimeout(tick,20)};
  const tick=async()=>{
   if(!scan||scan.stop)return;
   if(v.videoWidth){live();const sc=Math.min(1,720/v.videoWidth);cv.width=Math.round(v.videoWidth*sc);cv.height=Math.round(v.videoHeight*sc);cx.drawImage(v,0,0,cv.width,cv.height);
@@ -3363,7 +3385,7 @@ async function openScanner(){
    if(!txt&&typeof jsQR==='function'){const im=cx.getImageData(0,0,cv.width,cv.height),r=jsQR(im.data,im.width,im.height,{inversionAttempts:'dontInvert'});if(r){txt=r.data;const l=r.location;pts=[l.topLeftCorner,l.topRightCorner,l.bottomRightCorner,l.bottomLeftCorner]}}
    if(pts&&pts.length>=3)qrHighlight(pts,v,cv);
    if(txt&&await qrFeed(txt))return}
-  setTimeout(tick,110);
+  next();
  };
  tick();
 }
@@ -3394,12 +3416,13 @@ async function qrFeed(txt,single){
 }
 function showUnknown(t){openSheet(`<h3>Not a Margin Notes code</h3><p class="hint">Nothing was imported or opened. The code contains this text:</p><pre class="qrraw">${esc(String(t).slice(0,600))}</pre><div class="btnrow"><button class="btn" data-qr="copy">Copy text</button><button class="btn pri" data-qr="close">Close</button></div>`);QP={raw:t}}
 /* ---- receiving ---- */
-let QP=null;
+let QP=null,LASTEK=null;
 const trusted=()=>(S.set.trusted=S.set.trusted||[]);
 const isTrusted=k=>trusted().some(x=>x.k===k);
 async function receiveMsg(str){
  let r;try{r=await openMsg(str)}catch(e){return openSheet(`<h3>Could not read this code</h3><p class="hint">It is damaged, incomplete, or was changed after it was made. Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`)}
- const o=r.obj||{},known=isTrusted(r.k),from=sstr(o.n,40)||'Unknown device',clash=!known&&trusted().find(x=>x.name===from);
+ const o=r.obj||{},known=isTrusted(r.k);LASTEK={k:r.k,ek:/^[A-Za-z0-9_-]{86,88}$/.test(o.ek||'')?o.ek:''};if(known&&LASTEK.ek){const te=trusted().find(x=>x.k===r.k);if(te&&te.ek!==LASTEK.ek){te.ek=LASTEK.ek;save()}}
+ const from=sstr(o.n,40)||'Unknown device',clash=!known&&trusted().find(x=>x.name===from);
  const who=`<div class="qrwho ${known?'ok':'new'}"><b>${esc(from)}</b><code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet'}</span></div>`
   +(clash?`<p class="hint warn">You already trust a device called “${esc(from)}”, but this one has a different key. Be careful.</p>`:'');
  if(o.t==='id'){
@@ -3419,7 +3442,7 @@ async function receiveMsg(str){
  if(o.t==='img'&&window.__imgRecv)return window.__imgRecv(r,o,who,from,known);
  openSheet(`<h3>Unsupported code</h3><p class="hint">This code comes from a newer version. Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
 }
-function addTrust(){if(QP&&QP.k&&!isTrusted(QP.k)){trusted().push({k:QP.k,name:QP.name,t:Date.now()});save()}}
+function addTrust(){if(QP&&QP.k&&!isTrusted(QP.k)){const e=LASTEK&&LASTEK.k===QP.k?LASTEK.ek:'';trusted().push({k:QP.k,name:QP.name,t:Date.now(),ek:e||undefined});save()}}
 function importPage(){
  let rec=S.nodes.root.kids.map(k=>S.nodes[k]).find(n=>n&&n.kind==='folder'&&n.title==='Received');if(!rec){rec=mk('root','folder','Received')}
  const n=mk(rec.id,'page',QP.title,QP.blocks.length?QP.blocks:[blk('p','')]);rec.open=true;save();closeSheet();go(n.id);toast('Imported to Received');
@@ -3508,16 +3531,16 @@ function maskFor(tid,K,idx){
 const bit=(m,i)=>(m[i>>3]>>(i&7))&1;
 function xorInto(a,b){for(let i=0;i<a.length;i++)a[i]^=b[i]}
 /* ---- sender ---- */
-async function fxPrepare(u8){
- const K=Math.ceil(u8.length/FXB),blocks=[];
- for(let i=0;i<K;i++){const b=new Uint8Array(FXB);b.set(u8.subarray(i*FXB,(i+1)*FXB));blocks.push(b)}
+async function fxPrepare(u8,B){
+ B=B||FXB;const K=Math.ceil(u8.length/B),blocks=[];
+ for(let i=0;i<K;i++){const b=new Uint8Array(B);b.set(u8.subarray(i*B,(i+1)*B));blocks.push(b)}
  const h=new Uint8Array(await crypto.subtle.digest('SHA-256',u8));
- return {K,len:u8.length,tid:b64u(h).slice(0,6),crc:crc32(u8),blocks};
+ return {K,B,len:u8.length,tid:b64u(h).slice(0,6),crc:crc32(u8),blocks};
 }
 function fxFrame(c,idx){
- const m=maskFor(c.tid,c.K,idx),d=new Uint8Array(FXB);
+ const m=maskFor(c.tid,c.K,idx),d=new Uint8Array(c.B||FXB);
  for(let i=0;i<c.K;i++)if(bit(m,i))xorInto(d,c.blocks[i]);
- const head=`MNF1|${c.tid}|${c.K}|${c.len}|${FXB}|${c.crc}|${idx}|${b64u(d)}`;
+ const head=`MNF1|${c.tid}|${c.K}|${c.len}|${c.B||FXB}|${c.crc}|${idx}|${b64u(d)}`;
  return head+'|'+fnv(head);
 }
 /* ---- receiver ---- */
@@ -3573,12 +3596,14 @@ async function fxFeed(txt){
  const bytes=fxSolve(st);
  if(crc32(bytes)!==st.crc){await fxDrop(f.tid);toast('That transfer was damaged. Please start it again.');return false}
  await fxDrop(f.tid);closeScanner();closeSheet();
- await receiveMsg('MN1.'+(bytes[0]?'z':'r')+'.'+b64u(bytes.subarray(1)));return true;
+ await receiveMsg('MN1.'+flagCh(bytes)+'.'+b64u(bytes.subarray(1)));return true;
 }
 async function fxPending(){const out=[];try{const idx=(await idbGet('qrxidx'))||[];for(const tid of idx){const r=await idbGet('qrx:'+tid);if(r&&r.rows&&Date.now()-(r.t||0)<7*864e5)out.push({tid,K:r.K,have:r.rows.length,t:r.t});else await fxDrop(tid)}}catch(e){}return out}
 async function fxPaintPending(){
  const box=$('#qrpend');if(!box)return;const l=await fxPending();
- box.innerHTML=l.length?l.map(x=>`<span class="qrchip">Unfinished ${Math.floor(x.have/x.K*100)}%<button data-qr="fxdel" data-tid="${x.tid}" aria-label="Forget">×</button></span>`).join(''):'';
+ if(!l.length){box.innerHTML='';return}
+ const pc=l.map(x=>Math.floor(x.have/x.K*100)+'%').join(', ');
+ box.innerHTML=`<div class="qrpaused"><span>${l.length>1?l.length+' paused transfers ('+pc+')':'A transfer is paused at '+pc}. Scan the same codes again and it picks up where it stopped.</span><button class="btn qrlink" data-qr="fxdelall" data-tids="${l.map(x=>x.tid).join(',')}">Clear</button></div>`;
 }
 /* hook the scanner: fountain frames go to fxFeed */
 const _qrFeed=qrFeed;
@@ -3591,20 +3616,22 @@ const _openScanner=openScanner;
 openScanner=async function(){await _openScanner();const el=$('#qrscan');if(!el)return;
  const prog=document.createElement('div');prog.id='qrprog';prog.className='qrprog';prog.hidden=true;prog.innerHTML='<div class="bar"><i></i></div><span></span>';el.appendChild(prog);
  const pend=document.createElement('div');pend.id='qrpend';pend.className='qrpend';el.appendChild(pend);fxPaintPending()};
-document.addEventListener('click',async e=>{const m=e.target.closest('#qrscan [data-qr=fxdel]');if(!m)return;await fxDrop(m.dataset.tid);fxPaintPending()});
+document.addEventListener('click',async e=>{const ma=e.target.closest('#qrscan [data-qr=fxdelall]');if(ma){for(const t of (ma.dataset.tids||'').split(','))if(t)await fxDrop(t);fxPaintPending();return}const m=e.target.closest('#qrscan [data-qr=fxdel]');if(!m)return;await fxDrop(m.dataset.tid);fxPaintPending()});
 /* ---- sender UI: replaces the single/loop code player ---- */
 const sealCache={};
 async function sealCached(key,make){const c=sealCache[key];if(c&&Date.now()-c.t<15*60000)return c.u;const u=await sealBytes(await make());sealCache[key]={u,t:Date.now()};return u}
 let strm=null;
 async function streamQR(title,u8,note){
- const ctx=await fxPrepare(u8);clearTimeout(strm&&strm.timer);
- strm={ctx,idx:0,fps:8,timer:null};const S0=strm;
- const single=('MN1.'+(u8[0]?'z':'r')+'.'+b64u(u8.subarray(1)));
+ const dense=!!(S.set&&S.set.qrDense);const ctx=await fxPrepare(u8,dense?600:300);clearTimeout(strm&&strm.timer);
+ strm={ctx,idx:0,fps:dense?6:8,timer:null,args:[title,u8,note]};const S0=strm;
+ const single=('MN1.'+flagCh(u8)+'.'+b64u(u8.subarray(1)));
  if(single.length<=640){openSheet(`<h3>${esc(title)}</h3><div class="qrbox" id="qrbox"></div><p class="hint" style="text-align:center">${esc(note||'')}</p><div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);$('#qrbox').appendChild(qrCanvas(single,340));return}
  openSheet(`<h3>${esc(title)}</h3><div class="qrbox" id="qrbox"></div><p class="hint" id="qrnote" style="text-align:center"></p>
  <div class="qrspeed"><button class="btn" data-qs="-">Slower</button><span id="qrfps"></span><button class="btn" data-qs="+">Faster</button></div>
+ <div class="seg" id="qrdn" style="margin:8px 0 4px"><button data-qd="0" class="${dense?'':'on'}">Standard codes</button><button data-qd="1" class="${dense?'on':''}">Dense codes</button></div>
+ <p class="hint" style="text-align:center">${dense?'Dense: twice the data per code. Needs a steady hand, good light and a modern camera.':'Standard is the most reliable. Try Dense if both phones have good cameras.'}</p>
  <p class="hint" style="text-align:center">${esc(note||'')} The codes repeat until the other device has everything. It can miss some and resume later.</p><div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);
- const draw=()=>{if(S0!==strm||!document.getElementById('qrbox'))return;const box=$('#qrbox');box.innerHTML='';box.appendChild(qrCanvas(fxFrame(ctx,S0.idx),340));
+ const draw=()=>{if(S0!==strm||!document.getElementById('qrbox'))return;const box=$('#qrbox');box.innerHTML='';box.appendChild(qrCanvas(fxFrame(ctx,S0.idx),340,'L'));
   const nt=$('#qrnote');if(nt)nt.textContent=`Keep the other phone pointed at this screen until it finishes. The codes repeat on their own, so nothing runs out. Usually about ${Math.max(2,Math.ceil(ctx.K*1.1/S0.fps))} s at this speed.`;
   const f=$('#qrfps');if(f)f.textContent=S0.fps+' per second';S0.idx++;S0.timer=setTimeout(draw,1000/S0.fps)};
  draw();
@@ -3612,7 +3639,7 @@ async function streamQR(title,u8,note){
 showQR=async function(title,obj,note,cacheKey){
  const u8=cacheKey?await sealCached(cacheKey,()=>obj):await sealBytes(obj);return streamQR(title,u8,note);
 };
-document.addEventListener('click',e=>{const m=e.target.closest('#sheet [data-qs]');if(!m||!strm)return;const FL=[1,2,3,4,5,6,8,10,12,15,20,24];let ix=FL.indexOf(strm.fps);if(ix<0)ix=6;ix=Math.max(0,Math.min(FL.length-1,ix+(m.dataset.qs==='+'?1:-1)));strm.fps=FL[ix];const f=$('#qrfps');if(f)f.textContent=strm.fps+' per second'});
+document.addEventListener('click',e=>{const q=e.target.closest('#sheet [data-qd]');if(q&&strm&&strm.args){S.set.qrDense=q.dataset.qd==='1';save();const a=strm.args;streamQR(a[0],a[1],a[2]);return}const m=e.target.closest('#sheet [data-qs]');if(!m||!strm)return;const FL=[1,2,3,4,5,6,8,10,12,15,20,24];let ix=FL.indexOf(strm.fps);if(ix<0)ix=6;ix=Math.max(0,Math.min(FL.length-1,ix+(m.dataset.qs==='+'?1:-1)));strm.fps=FL[ix];const f=$('#qrfps');if(f)f.textContent=strm.fps+' per second'});
 /* page + database + vault senders */
 shareNodeQR=async function(id){
  const n=S.nodes[id];if(!n||n.kind!=='page')return;
@@ -4532,6 +4559,130 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   }
  }catch(e){}
 })();
+/* Share as a link: the signed message rides in the #fragment of the web address. The fragment is never sent to a server, so GitHub Pages only ever serves the app. */
+(function(){
+ const LIMIT=8000,TTLS=[[600000,'10 min'],[3600000,'1 hour'],[86400000,'1 day']],OKT=['page','text','id'];
+ let C=null; /* {title,obj,link} */
+ const baseUrl=()=>{
+  let b=String((S.set&&S.set.linkBase)||'').trim();
+  if(b){if(!/^https?:\/\//i.test(b))b='https://'+b;return b.replace(/[#?].*$/,'')}
+  if(/^https?:$/.test(location.protocol)&&location.hostname!=='appassets.androidplatform.net')return location.origin+location.pathname;
+  return '';
+ };
+ const ttl=()=>{const v=+(S.set&&S.set.linkTtl);return TTLS.some(t=>t[0]===v)?v:3600000};
+ const once=()=>!(S.set&&S.set.linkOnce===false);
+ async function build(ms){
+  const b=baseUrl();if(!b||!C)return '';
+  const o=Object.assign({},C.obj,{exp:Date.now()+(ms===undefined?ttl():ms)});if(once())o.once=1;
+  const u8=await sealBytes(o);return b+'#MN1.'+flagCh(u8)+'.'+b64u(u8.subarray(1));
+ }
+ function askBase(){
+  openSheet(`<h3>Link address</h3><p class="hint">Links open the web version of Margin Notes. Type the address where you host it, for example https://yourname.github.io/margin-notes/</p><input class="inp" id="slkbase" placeholder="https://yourname.github.io/margin-notes/" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc((S.set&&S.set.linkBase)||'')}"><div class="btnrow"><button class="btn" data-slk="x">Cancel</button><button class="btn pri" data-slk="savebase">Save</button></div>`);
+ }
+ async function draw(){
+  if(!C)return;
+  const b=baseUrl();if(!b)return askBase();
+  C.link=await build();
+  const n=C.link.length,big=n>LIMIT;
+  openSheet(`<h3>Share as link</h3><p class="hint">“${esc(C.title)}” goes inside the link itself. Nothing is uploaded anywhere. Whoever opens it needs Margin Notes.</p>
+  <p class="hint" style="margin-bottom:2px">Link works for</p>
+  <div class="seg" id="slkttl">${TTLS.map(t=>`<button data-slk="ttl" data-v="${t[0]}" class="${t[0]===ttl()?'on':''}">${t[1]}</button>`).join('')}</div>
+  <div class="seg" id="slkonce"><button data-slk="once" data-v="1" class="${once()?'on':''}">Opens once per device</button><button data-slk="once" data-v="0" class="${once()?'':'on'}">Until it expires</button></div>
+  <p class="hint">${big?'Too long for a link ('+n+' characters). Use the QR codes for this one.':'The app that opens the link checks the expiry. “Once” is per device: a link forwarded to another phone still opens there once.'}</p>
+  <div class="btnrow"><button class="btn" data-slk="copy" ${big?'disabled':''}>Copy link</button><button class="btn pri" data-slk="share" ${big?'disabled':''}>Share…</button></div>
+  <button class="btn qrlink" data-slk="base">Address: ${esc(b.replace(/^https?:\/\//,'').slice(0,42))}. Change</button>`);
+ }
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('[data-slk]');if(!m)return;const k=m.dataset.slk;
+  if(k==='open')draw();
+  else if(k==='x')closeSheet();
+  else if(k==='ttl'){S.set.linkTtl=+m.dataset.v;save();draw()}
+  else if(k==='once'){S.set.linkOnce=m.dataset.v==='1';save();draw()}
+  else if(k==='base')askBase();
+  else if(k==='savebase'){const i=$('#slkbase'),v=i?i.value.trim():'';if(!/^(https?:\/\/)?[\w.-]+(:\d+)?(\/\S*)?$/i.test(v))return toast('That does not look like a web address');S.set.linkBase=v;save();draw()}
+  else if(k==='copy'){if(!C||!C.link)return;try{await navigator.clipboard.writeText(C.link);toast('Link copied')}catch(er){toast('Could not copy')}}
+  else if(k==='share'){if(!C||!C.link)return;const l=C.link;
+   try{if(window.NativeBridge&&NativeBridge.shareText)NativeBridge.shareText(C.title,l);
+    else if(navigator.share)await navigator.share({title:C.title,url:l});
+    else{await navigator.clipboard.writeText(l);toast('Link copied')}}catch(er){}}
+ });
+ /* the QR sheet gets a "Share as a link" button */
+ const _sq=showQR;
+ showQR=async function(title,obj,note,cacheKey){
+  const r=await _sq.apply(this,arguments);
+  try{
+   if(obj&&OKT.includes(obj.t)){
+    C={title:String(obj.title||title||'This'),obj};
+    const row=document.querySelector('#sheet .btnrow');
+    if(row&&!document.getElementById('slkopen'))row.insertAdjacentHTML('beforebegin',`<button class="opt" id="slkopen" data-slk="open">${ic('link',18)}Share as a link<small style="margin-left:auto;color:var(--muted)">expires</small></button>`);
+   }
+  }catch(er){}
+  return r;
+ };
+ /* opening: the link carries the message in its fragment */
+ const seen=()=>(S.set.lkSeen=S.set.lkSeen||[]);
+ async function idOf(str){const h=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str)));return Array.from(h.slice(0,8)).map(x=>x.toString(16).padStart(2,'0')).join('')}
+ const note=(h,p)=>openSheet(`<h3>${h}</h3><p class="hint">${p}</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
+ const _rm=receiveMsg;
+ receiveMsg=async function(str){
+  let r=null;try{r=await openMsg(str)}catch(er){}
+  const o=r&&r.obj;
+  if(o&&typeof o.exp==='number'){
+   if(Date.now()>o.exp+120000)return note('This link has expired','Ask the sender to make a new one.');
+   if(o.once){
+    const id=await idOf(String(str)),a=seen();
+    if(a.includes(id))return note('This link was already used','Each link opens once on a device. Ask the sender for a new one.');
+    a.push(id);if(a.length>300)a.splice(0,a.length-300);save();
+   }
+  }
+  return _rm.apply(this,arguments);
+ };
+ function takeHash(){
+  const m=/^#(MN1\.[A-Za-z0-9_.\-]+)$/.exec(location.hash||'');if(!m)return;
+  try{history.replaceState(null,'',location.pathname+location.search)}catch(er){}
+  let tries=0;const go=()=>{if(!(window.__receiveShared&&S&&S.nodes)&&tries++<40)return setTimeout(go,200);try{window.__receiveShared('',m[1])}catch(er){}};
+  setTimeout(go,500);
+ }
+ takeHash();addEventListener('hashchange',takeHash);
+ window.__sharelink={open:(title,obj)=>{C={title,obj};return draw()},build:async ms=>{const l=await build(ms);if(C)C.link=l;return l},base:baseUrl};
+})();
+/* Tap to share over NFC (Android app only): for two minutes this phone acts like an NFC tag. The other phone opens Margin Notes by itself. */
+(function(){
+ const NFCMAX=2400,OKT=['page','text','id'];
+ const nb=()=>window.NativeBridge&&typeof NativeBridge.nfcState==='function'?NativeBridge:null;
+ let C=null;
+ const stopNfc=()=>{try{const n=nb();if(n)n.nfcStop()}catch(er){}};
+ try{const _cs=closeSheet;closeSheet=function(){stopNfc();return _cs.apply(this,arguments)}}catch(er){}
+ async function start(){
+  const n=nb();if(!n||!C)return;
+  const st=n.nfcState();
+  if(st===1)return openSheet(`<h3>NFC is switched off</h3><p class="hint">Turn NFC on in your phone settings, then try again.</p><div class="btnrow"><button class="btn" data-nfc="x">Close</button><button class="btn pri" data-nfc="settings">Open NFC settings</button></div>`);
+  if(st!==2)return toast('This phone cannot share by tap');
+  let tok;try{const u8=await sealBytes(C.obj);tok='MN1.'+flagCh(u8)+'.'+b64u(u8.subarray(1))}catch(er){return toast('Could not prepare that')}
+  if(tok.length>NFCMAX)return toast('Too big for a tap. Use the QR codes or a link.');
+  openSheet(`<h3>Tap to share</h3><p class="hint">“${esc(C.title)}”. Unlock both phones and hold their backs together for a second. The other phone opens Margin Notes by itself and needs NFC switched on. This stops after 2 minutes.</p><div class="btnrow"><button class="btn pri" data-nfc="x">Done</button></div>`);
+  if(!n.nfcShow(tok))toast('Could not start NFC');
+ }
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-nfc]');if(!m)return;const k=m.dataset.nfc;
+  if(k==='open')start();
+  else if(k==='x'){stopNfc();closeSheet()}
+  else if(k==='settings'){try{nb().nfcSettings()}catch(er){}}
+ });
+ const _sq=showQR;
+ showQR=async function(title,obj,note,cacheKey){
+  const r=await _sq.apply(this,arguments);
+  try{
+   const n=nb();
+   if(n&&obj&&OKT.includes(obj.t)&&n.nfcState()!==0){
+    C={title:String(obj.title||title||'This'),obj};
+    const row=document.querySelector('#sheet .btnrow');
+    if(row&&!document.getElementById('nfcopen'))row.insertAdjacentHTML('beforebegin',`<button class="opt" id="nfcopen" data-nfc="open">${ic('send',18)}Tap phones together<small style="margin-left:auto;color:var(--muted)">NFC</small></button>`);
+   }
+  }catch(er){}
+  return r;
+ };
+})();
 /* Connect: a QR (or pasted code) sets up a direct, encrypted device-to-device link; then pages and vaults go over it */
 (function(){
  Object.assign(IC,{link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'});
@@ -5194,7 +5345,7 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
 /* ---------- sound transfer: ggwave (data) and SSTV (pictures) ---------- */
 (function(){
  const st=document.createElement('style');st.textContent='.snd .bar{height:8px;border-radius:6px;background:var(--accent-soft);overflow:hidden;margin:10px 0}.snd .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}.snd .lvl{height:4px;border-radius:3px;background:var(--accent-soft);overflow:hidden;margin:8px 0}.snd .lvl i{display:block;height:100%;width:0;background:var(--muted);transition:width .1s}.snd canvas{display:block;width:100%;max-width:340px;aspect-ratio:5/4;margin:8px auto;border-radius:12px;background:#111}.snd .big{font-size:15px;font-weight:600;text-align:center;margin:6px 0}';document.head.appendChild(st);
- const PK=96,MAXB=12000,SEC={n:13.45,f:9.25,x:5.1},PROTO={n:'GGWAVE_PROTOCOL_AUDIBLE_NORMAL',f:'GGWAVE_PROTOCOL_AUDIBLE_FAST',x:'GGWAVE_PROTOCOL_AUDIBLE_FASTEST'};
+ const PK=96,MAXB=12000,SEC={n:13.45,f:9.25,x:5.1},PROTO={n:'GGWAVE_PROTOCOL_AUDIBLE_NORMAL',f:'GGWAVE_PROTOCOL_AUDIBLE_FAST',x:'GGWAVE_PROTOCOL_AUDIBLE_FASTEST'},PROTO_US={n:'GGWAVE_PROTOCOL_ULTRASOUND_NORMAL',f:'GGWAVE_PROTOCOL_ULTRASOUND_FAST',x:'GGWAVE_PROTOCOL_ULTRASOUND_FASTEST'};
  const kb=n=>n<1024?n+' B':Math.round(n/1024)+' KB';
  const fmt=s=>s<90?Math.round(s)+' s':Math.round(s/6)/10+' min';
  const alive=()=>!!document.getElementById('snd');
@@ -5228,13 +5379,16 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
  async function sendData(title,obj){
   let u8;try{u8=await sealBytes(obj)}catch(e){return toast('Could not prepare that')}
   if(u8.length>MAXB)return openSheet(`<h3>Too big for sound</h3><p class="hint">This is ${kb(u8.length)} once packed. Sound carries about 10 to 20 bytes a second, so it works for short pages. Use the QR codes for this one.</p><div class="btnrow"><button class="btn pri" data-snd="x">Close</button></div>`);
-  SX={title,u8,n:Math.ceil(u8.length/PK),tid:Math.floor(Math.random()*65536),spd:'f'};drawSendData();
+  SX={title,u8,orig:u8,lock:null,n:Math.ceil(u8.length/PK),tid:Math.floor(Math.random()*65536),spd:'f',us:!!(S.set&&S.set.sndUs)};drawSendData();
  }
  function drawSendData(){
   const s=SX;if(!s)return;
   openSheet(`<div class="snd" id="snd"><h3>Send by sound</h3><p class="hint">“${esc(s.title||'Page')}” · ${kb(s.u8.length)} in ${s.n} part${s.n>1?'s':''}. Turn the volume up and hold the phones close, speaker toward the other microphone.</p>
   <div class="seg" id="sdsp">${[['n','Normal'],['f','Fast'],['x','Fastest']].map(([k,l])=>`<button data-snd="spd" data-v="${k}" class="${k===s.spd?'on':''}">${l}</button>`).join('')}</div>
+  <div class="seg" id="sdus" style="margin-top:8px"><button data-snd="us" data-v="0" class="${s.us?'':'on'}">Audible</button><button data-snd="us" data-v="1" class="${s.us?'on':''}">Near-silent</button></div>
+  <p class="hint" id="sdusn" style="text-align:center">${s.us?'High-pitched, about 15 to 19 kHz. Many people cannot hear it, some can. Phone speakers and microphones are weaker up there, so keep the phones close and try Normal speed first.':'Audible chirps. The most reliable.'}</p>
   <p class="hint" id="sdest" style="text-align:center"></p>
+  <button class="opt" data-snd="lock">${ic('lock',18)}${s.lock?'Locked: '+esc(s.lock)+'. Change':'Lock with a passphrase or a device'}<small style="margin-left:auto;color:var(--muted)">${s.lock?'':'optional'}</small></button>
   <div class="btnrow"><button class="btn" data-snd="x">Cancel</button><button class="btn pri" data-snd="go">Start</button></div></div>`);
   estData();
  }
@@ -5248,7 +5402,7 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
   for(let round=1;round<=4&&!me.stop&&alive();round++){
    for(let i=0;i<s.n&&!me.stop&&alive();i++){
     const d=s.u8.subarray(i*PK,(i+1)*PK),h=new Uint8Array(6+d.length);h[0]=s.tid>>8;h[1]=s.tid&255;h[2]=s.n>>8;h[3]=s.n&255;h[4]=i>>8;h[5]=i&255;h.set(d,6);
-    const w=gg.g.encode(gg.tx,b64u(h),gg.g.ProtocolId[PROTO[s.spd]],50),f=new Float32Array(w.buffer,w.byteOffset,w.byteLength/4);
+    const w=gg.g.encode(gg.tx,b64u(h),gg.g.ProtocolId[(s.us?PROTO_US:PROTO)[s.spd]],50),f=new Float32Array(w.buffer,w.byteOffset,w.byteLength/4);
     const t=$('#sdtx'),b=$('#sdbar');if(t)t.textContent=`Part ${i+1} of ${s.n}`+(round>1?` · round ${round}`:'');if(b)b.style.width=((i+1)/s.n*100)+'%';
     await play(ctx,f);if(!me.stop)await play(ctx,gap);
    }
@@ -5345,7 +5499,7 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
   if(me.got===n){
    let len=0;me.parts.forEach(p=>len+=p.length);const u8=new Uint8Array(len);let o=0;me.parts.forEach(p=>{u8.set(p,o);o+=p.length});
    stopListen();closeSheet();
-   const str='MN1.'+(u8[0]?'z':'r')+'.'+b64u(u8.subarray(1));
+   const str='MN1.'+flagCh(u8)+'.'+b64u(u8.subarray(1));
    try{window.__qr.feed(str,true)}catch(e){toast('Could not read what arrived')}
   }
  }
@@ -5364,7 +5518,13 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
   else if(k==='x'){stopTx();stopListen();SX=null;SP=null;closeSheet()}
   else if(k==='stop'){stopTx();SX=null;SP=null;closeSheet()}
   else if(k==='spd'){if(SX){SX.spd=m.dataset.v;document.querySelectorAll('#sdsp button').forEach(b=>b.classList.toggle('on',b===m));estData()}}
+  else if(k==='us'){if(SX){SX.us=m.dataset.v==='1';try{S.set.sndUs=SX.us;save()}catch(er){}document.querySelectorAll('#sdus button').forEach(b=>b.classList.toggle('on',b===m));const n=$('#sdusn');if(n)n.textContent=SX.us?'High-pitched, about 15 to 19 kHz. Many people cannot hear it, some can. Phone speakers and microphones are weaker up there, so keep the phones close and try Normal speed first.':'Audible chirps. The most reliable.'}}
   else if(k==='go')runSend();
+  else if(k==='lock'){const s=SX;if(!s||!window.__lock)return;e.stopPropagation();window.__lock.choose(async cfg=>{
+   if(cfg===undefined){drawSendData();return}
+   try{if(cfg===null){s.u8=s.orig;s.lock=null}else{s.u8=await window.__lock.lockBytes(s.orig,cfg);s.lock=cfg.label}
+    s.n=Math.ceil(s.u8.length/PK);s.tid=Math.floor(Math.random()*65536)}catch(er){toast('Could not lock it')}
+   drawSendData()},s.lock?{}:null)}
   else if(k==='vis'){if(SP){SP.vis=+m.dataset.v;document.querySelectorAll('#spm button').forEach(b=>b.classList.toggle('on',b===m))}}
   else if(k==='pgo')runPicture();
   else if(k==='tab'){if(L)setTab(L,m.dataset.v)}
@@ -5414,6 +5574,248 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
   }else quickSave();
  });
  paint();
+})();
+/* ---------- share sheet files (AirDrop, Quick Share) and Nearby (Android, offline, QR handshake) ---------- */
+(function(){
+ const NB=window.NativeBridge;
+ const nbOK=()=>{try{return !!(NB&&NB.nearbySupported&&NB.nearbySend&&NB.nearbySupported())}catch(e){return false}};
+ const kbs=n=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
+ const fname=t=>(String(t||'').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-').slice(0,40)||'note');
+ /* ---- files through the phone's share sheet ---- */
+ async function shareBytes(name,mime,u8){
+  if(NB&&NB.shareFile){NB.shareFile(name,mime,b64(u8));return true}
+  const f=new File([u8],name,{type:mime});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:name});return true}catch(e){return !!(e&&e.name==='AbortError')}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=name;document.body.appendChild(a);a.click();a.remove();toast('Saved. Share it from your Files app');return true;
+ }
+ const canFiles=()=>!!(NB&&NB.shareFile)||!!(navigator.canShare&&(()=>{try{return navigator.canShare({files:[new File(['x'],'a.txt',{type:'text/plain'})]})}catch(e){return false}})());
+ const _sh=openShare;
+ openShare=function(id){_sh(id);const sh=$('#sheet');if(sh&&canFiles())sh.insertAdjacentHTML('beforeend',`<button class="opt" data-fs="page" data-id="${id}">${ic('send')}Share as a file<small style="margin-left:auto;color:var(--muted)">AirDrop, Quick Share…</small></button>`)};
+ const _ob=openBackup;
+ openBackup=function(){_ob.apply(this,arguments);const r=document.querySelector('#sheet .btnrow');if(r&&canFiles()&&!r.querySelector('[data-fs=vault]'))r.insertAdjacentHTML('beforeend','<button class="btn" data-fs="vault">Share file…</button>')};
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('[data-fs]');if(!m)return;const k=m.dataset.fs;e.stopPropagation();
+  if(k==='page'){const n=S.nodes[m.dataset.id];if(!n)return;closeSheet();
+   const data='---\ntitle: '+JSON.stringify(nm(n))+'\n---\n\n'+mdOf(n)+'\n';await shareBytes(fname(nm(n))+'.md','text/markdown',new TextEncoder().encode(data))}
+  else if(k==='vault'){
+   const st=S.set,vault=(st.saveFmt||'vault')==='vault';
+   if(st.saveEnc&&!sessionPw)return toast('Use Save now once to unlock your passphrase, then share');
+   if(vault&&!window.JSZip)return toast('The vault zip needs a connection. Choose Full backup in the save options');
+   toast('Preparing your file…');
+   try{const bytes=vault?await buildVaultZip():new TextEncoder().encode(payload(S));
+    let data=bytes,name='margin-'+(vault?'vault':'backup')+'-'+fileStamp()+(vault?'.zip':'.json'),mime=vault?'application/zip':'application/json';
+    if(st.saveEnc){data=await encryptBytes(bytes,sessionPw,vault?'zip':'json');name=name.replace(/\.\w+$/,'')+'-locked.json';mime='application/json'}
+    closeSheet();await shareBytes(name,mime,data)}catch(er){toast('Could not prepare the file')}
+  }
+ },true);
+ /* a vault zip shared into the app opens the same preview as "Open a file" */
+ window.__receiveSharedZip=function(name,b){
+  try{const u=unb64(b);openBackup();setTimeout(()=>handleFile(new File([u],name||'shared.zip',{type:'application/zip'})),150)}catch(e){toast('Could not read that file')}
+ };
+ /* ---- Nearby ---- */
+ if(!NB||!NB.nearbySend)return;
+ const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
+ const AL='abcdefghjkmnpqrstuvwxyz23456789';
+ const newPub=()=>{const r=rnd(8);let s='';for(const x of r)s+=AL[x%AL.length];return s};
+ const aKey=async secret=>crypto.subtle.importKey('raw',await crypto.subtle.digest('SHA-256',new TextEncoder().encode('mn-nearby|'+secret)),'AES-GCM',false,['encrypt','decrypt']);
+ const encB=async(u8,secret)=>{const iv=rnd(12),ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await aKey(secret),u8)),o=new Uint8Array(12+ct.length);o.set(iv);o.set(ct,12);return o};
+ const decB=async(u8,secret)=>new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:u8.subarray(0,12)},await aKey(secret),u8.subarray(12)));
+ const st=document.createElement('style');st.textContent='.nbp .big{font-size:15px;font-weight:600;text-align:center;margin:8px 0}.nbp .bar{height:8px;border-radius:6px;background:var(--accent-soft);overflow:hidden;margin:10px 0}.nbp .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}';document.head.appendChild(st);
+ let NR=null,NS=null,LAST=null,timer=null;
+ const alive=()=>!!document.getElementById('nbp');
+ const setSt=t=>{const e=$('#nbst');if(e)e.textContent=t};
+ const setBar=p=>{const e=$('#nbbar');if(e)e.style.width=Math.max(0,Math.min(100,p*100))+'%'};
+ function stopAll(){clearTimeout(timer);try{NB.nearbyStop()}catch(e){}NR=null;NS=null}
+ const failMsg=a=>/denied|8034|8035/i.test(a)?a:a||'Something went wrong';
+ /* receive: this phone shows the code */
+ function openReceive(){
+  if(!nbOK())return openSheet(`<h3>Nearby is not available</h3><p class="hint">This needs Google Play services on your phone. You can still use the QR codes or sound.</p><div class="btnrow"><button class="btn pri" data-nb="x">Close</button></div>`);
+  stopAll();const pub=newPub(),secret=b64u(rnd(16));NR={pub,secret,got:0};
+  openSheet(`<div class="nbp" id="nbp"><h3>Receive from a nearby phone</h3><div class="qrbox" id="nbqr"></div><p class="big" id="nbst">Starting…</p><div class="bar"><i id="nbbar"></i></div>
+  <p class="hint" style="text-align:center">On the other phone, open what you want to send, tap Share, choose “Send to a nearby phone”, and scan this code. No internet or Wi-Fi needed. Keep the phones close.</p><div class="btnrow"><button class="btn" data-nb="x">Cancel</button></div></div>`);
+  $('#nbqr').appendChild(qrCanvas('MNN1.'+pub+'.'+secret,300));
+  try{NB.nearbyReceive(pub)}catch(e){setSt('Could not start Nearby')}
+ }
+ /* send: scan the other phone's code */
+ async function startSend(){
+  if(!LAST)return;NS={u8:LAST.u8,title:LAST.title};closeSheet();
+  await openScanner();const h=document.querySelector('#qrscan .qrhint');if(h)h.textContent='Scan the code on the other phone’s “Receive from a nearby phone” screen.';
+ }
+ let lastNote=0;
+ const _qf=qrFeed;
+ qrFeed=async function(txt,single){
+  const m=/^MNN1\.([a-z0-9]{8})\.([A-Za-z0-9_-]{16,})$/.exec(String(txt||'').trim());
+  if(!m)return _qf.apply(this,arguments);
+  if(!NS){if(Date.now()-lastNote>4000){lastNote=Date.now();toast('On the sending phone, tap Share, then Send to a nearby phone')}return false}
+  closeScanner();runSend(m[1],m[2]);return true;
+ };
+ async function runSend(pub,secret){
+  const s=NS;if(!s)return;
+  openSheet(`<div class="nbp" id="nbp"><h3>Sending to a nearby phone</h3><p class="big" id="nbst">Looking for the other phone…</p><div class="bar"><i id="nbbar"></i></div><p class="hint" style="text-align:center">Keep both phones close and the other phone’s Receive screen open.</p><div class="btnrow"><button class="btn" data-nb="x" id="nbx">Cancel</button></div></div>`);
+  try{const enc=await encB(s.u8,secret);s.total=enc.length;NB.nearbySend(pub,b64(enc))}catch(e){setSt('Could not start Nearby');return}
+  clearTimeout(timer);timer=setTimeout(()=>{if(alive()&&NS&&!NS.connected){setSt('Could not find the other phone. Is its Receive screen open?');try{NB.nearbyStop()}catch(e){}}},35000);
+ }
+ window.__nearby=async function(k,a){
+  if(!alive())return;
+  if(NR){
+   if(k==='advertising')setSt('Ready. Scan this code on the other phone.');
+   else if(k==='connecting'||k==='connected'){setSt('Connected. Receiving…')}
+   else if(k==='progress'){setSt('Receiving… '+kbs(+a||0))}
+   else if(k==='received'){
+    const secret=NR.secret;setSt('Checking…');
+    try{const u8=await decB(unb64(a),secret);stopAll();closeSheet();window.__qr.feed('MN1.'+flagCh(u8)+'.'+b64u(u8.subarray(1)),true)}
+    catch(e){stopAll();setSt('Could not read what arrived. Try again.')}
+   }
+   else if(k==='perm-denied')setSt('Nearby needs permission. Allow it in the prompt, or in Settings → Apps → Margin Notes.');
+   else if(k==='error')setSt(failMsg(a));
+  }else if(NS){
+   if(k==='discovering')setSt('Looking for the other phone…');
+   else if(k==='connecting'){NS.connected=true;clearTimeout(timer);setSt('Connecting…')}
+   else if(k==='connected'||k==='sending'){NS.connected=true;clearTimeout(timer);setSt('Sending…')}
+   else if(k==='progress'){const p=NS.total?(+a||0)/NS.total:0;setBar(p);setSt('Sending… '+Math.round(p*100)+'%')}
+   else if(k==='sent'){setBar(1);setSt('Sent');const x=$('#nbx');if(x)x.textContent='Done';NS=null;clearTimeout(timer)}
+   else if(k==='perm-denied')setSt('Nearby needs permission. Allow it in the prompt, or in Settings → Apps → Margin Notes.');
+   else if(k==='error'){clearTimeout(timer);setSt(failMsg(a))}
+  }
+ };
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-nb]');if(!m)return;const k=m.dataset.nb;
+  if(k==='x'){stopAll();closeSheet()}
+  else if(k==='send')startSend();
+  else if(k==='recv'){closeScanner();openReceive()}
+ });
+ /* entry points */
+ const _sq=streamQR;
+ streamQR=async function(title,u8,note){
+  LAST={u8,title};await _sq.apply(this,arguments);
+  const r=document.querySelector('#sheet .btnrow');if(r&&nbOK()&&!document.querySelector('#sheet [data-nb=send]'))r.insertAdjacentHTML('beforebegin',`<button class="opt" data-nb="send">${ic('scan',18)}Send to a nearby phone<small style="margin-left:auto;color:var(--muted)">no internet needed</small></button>`);
+ };
+ const _os=openScanner;
+ openScanner=async function(){await _os.apply(this,arguments);const f=document.querySelector('#qrscan .qrfoot');if(f&&nbOK()&&!f.querySelector('[data-nb=recv]'))f.insertAdjacentHTML('beforeend','<button class="btn qrlink" data-nb="recv">Receive from a nearby phone</button>')};
+})();
+/* haptics: a light tick on every tappable control (native on Android, vibrate elsewhere, switch trick on iPhone) */
+(function(){
+ const NB=window.NativeBridge,on=()=>S.set.haptics!==false;
+ const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ let sw=null,last=0;
+ function iosTick(){
+  if(!sw){const l=document.createElement('label');l.style.cssText='position:fixed;left:-99px;top:-99px;opacity:0;pointer-events:none';l.setAttribute('aria-hidden','true');const i=document.createElement('input');i.type='checkbox';i.setAttribute('switch','');i.tabIndex=-1;l.appendChild(i);document.body.appendChild(l);sw=l}
+  sw.click();
+ }
+ function buzz(kind){
+  if(!on())return;const n=performance.now();if(n-last<35)return;last=n;
+  try{if(NB&&NB.haptic)NB.haptic(kind|0);else if(navigator.vibrate)navigator.vibrate(kind?12:8);else if(IOS)iosTick()}catch(e){}
+ }
+ const SEL='button,.btn,.opt,.pill,.ib,.fab,.tc,.tt,.ti,[role=button],[data-a],summary,label.crow,.grip,.cvbtn,select,input[type=checkbox],input[type=radio],a[href]';
+ document.addEventListener('click',e=>{
+  if(!e.isTrusted)return;
+  const t=e.target.closest&&e.target.closest(SEL);if(!t||t.disabled)return;
+  if(t.closest('.txt,[contenteditable=true]')&&!t.closest('.grip,button'))return;
+  buzz(t.closest('.fab,.btn.pri')?1:0);
+ },true);
+ window.__haptic=buzz;
+ const _op=openPaper;
+ openPaper=function(){_op.apply(this,arguments);const sh=document.getElementById('sheet');if(sh&&!sh.querySelector('#hapOn')){sh.insertAdjacentHTML('beforeend',`<label class="crow" style="margin-top:12px"><input type="checkbox" id="hapOn" ${on()?'checked':''}>Haptic feedback on taps</label>`);
+  sh.querySelector('#hapOn').addEventListener('change',e=>{S.set.haptics=e.target.checked;save();if(e.target.checked)buzz(1)})}};
+})();
+/* ---------- locked transfers: passphrase lock, or lock to one trusted device ---------- */
+(function(){
+ const enc=s=>new TextEncoder().encode(s),ITER=150000;
+ const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
+ const cat=(...a)=>{let n=0;a.forEach(x=>n+=x.length);const o=new Uint8Array(n);let p=0;a.forEach(x=>{o.set(x,p);p+=x.length});return o};
+ async function pbKey(pw,salt){const k=await crypto.subtle.importKey('raw',enc(pw),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:ITER,hash:'SHA-256'},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+ async function hkKey(bits){const k=await crypto.subtle.importKey('raw',bits,'HKDF',false,['deriveKey']);return crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt:new Uint8Array(32),info:enc('mn-lock-v1')},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+ const rid=async pub=>new Uint8Array(await crypto.subtle.digest('SHA-256',pub)).slice(0,4);
+ /* inner = sealed bytes (flag 0 or 1). Locked bytes start with flag 2 (passphrase) or 3 (device). */
+ async function lockBytes(u8,cfg){
+  if(cfg.type==='p'){
+   const salt=rnd(16),iv=rnd(12),ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await pbKey(cfg.pw,salt),u8));
+   return cat(Uint8Array.of(2),salt,iv,ct);
+  }
+  const rpub=unb64u(cfg.ek),rk=await crypto.subtle.importKey('raw',rpub,{name:'ECDH',namedCurve:'P-256'},false,[]);
+  const ep=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'ECDH',public:rk},ep.privateKey,256),epub=new Uint8Array(await crypto.subtle.exportKey('raw',ep.publicKey));
+  const iv=rnd(12),ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await hkKey(bits),u8));
+  return cat(Uint8Array.of(3),await rid(rpub),epub,iv,ct);
+ }
+ async function unlockPass(b,pw){const salt=b.subarray(1,17),iv=b.subarray(17,29);return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv},await pbKey(pw,salt),b.subarray(29)))}
+ async function unlockDev(b){
+  const k=await devKey();if(!k.ekPriv)throw new Error('nokey');
+  if(Array.from(b.subarray(1,5)).join()!==Array.from(await rid(k.ekRaw)).join())throw new Error('other');
+  const epub=b.subarray(5,70),iv=b.subarray(70,82),pk=await crypto.subtle.importKey('raw',epub,{name:'ECDH',namedCurve:'P-256'},false,[]);
+  const bits=await crypto.subtle.deriveBits({name:'ECDH',public:pk},k.ekPriv,256);
+  return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv},await hkKey(bits),b.subarray(82)));
+ }
+ /* ---- receiving ---- */
+ const _rm=receiveMsg;
+ let pend=null;
+ const asStr=inner=>'MN1.'+flagCh(inner)+'.'+b64u(inner.subarray(1));
+ receiveMsg=async function(str){
+  const m=/^MN1\.([pd])\.([A-Za-z0-9_-]+)$/.exec(String(str||''));
+  if(!m)return _rm.apply(this,arguments);
+  let b;try{b=cat(Uint8Array.of(m[1]==='p'?2:3),unb64u(m[2]))}catch(e){return _rm(str)}
+  if(m[1]==='p'){
+   pend={b};
+   openSheet(`<h3>This code is locked</h3><p class="hint">Enter the passphrase the sender chose. Nothing is shown or imported until it is right.</p><input class="inp" type="password" id="lkpw" autocomplete="off" placeholder="Passphrase"><div class="btnrow"><button class="btn" data-lk="x">Cancel</button><button class="btn pri" data-lk="unlock">Unlock</button></div>`);
+   setTimeout(()=>{const i=$('#lkpw');i&&i.focus()},80);return;
+  }
+  try{const inner=await unlockDev(b);if(inner[0]>1)throw new Error('nest');return _rm(asStr(inner))}
+  catch(e){return openSheet(`<h3>Locked for another device</h3><p class="hint">${e&&e.message==='other'?'This code was made for one specific device, and this is not it.':'This locked code could not be opened here.'} Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-lk="x">Close</button></div>`)}
+ };
+ async function doUnlock(){
+  const pw=($('#lkpw')||{}).value||'';if(!pend||!pw)return;const btn=document.querySelector('[data-lk=unlock]');if(btn){btn.disabled=true;btn.textContent='Unlocking…'}
+  try{const inner=await unlockPass(pend.b,pw);if(inner[0]>1)throw new Error('nest');pend=null;closeSheet();_rm(asStr(inner))}
+  catch(e){if(btn){btn.disabled=false;btn.textContent='Unlock'}toast('That passphrase did not work')}
+ }
+ /* ---- sending: the chooser ---- */
+ function choose(cb,cur){
+  const devs=(S.set.trusted||[]);
+  const rows=devs.map((d,i)=>d.ek?`<button class="opt" data-lk="dev" data-i="${i}">${ic('page',18)}<span style="min-width:0"><b>${esc(d.name||'Device')}</b><small style="display:block;color:var(--muted)">Only this device can open it. No passphrase.</small></span></button>`
+   :`<div class="opt" style="opacity:.55;cursor:default">${ic('page',18)}<span style="min-width:0"><b>${esc(d.name||'Device')}</b><small style="display:block;color:var(--muted)">Needs one message from that device first.</small></span></div>`).join('');
+  window.__lockCb=cb;
+  openSheet(`<h3>Lock this code</h3><p class="hint">Without a lock, anyone who sees or records the codes or sound can read them.</p>
+  <button class="opt" data-lk="pw">${ic('lock',18)}With a passphrase<small style="margin-left:auto;color:var(--muted)">you tell them it</small></button>
+  ${rows}${devs.length?'':'<p class="hint">Trusted devices appear here after you add them under Devices and trust.</p>'}
+  ${cur?`<button class="opt" data-lk="off">Remove the lock</button>`:''}
+  <div class="btnrow"><button class="btn" data-lk="back">Back</button></div>`);
+ }
+ function askPw(){
+  openSheet(`<h3>Choose a passphrase</h3><p class="hint">At least 6 characters. Tell the other person separately, out loud or in a message, not through the same codes.</p><input class="inp" type="password" id="lkn" autocomplete="new-password" placeholder="Passphrase"><div class="btnrow"><button class="btn" data-lk="back">Back</button><button class="btn pri" data-lk="setpw">Lock</button></div>`);
+  setTimeout(()=>{const i=$('#lkn');i&&i.focus()},80);
+ }
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('#sheet [data-lk]');if(!m)return;const k=m.dataset.lk,cb=window.__lockCb;
+  if(k==='unlock')doUnlock();
+  else if(k==='x'){pend=null;closeSheet()}
+  else if(k==='pw')askPw();
+  else if(k==='setpw'){const pw=($('#lkn')||{}).value||'';if(pw.length<6)return toast('Use at least 6 characters');const f=cb;window.__lockCb=null;f&&f({type:'p',pw,label:'Passphrase'})}
+  else if(k==='dev'){const d=(S.set.trusted||[])[+m.dataset.i];if(!d||!d.ek)return;const f=cb;window.__lockCb=null;f&&f({type:'d',ek:d.ek,label:d.name||'Device'})}
+  else if(k==='off'){const f=cb;window.__lockCb=null;f&&f(null)}
+  else if(k==='back'){const f=cb;window.__lockCb=null;f&&f(undefined)}
+  else if(k==='open'){e.stopPropagation();openLockFromQR()}
+ },true);
+ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lkpw')doUnlock();if(e.key==='Enter'&&e.target.id==='lkn'){const b=document.querySelector('[data-lk=setpw]');b&&b.click()}});
+ /* ---- QR sheet integration ---- */
+ let CUR=null;
+ const _sq=streamQR;
+ streamQR=async function(title,u8,note){
+  if(u8[0]<2&&!(CUR&&CUR.relock)){CUR={orig:u8,title,note,cfg:null}}
+  await _sq.apply(this,arguments);
+  const r=document.querySelector('#sheet .btnrow');if(!r||!CUR||document.querySelector('#sheet [data-lk=open]'))return;
+  r.insertAdjacentHTML('beforebegin',`<button class="opt" data-lk="open">${ic('lock',18)}${CUR.cfg?'Locked: '+esc(CUR.cfg.label)+'. Change':'Lock this code'}<small style="margin-left:auto;color:var(--muted)">${CUR.cfg?'':'optional'}</small></button>`);
+ };
+ function openLockFromQR(){
+  const c=CUR;if(!c)return;
+  choose(async cfg=>{
+   if(cfg===undefined){CUR.relock=true;await streamQR(c.title,c.cfg?c.locked:c.orig,c.note);CUR.relock=false;return}
+   openSheet('<h3>Locking…</h3><p class="hint">This takes a moment.</p>');
+   try{
+    if(cfg===null){c.cfg=null;c.locked=null;CUR.relock=true;await streamQR(c.title,c.orig,c.note);CUR.relock=false;return}
+    const lk=await lockBytes(c.orig,cfg);c.cfg=cfg;c.locked=lk;CUR.relock=true;await streamQR(c.title+' (locked)',lk,c.note);CUR.relock=false;
+   }catch(er){toast('Could not lock it');CUR.relock=true;await streamQR(c.title,c.orig,c.note);CUR.relock=false}
+  },c.cfg);
+ }
+ window.__lock={choose,lockBytes};
 })();
 /* ---------- hold on a line to select it (touch) ---------- */
 let hs=null,hsSwallow=false,hx=null,hxRaf=0;
