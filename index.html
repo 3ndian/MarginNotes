@@ -1162,7 +1162,7 @@ function closeSheet(){$('#sw').hidden=true;$('#sheet').innerHTML=''}
 $('#swbg').addEventListener('click',closeSheet);
 function nodeMenu(id){
  const n=S.nodes[id];
- if(id==='root')return openSheet(`<h3>Home</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button>${window.NativeBridge&&NativeBridge.openHtml?`<button class="opt" data-m="openhtml">${ic('page')}Open an HTML file</button>`:''}<button class="opt" data-m="all">${ic('all')}All notes</button><button class="opt" data-m="canvas">${ic('table')}Canvas</button><button class="opt" data-m="qrscan">${ic('scan')}Scan QR code</button><button class="opt" data-snd="listen">${ic('recv')}Listen for sound</button><button class="opt" data-xf="pick">${ic('send')}Send files by QR</button><button class="opt" data-m="devices">${ic('sliders')}Devices and trust</button><button class="opt" data-m="note" data-id="root">${ic('page')}New page</button><button class="opt" data-m="dbpage" data-id="root">${ic('table')}New database page</button><button class="opt" data-m="folder" data-id="root">${ic('folder')}New folder</button>`);
+ if(id==='root')return openSheet(`<h3>Home</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button>${window.NativeBridge&&NativeBridge.openHtml?`<button class="opt" data-m="openhtml">${ic('page')}Open an HTML file</button>`:''}<button class="opt" data-m="all">${ic('all')}All notes</button><button class="opt" data-m="canvas">${ic('table')}Canvas</button><button class="opt" data-m="qrscan">${ic('scan')}Scan QR code</button><button class="opt" data-snd="listen">${ic('recv')}Listen for sound</button><button class="opt" data-xf="pick">${ic('send')}Send a file</button><button class="opt" data-m="devices">${ic('sliders')}Devices and trust</button><button class="opt" data-m="note" data-id="root">${ic('page')}New page</button><button class="opt" data-m="dbpage" data-id="root">${ic('table')}New database page</button><button class="opt" data-m="folder" data-id="root">${ic('folder')}New folder</button>`);
  openSheet(`<h3>${esc(nm(n))}</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button>
  ${n.kind==='page'&&id===S.cur?`<button class="opt" data-m="find">${ic('search')}Find on this page</button><button class="opt" data-m="stats">${ic('all')}Word count</button>`:''}
  <button class="opt" data-m="pin" data-id="${id}">${ic('star')}${(S.pins||[]).includes(id)?'Unpin from sidebar':'Pin to sidebar'}</button>
@@ -3366,7 +3366,7 @@ function cleanAnyFiles(a){
   if(!f||typeof f!=='object'||typeof f.d!=='string')continue;
   const ext=extOf(f.name);if(!FT[ext])continue;
   let u8;try{u8=unb64u(f.d)}catch(e){continue}
-  if(u8.length<1||u8.length>8000000||total+u8.length>24000000||!ftMagicOk(ext,u8))continue;
+  if(u8.length<1||u8.length>20000000||total+u8.length>40000000||!ftMagicOk(ext,u8))continue;
   total+=u8.length;
   const name=sstr(f.name,100).replace(/[^\w.\- ]+/g,'_').replace(/\.[A-Za-z0-9]{1,5}$/,'').trim().slice(0,70)||'file';
   out.push({id:'',name:name+'.'+ext,ext,m:FT[ext],size:u8.length,url:'data:'+FT[ext]+';base64,'+b64std(u8)});
@@ -3524,6 +3524,7 @@ async function receiveMsg(str){
   return openSheet(`<h3>Received ${files.length} file${files.length>1?'s':''}</h3>${who}${filesHtml(files)}<p class="hint">Nothing is opened or imported. Tap the arrow to save a file, or add them to a page.</p><div class="btnrow"><button class="btn" data-qr="close">Close</button><button class="btn" data-qr="picspage">Add to a page</button></div>`);
  }
  if(o.t==='img'&&window.__imgRecv)return window.__imgRecv(r,o,who,from,known);
+ if(o.t==='fpart'&&window.__fpartRecv)return window.__fpartRecv(r,o,who,from,known);
  openSheet(`<h3>Unsupported code</h3><p class="hint">This code comes from a newer version. Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
 }
 function addTrust(){if(QP&&QP.k&&!isTrusted(QP.k)){const e=LASTEK&&LASTEK.k===QP.k?LASTEK.ek:'';trusted().push({k:QP.k,name:QP.name,t:Date.now(),ek:e||undefined});save()}}
@@ -4895,7 +4896,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   };
   f.click();
  }
- document.addEventListener('click',e=>{const m=e.target.closest('[data-xf]');if(!m)return;if(m.dataset.xf==='pick'){closeSheet();pickAny()}});
+ document.addEventListener('click',e=>{const m=e.target.closest('[data-xf]');if(!m)return;if(m.dataset.xf==='pick'){closeSheet();window.__pickSend?window.__pickSend():pickAny()}});
  /* pictures that arrived on their own can become a page */
  document.addEventListener('click',e=>{
   const m=e.target.closest('[data-qr="picspage"]');if(!m||!QP||QP.kind!=='files')return;
@@ -5151,6 +5152,250 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
     delete b.src}}
   return r};
  window.__docs={DOC,putDoc,openDoc,get view(){return V}};
+})();
+
+/* Send a file: pick files, then send them by QR, by QR in parts when they are big, or over a Connect link. No page needed. */
+(function(){
+ const QR_CAP=1000000,PART=700000,MAXF=20000000,MAXT=40000000,MAXPARTS=8000000;
+ const kb=n=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
+ const est=raw=>{const s=Math.max(5,Math.round(raw*1.3/2200));return s<90?s+' seconds':s<5400?Math.round(s/60)+' minutes':(Math.round(s/360)/10)+' hours'};
+ const tile=f=>f.m.startsWith('image/')&&f.u8.length<400000?`<img src="data:${f.m};base64,${b64std(f.u8)}" alt="">`:`<div class="qft">${esc((extOf(f.name)||'file').slice(0,4).toUpperCase())}</div>`;
+ const ACCEPT=Object.keys(FT).map(x=>'.'+x).join(',');
+ let SF=null; /* {fl,sel:Set} */
+ const raw=()=>[...SF.sel].reduce((a,i)=>a+SF.fl[i].u8.length,0);
+ const chosen=()=>[...SF.sel].sort((a,b)=>a-b).map(i=>SF.fl[i]);
+ const linked=()=>{try{const s=window.__link&&window.__link.state();return !!(s&&s.state==='open')}catch(e){return false}};
+
+ async function pick(){
+  const f=document.createElement('input');f.type='file';f.multiple=true;f.accept=ACCEPT;f.style.cssText='position:fixed;left:-999px;opacity:0';document.body.appendChild(f);
+  f.onchange=async()=>{
+   const list=[...f.files];f.remove();if(!list.length)return;
+   const fl=SF?SF.fl.slice():[];let bad=0,total=fl.reduce((a,x)=>a+x.u8.length,0);
+   for(const file of list){
+    const ext=extOf(file.name);if(!FT[ext]||file.size<1||file.size>MAXF||total+file.size>MAXT){bad++;continue}
+    const u8=new Uint8Array(await file.arrayBuffer());if(!ftMagicOk(ext,u8)){bad++;continue}
+    total+=u8.length;fl.push({name:file.name.replace(/[\\\/]+/g,'_').replace(/[^\w.\- ()]+/g,'_').slice(0,100),m:FT[ext],u8});
+   }
+   if(!fl.length)return openSheet(`<h3>That file can’t be sent</h3><p class="hint">PDF, text, Markdown, CSV, JSON, Word, Excel, PowerPoint, EPUB and pictures work, up to 20 MB each.</p><div class="btnrow"><button class="btn" data-sf="x">Close</button><button class="btn pri" data-sf="add">Choose another</button></div>`);
+   if(bad)toast(bad+' file'+(bad>1?'s':'')+' skipped (type or size)');
+   SF={fl,sel:new Set(fl.map((_,i)=>i))};draw();
+  };
+  f.addEventListener('cancel',()=>f.remove());f.click();
+ }
+ function draw(){
+  const c=SF;if(!c)return;
+  openSheet(`<h3>Send ${c.fl.length>1?'files':'a file'}</h3><div class="qpick">${c.fl.map((f,i)=>`<label class="qrow"><input type="checkbox" data-sk="${i}" ${c.sel.has(i)?'checked':''}>${tile(f)}<span><em>${esc(f.name)}</em><small>${kb(f.u8.length)}</small></span></label>`).join('')}</div>
+  <p class="hint" id="sfinfo" style="text-align:center"></p>
+  <button class="opt qopt" data-sf="qr" id="sfqr">${ic('scan',18)}<span><b>Send by QR</b><small></small></span></button>
+  <button class="opt qopt" data-sf="parts" id="sfparts">${ic('scan',18)}<span><b>Send by QR in parts</b><small></small></span></button>
+  <button class="opt qopt" data-sf="conn" id="sfconn">${ic('link',18)}<span><b>Send over Connect</b><small></small></span></button>
+  <div class="btnrow"><button class="btn" data-sf="x">Cancel</button><button class="btn" data-sf="add">Add more</button></div>`);
+  info();
+ }
+ function info(){
+  const c=SF;if(!c)return;const n=c.sel.size,r=raw(),small=id=>document.querySelector('#'+id+' small'),btn=id=>document.getElementById(id);
+  const i=document.getElementById('sfinfo');if(i)i.textContent=n?n+' selected · '+kb(r):'Tick the files to send.';
+  const qr=btn('sfqr'),pt=btn('sfparts'),cn=btn('sfconn');if(!qr)return;
+  const fits=r<=QR_CAP,np=chosen().reduce((a,f)=>a+Math.max(1,Math.ceil(f.u8.length/PART)),0);
+  qr.disabled=!n||!fits;small('sfqr').textContent=!n?'':fits?'About '+est(r)+'. The other phone scans the codes.':'Too big for one go. Use parts or Connect.';
+  pt.hidden=fits;pt.disabled=!n||r>MAXPARTS;small('sfparts').textContent=r>MAXPARTS?'Over 8 MB. Use Connect for this much.':np+' parts, about '+est(r)+' in all. The other phone scans one part at a time.';
+  const on=linked();cn.disabled=!n;small('sfconn').textContent=on?'Connected. Sends it straight across, any size up to 20 MB each.':'Not connected yet. Tap to set up a Connect link first.';
+ }
+ const msgOf=fl=>({t:'files',n:devName(),ts:Date.now(),files:fl.map(f=>({name:f.name,m:f.m,d:b64u(f.u8)}))});
+
+ /* ---- in parts ---- */
+ let SP=null;
+ const planOf=fl=>{const p=[];fl.forEach((f,fi)=>{const k=Math.max(1,Math.ceil(f.u8.length/PART));for(let i=0;i<k;i++)p.push({f:fi,i,k})});return p};
+ const partObj=(s,j)=>{const p=s.plan[j],f=s.fl[p.f];return {t:'fpart',n:devName(),ts:Date.now(),g:s.g,fn:s.fl.length,f:p.f,k:p.k,i:p.i,pi:j,tp:s.plan.length,name:f.name,size:f.u8.length,d:b64u(f.u8.subarray(p.i*PART,(p.i+1)*PART))}};
+ async function sendPart(j){
+  const s=SP;if(!s||j<0||j>=s.plan.length)return;s.j=j;const p=s.plan[j],f=s.fl[p.f];
+  try{await showQR('Part '+(j+1)+' of '+s.plan.length,partObj(s,j),'“'+f.name+'”'+(p.k>1?', piece '+(p.i+1)+' of '+p.k:'')+'. Keep the other phone pointed here until it says it has this part.')}catch(er){return toast('Could not make the codes')}
+  const sh=document.getElementById('sheet'),h=sh&&sh.querySelector('h3');if(!sh)return;
+  const nav=`<div class="btnrow" style="margin:4px 0 10px">${j>0?'<button class="btn" data-fp="prev">Previous part</button>':''}${j<s.plan.length-1?'<button class="btn pri" data-fp="next">Next part</button>':'<span class="hint" style="align-self:center">This is the last part.</span>'}</div>`;
+  if(h)h.insertAdjacentHTML('afterend',nav);else sh.insertAdjacentHTML('afterbegin',nav);
+  sh.scrollTop=0;
+ }
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-fp]');if(!m||!SP)return;
+  sendPart(SP.j+(m.dataset.fp==='next'?1:-1));
+ });
+
+ document.addEventListener('change',e=>{const m=e.target.closest('[data-sk]');if(!m||!SF)return;const i=+m.dataset.sk;if(m.checked)SF.sel.add(i);else SF.sel.delete(i);info()});
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('[data-sf]');if(!m||!SF||m.disabled)return;const k=m.dataset.sf,c=SF;
+  if(k==='x'){SF=null;closeSheet();return}
+  if(k==='add'){pick();return}
+  const fl=chosen();if(!fl.length)return;
+  if(k==='qr'){if(raw()>QR_CAP)return;SF=null;try{await showQR(fl.length>1?'Send '+fl.length+' files':'Send “'+fl[0].name+'”',msgOf(fl),'On the other device: Scan. It lists the files so they can save each one.')}catch(er){toast('Could not make the codes')}return}
+  if(k==='parts'){SF=null;SP={g:uid(),fl,plan:planOf(fl),j:0};sendPart(0);return}
+  if(k==='conn'){
+   if(!linked()){SF=null;closeSheet();try{window.__link.menu()}catch(er){toast('Open Connect from the Home menu')}return}
+   SF=null;toast('Sending…');
+   try{const s=await sealMsg(msgOf(fl));await window.__link.sendStr(s)}catch(er){toast('Could not send')}
+  }
+ });
+ window.__pickSend=pick;
+
+ /* ---- receiving parts ---- */
+ const G={};
+ const bad=(t,p)=>openSheet(`<h3>${t}</h3><p class="hint">${p}</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
+ window.__fpartRecv=async function(r,o,who,from,known){
+  const g=sstr(o.g,32).replace(/[^\w-]/g,''),fn=o.fn|0,f=o.f|0,k=o.k|0,i=o.i|0,pi=o.pi|0,tp=o.tp|0,size=o.size|0,name=sstr(o.name,100).replace(/[\\\/]+/g,'_').replace(/[^\w.\- ()]+/g,'_'),ext=extOf(name);
+  if(!g||fn<1||fn>20||f<0||f>=fn||k<1||k>60||i<0||i>=k||tp<1||tp>200||pi<0||pi>=tp||size<1||size>MAXF||!FT[ext]||typeof o.d!=='string')return bad('Could not use this part','It is damaged or not a valid part.');
+  let chunk;try{chunk=unb64u(o.d)}catch(er){return bad('Could not use this part','It is damaged.')}
+  if(chunk.length<1||chunk.length>PART+16)return bad('Could not use this part','It is the wrong size.');
+  const key=(r.k||'')+':'+g;let T=G[key];if(!T)T=G[key]={fn,tp,files:{},seen:new Set(),from,t:Date.now()};
+  if(T.fn!==fn||T.tp!==tp)return bad('Could not use this part','It does not belong with the parts already received.');
+  const F=T.files[f]=T.files[f]||{name,k,size,parts:{}};
+  if(F.name!==name||F.k!==k||F.size!==size)return bad('Could not use this part','It does not match the file already being received.');
+  F.parts[i]=chunk;T.seen.add(pi);
+  if(T.seen.size<tp){
+   let nx=0;while(T.seen.has(nx))nx++;
+   return openSheet(`<h3>Part ${T.seen.size} of ${tp} received</h3>${who}<div style="height:8px;border-radius:6px;background:var(--accent-soft);overflow:hidden;margin:10px 0"><i style="display:block;height:100%;width:${Math.round(T.seen.size/tp*100)}%;background:var(--accent)"></i></div><p class="hint">“${esc(name)}”. Ask the sender to show <b>part ${nx+1}</b> next (their Next part button), then scan it.</p><div class="btnrow"><button class="btn" data-qr="close">Close</button><button class="btn pri" data-fr="scan">Scan next part</button></div>`);
+  }
+  delete G[key];
+  const out=[];
+  for(let q=0;q<fn;q++){
+   const X=T.files[q];if(!X)return bad('Some files are missing','Not every file arrived.');
+   let len=0;const bs=[];for(let z=0;z<X.k;z++){if(!X.parts[z])return bad('A part is missing','Part '+(z+1)+' of “'+esc(X.name)+'” never arrived. Ask the sender to show it again.');bs.push(X.parts[z]);len+=X.parts[z].length}
+   if(len!==X.size)return bad('The file did not add up','The pieces of “'+esc(X.name)+'” are the wrong size. Nothing was kept.');
+   const u8=new Uint8Array(len);let off=0;bs.forEach(b=>{u8.set(b,off);off+=b.length});out.push({name:X.name,d:b64u(u8)});
+  }
+  const files=cleanAnyFiles(out);
+  if(!files.length||files.length!==out.length)return bad('Some files were not accepted','Their type or contents did not check out, so nothing was kept.');
+  QP={kind:'files',k:r.k,name:from,files};
+  return openSheet(`<h3>Received ${files.length} file${files.length>1?'s':''}</h3>${who}${filesHtml(files)}<p class="hint">All ${tp} parts arrived. Nothing is opened or imported. Tap the arrow to save a file, or add it to a page.</p><div class="btnrow"><button class="btn" data-qr="close">Close</button><button class="btn" data-qr="picspage">Add to a page</button></div>`);
+ };
+ document.addEventListener('click',e=>{const m=e.target.closest('[data-fr="scan"]');if(!m)return;closeSheet();try{openScanner()}catch(er){}});
+ window.__sendparts={planOf,partObj,get SP(){return SP},set SP(v){SP=v}};
+})();
+
+/* Left panel tiles: the first six show at the top, More shows the rest, Rearrange lets you drag them or tap to show/hide. */
+(function(){
+ const SHOWN=6;
+ /* tiles that already have a click handler keep their old element id so that handler runs */
+ const REG=[
+  {id:'home',label:'Home',icon:'home',html:()=>`<button class="pill ${S.cur==='root'?'on':''}" data-go="root" data-t="home">${ic('home',18)}Home</button>`},
+  {id:'search',label:'Search',icon:'search',el:'sSearch'},
+  {id:'scan',label:'Scan',icon:'scan',el:'sScan'},
+  {id:'send',label:'Send a file',icon:'send',run:()=>{closeSide();window.__pickSend&&window.__pickSend()}},
+  {id:'connect',label:'Connect',icon:'link',el:'sConn'},
+  {id:'today',label:'Today',icon:'cal',el:'sToday'},
+  {id:'all',label:'All notes',icon:'all',el:'sAll'},
+  {id:'canvas',label:'Canvas',icon:'table',el:'sCanvas'},
+  {id:'listen',label:'Listen',icon:'recv',run:()=>{closeSide();const b=document.createElement('button');b.dataset.snd='listen';b.hidden=true;document.body.appendChild(b);b.click();b.remove()}},
+  {id:'newpage',label:'New page',icon:'plus',run:()=>{closeSide();newNote(S.cur)}},
+  {id:'folder',label:'New folder',icon:'folder',via:'sFolder'},
+  {id:'paper',label:'Paper',icon:'pal',via:'sPaper'},
+  {id:'backup',label:'Backups',icon:'undo',via:'sBackup'},
+  {id:'trash',label:'Trash',icon:'trash',via:'sTrash'}
+ ];
+ const BYID={};REG.forEach(t=>BYID[t.id]=t);
+ const DEFAULT=['home','search','scan','send','connect','today','all','canvas','listen','newpage','folder','paper','backup','trash'];
+ let more=false,edit=false;
+ const order=()=>{
+  let o=Array.isArray(S.set&&S.set.tiles)?S.set.tiles.filter(x=>BYID[x]):[];
+  o=o.filter((x,i)=>o.indexOf(x)===i);
+  DEFAULT.forEach(x=>{if(!o.includes(x))o.push(x)});return o;
+ };
+ const setOrder=o=>{S.set.tiles=o.slice();save()};
+ const tileHTML=(id,i)=>{
+  const t=BYID[id];
+  if(t.html&&!edit)return t.html();
+  const on=id==='home'&&S.cur==='root'&&!edit,cls='pill'+(on?' on':'')+(edit&&i>=SHOWN?' hid':'');
+  const idAttr=!edit&&t.el?` id="${t.el}"`:'';
+  return `<button class="${cls}"${idAttr} data-t="${id}"${edit?' data-edit':''}>${ic(t.icon,18)}${esc(t.label)}</button>`;
+ };
+ const css=document.createElement('style');
+ css.textContent=`.tgrid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:4px 10px}
+.tgrid .pill{min-width:0;white-space:nowrap}
+.tgrid .pill[data-edit]{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.tgrid .pill.hid{opacity:.55;border-style:dashed}
+.tgrid .pill.ph{opacity:.25}
+.tgrid .tsep{grid-column:1/-1;font-size:12px;color:var(--muted);text-align:center;padding:6px 0 2px;border-top:1px dashed var(--line);margin-top:2px}
+.tctl{display:flex;gap:6px;padding:2px 10px 6px;align-items:center}
+.tctl button{font:inherit;font-size:12.5px;color:var(--muted);background:transparent;border:0;padding:6px 8px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:4px}
+.tctl button:active{background:var(--accent-soft)}.tctl .tsp{flex:1}
+.tctl .done{color:var(--on-accent);background:var(--accent);font-weight:600;padding:6px 14px}
+.tnote{padding:2px 12px 4px;font-size:12.5px;color:var(--muted)}
+.tdrag{position:fixed;z-index:600;pointer-events:none;opacity:.92;box-shadow:var(--shadow);transform:scale(1.06)}`;
+ document.head.appendChild(css);
+
+ function build(){
+  const side=document.getElementById('side');if(!side)return;
+  side.querySelectorAll('.sb').forEach(x=>x.remove());
+  side.querySelectorAll('.tiles').forEach(x=>x.remove());
+  const tree=document.getElementById('tree');if(!tree)return;
+  const o=order(),shown=o.slice(0,SHOWN),rest=o.slice(SHOWN);
+  const wrap=document.createElement('div');wrap.className='tiles';
+  let h='';
+  if(edit){
+   h+=`<div class="tnote">Drag to rearrange. Tap a tile to show or hide it. The first ${SHOWN} show in the panel.</div><div class="sb tgrid" id="tgrid">${o.map((id,i)=>(i===SHOWN?'<div class="tsep">Hidden: under More</div>':'')+tileHTML(id,i)).join('')}</div>`;
+   h+=`<div class="tctl"><span class="tsp"></span><button class="done" data-tc="done">Done</button></div>`;
+  }else{
+   h+=`<div class="sb tgrid">${(more?o:shown).map(tileHTML).join('')}</div>`;
+   h+=`<div class="tctl"><button data-tc="more">${more?'Fewer':'More'} ${ic('kb',14)}</button><span class="tsp"></span><button data-tc="edit">${ic('sliders',14)}Rearrange</button></div>`;
+  }
+  wrap.innerHTML=h;
+  tree.before(wrap);
+  if(!edit&&more){const m=wrap.querySelector('[data-tc=more] svg');if(m)m.style.transform='rotate(180deg)'}
+ }
+ const _rs=renderSide;
+ renderSide=function(){_rs.apply(this,arguments);build()};
+
+ document.addEventListener('click',e=>{
+  const c=e.target.closest&&e.target.closest('[data-tc]');
+  if(c){
+   e.stopPropagation();e.preventDefault();
+   const k=c.dataset.tc;
+   if(k==='more'){more=!more;build()}
+   else if(k==='edit'){edit=true;build()}
+   else if(k==='done'){edit=false;build()}
+   return;
+  }
+  const t=e.target.closest&&e.target.closest('#side .tgrid .pill[data-t]');if(!t)return;
+  const id=t.dataset.t,def=BYID[id];
+  if(edit){e.stopPropagation();e.preventDefault();return} /* taps are handled on pointer up */
+  if(!def)return;
+  if(def.run){e.stopPropagation();e.preventDefault();def.run();return}
+  if(def.via){e.stopPropagation();e.preventDefault();const b=document.getElementById(def.via);if(b)b.click();return}
+  /* the rest (Home, Search, Scan, Today, All, Canvas, Connect) have their own handlers by id */
+ },true);
+
+ /* ---- drag to rearrange; a tap moves a tile across the line ---- */
+ document.addEventListener('pointerdown',e=>{
+  if(!edit)return;const t=e.target.closest('#tgrid .pill[data-edit]');if(!t||e.button>0)return;
+  const grid=document.getElementById('tgrid'),id=t.dataset.t;let o=order(),moved=false,ghost=null;
+  const x0=e.clientX,y0=e.clientY,r0=t.getBoundingClientRect(),ox=x0-r0.left,oy=y0-r0.top;
+  try{t.setPointerCapture(e.pointerId)}catch(_){}
+  const relayout=()=>{ /* CSS order, so the dragged element is never moved in the page and keeps its pointer */
+   o.forEach((k,i)=>{const el=grid.querySelector('.pill[data-t="'+k+'"]');if(el){el.style.order=2*i;el.classList.toggle('hid',i>=SHOWN)}});
+   const sep=grid.querySelector('.tsep');if(sep)sep.style.order=2*SHOWN-1;
+  };
+  const move=ev=>{
+   if(!moved&&Math.hypot(ev.clientX-x0,ev.clientY-y0)<7)return;
+   if(!moved){moved=true;ghost=t.cloneNode(true);ghost.classList.add('tdrag');ghost.style.width=r0.width+'px';document.body.appendChild(ghost);t.classList.add('ph')}
+   ghost.style.left=(ev.clientX-ox)+'px';ghost.style.top=(ev.clientY-oy)+'px';
+   const hit=document.elementsFromPoint(ev.clientX,ev.clientY).find(n=>n!==ghost&&n!==t&&(n.matches&&(n.matches('#tgrid .pill[data-t]')||n.matches('#tgrid .tsep'))));
+   if(!hit)return;
+   const from=o.indexOf(id);let to;
+   if(hit.classList.contains('tsep')){if(from>=SHOWN)return;to=SHOWN}
+   else to=o.indexOf(hit.dataset.t);
+   if(to<0||to===from)return;
+   o.splice(from,1);o.splice(to,0,id);relayout();
+  };
+  const up=ev=>{
+   t.removeEventListener('pointermove',move);t.removeEventListener('pointerup',up);t.removeEventListener('pointercancel',up);
+   if(ghost)ghost.remove();t.classList.remove('ph');
+   if(moved){setOrder(o);build();return}
+   /* a tap: a shown tile is hidden, a hidden tile is shown */
+   const i=o.indexOf(id);o.splice(i,1);
+   o.splice(i<SHOWN?SHOWN:SHOWN-1,0,id);
+   setOrder(o);build();
+  };
+  t.addEventListener('pointermove',move);t.addEventListener('pointerup',up);t.addEventListener('pointercancel',up);
+ });
+ window.__tiles={order,setOrder,reg:REG,get edit(){return edit},build};
 })();
 
 /* Connect: a QR (or pasted code) sets up a direct, encrypted device-to-device link; then pages and vaults go over it */
