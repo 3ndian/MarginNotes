@@ -1162,7 +1162,7 @@ function closeSheet(){$('#sw').hidden=true;$('#sheet').innerHTML=''}
 $('#swbg').addEventListener('click',closeSheet);
 function nodeMenu(id){
  const n=S.nodes[id];
- if(id==='root')return openSheet(`<h3>Home</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button>${window.NativeBridge&&NativeBridge.openHtml?`<button class="opt" data-m="openhtml">${ic('page')}Open an HTML file</button>`:''}<button class="opt" data-m="all">${ic('all')}All notes</button><button class="opt" data-m="canvas">${ic('table')}Canvas</button><button class="opt" data-m="qrscan">${ic('scan')}Scan QR code</button><button class="opt" data-m="devices">${ic('sliders')}Devices and trust</button><button class="opt" data-m="note" data-id="root">${ic('page')}New page</button><button class="opt" data-m="dbpage" data-id="root">${ic('table')}New database page</button><button class="opt" data-m="folder" data-id="root">${ic('folder')}New folder</button>`);
+ if(id==='root')return openSheet(`<h3>Home</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button>${window.NativeBridge&&NativeBridge.openHtml?`<button class="opt" data-m="openhtml">${ic('page')}Open an HTML file</button>`:''}<button class="opt" data-m="all">${ic('all')}All notes</button><button class="opt" data-m="canvas">${ic('table')}Canvas</button><button class="opt" data-m="qrscan">${ic('scan')}Scan QR code</button><button class="opt" data-snd="listen">${ic('recv')}Listen for sound</button><button class="opt" data-m="devices">${ic('sliders')}Devices and trust</button><button class="opt" data-m="note" data-id="root">${ic('page')}New page</button><button class="opt" data-m="dbpage" data-id="root">${ic('table')}New database page</button><button class="opt" data-m="folder" data-id="root">${ic('folder')}New folder</button>`);
  openSheet(`<h3>${esc(nm(n))}</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button>
  ${n.kind==='page'&&id===S.cur?`<button class="opt" data-m="find">${ic('search')}Find on this page</button><button class="opt" data-m="stats">${ic('all')}Word count</button>`:''}
  <button class="opt" data-m="pin" data-id="${id}">${ic('star')}${(S.pins||[]).includes(id)?'Unpin from sidebar':'Pin to sidebar'}</button>
@@ -5347,7 +5347,7 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
 })();
 /* ---------- sound transfer: ggwave (data) and SSTV (pictures) ---------- */
 (function(){
- const st=document.createElement('style');st.textContent='.snd .bar{height:8px;border-radius:6px;background:var(--accent-soft);overflow:hidden;margin:10px 0}.snd .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}.snd .lvl{height:4px;border-radius:3px;background:var(--accent-soft);overflow:hidden;margin:8px 0}.snd .lvl i{display:block;height:100%;width:0;background:var(--muted);transition:width .1s}.snd canvas{display:block;width:100%;max-width:340px;aspect-ratio:5/4;margin:8px auto;border-radius:12px;background:#111}.snd .big{font-size:15px;font-weight:600;text-align:center;margin:6px 0}';document.head.appendChild(st);
+ const st=document.createElement('style');st.textContent='.snd .bar{height:8px;border-radius:6px;background:var(--accent-soft);overflow:hidden;margin:10px 0}.snd .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}.snd .lvl{height:4px;border-radius:3px;background:var(--accent-soft);overflow:hidden;margin:8px 0}.snd .lvl i{display:block;height:100%;width:0;background:var(--muted);transition:width .1s}.snd canvas{display:block;width:100%;max-width:340px;aspect-ratio:5/4;margin:8px auto;border-radius:12px;background:#111}.snd .big{font-size:15px;font-weight:600;text-align:center;margin:6px 0}.snd .spec{position:relative;margin:10px 0;border-radius:12px;overflow:hidden;background:#0d0f12}.snd .spec canvas{display:block;width:100%;height:150px;max-width:none;aspect-ratio:auto;margin:0;border-radius:0}.snd .sb{position:absolute;left:0;right:0;border-top:1px dashed #ffffff55;border-bottom:1px dashed #ffffff55;font-size:10.5px;color:#ffffffb0;padding:1px 6px;pointer-events:none;transition:background .2s,color .2s}.snd .sb.hot{background:#3ddc9738;color:#fff;border-color:#3ddc97}.snd .grid{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin:8px 0 2px}.snd .grid i{width:16px;height:16px;border-radius:5px;background:var(--accent-soft);transition:background .25s,transform .3s}.snd .grid.sm i{width:9px;height:9px;border-radius:3px}.snd .grid i.on{background:var(--accent)}.snd .grid i.flash{transform:scale(1.6)}';document.head.appendChild(st);
  const PK=96,MAXB=12000,SEC={n:13.45,f:9.25,x:5.1},PROTO={n:'GGWAVE_PROTOCOL_AUDIBLE_NORMAL',f:'GGWAVE_PROTOCOL_AUDIBLE_FAST',x:'GGWAVE_PROTOCOL_AUDIBLE_FASTEST'},PROTO_US={n:'GGWAVE_PROTOCOL_ULTRASOUND_NORMAL',f:'GGWAVE_PROTOCOL_ULTRASOUND_FAST',x:'GGWAVE_PROTOCOL_ULTRASOUND_FASTEST'};
  const kb=n=>n<1024?n+' B':Math.round(n/1024)+' KB';
  const fmt=s=>s<90?Math.round(s)+' s':Math.round(s/6)/10+' min';
@@ -5448,18 +5448,55 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
   try{await ctx.resume()}catch(e){}
   const src=ctx.createMediaStreamSource(stream),proc=ctx.createScriptProcessor(4096,1,1),mute=ctx.createGain();mute.gain.value=0;
   proc.onaudioprocess=e=>cb(new Float32Array(e.inputBuffer.getChannelData(0)));
-  src.connect(proc);proc.connect(mute);mute.connect(ctx.destination);
-  return {ctx,rate:ctx.sampleRate,stop(){try{proc.onaudioprocess=null;proc.disconnect();src.disconnect()}catch(e){}try{stream.getTracks().forEach(t=>t.stop())}catch(e){}try{ctx.close()}catch(e){}}};
+  const an=ctx.createAnalyser();an.fftSize=2048;an.smoothingTimeConstant=.25;src.connect(an);src.connect(proc);proc.connect(mute);mute.connect(ctx.destination);
+  return {ctx,an,rate:ctx.sampleRate,stop(){try{proc.onaudioprocess=null;proc.disconnect();src.disconnect()}catch(e){}try{stream.getTracks().forEach(t=>t.stop())}catch(e){}try{ctx.close()}catch(e){}}};
+ }
+ 
+ /* ---- live picture of what the microphone hears ---- */
+ function specStart(me){
+  const cv=$('#slspec');if(!cv||!me.mic||!me.mic.an)return;
+  const g=cv.getContext('2d'),an=me.mic.an,rate=me.mic.rate,fmax=Math.min(22000,rate/2),W=cv.width,H=cv.height;
+  g.fillStyle='#0d0f12';g.fillRect(0,0,W,H);
+  const place=(id,f1,f2)=>{const e=document.getElementById(id);if(!e)return;e.style.top=((1-f2/fmax)*100)+'%';e.style.height=((f2-f1)/fmax*100)+'%'};
+  place('slb1',15000,19000);place('slb2',1750,6000);
+  const bins=an.frequencyBinCount,data=new Uint8Array(bins),hz=rate/an.fftSize,rows=new Array(H);
+  for(let y=0;y<H;y++)rows[y]=Math.min(bins-1,Math.round((1-y/H)*fmax/hz));
+  const col=g.createImageData(1,H),rg=(f1,f2)=>[Math.round(f1/hz),Math.min(bins-1,Math.round(f2/hz))];
+  const bands=[{id:'slb1',r:rg(15000,19000),hot:0,say:'Hearing a near-silent signal…'},{id:'slb2',r:rg(1750,6000),hot:0,say:'Hearing chirps…'}];
+  let last=0,sayNow='';
+  const tick=t=>{
+   if(L!==me||me.dead||!document.getElementById('slspec'))return;
+   if(t-last>=40){
+    last=t;an.getByteFrequencyData(data);
+    g.drawImage(cv,-1,0);
+    for(let y=0;y<H;y++){const v=data[rows[y]],k=Math.max(0,Math.min(1,(v-70)/170)),o=y*4;col.data[o]=13+242*k*k;col.data[o+1]=15+210*k;col.data[o+2]=18+190*k*(1.1-k*.5);col.data[o+3]=255}
+    g.putImageData(col,W-1,0);
+    let say='';
+    for(const b of bands){
+     let pk=0,sum=0;for(let i=b.r[0];i<=b.r[1];i++){const v=data[i];sum+=v;if(v>pk)pk=v}
+     const mean=sum/Math.max(1,b.r[1]-b.r[0]+1),on=pk>105&&pk-mean>42;
+     b.hot=on?10:Math.max(0,b.hot-1);
+     const e=document.getElementById(b.id);if(e)e.classList.toggle('hot',b.hot>0);
+     if(b.hot>0&&!say)say=b.say;
+    }
+    if(me.mode==='d'&&!me.got){
+     if(say!==sayNow){sayNow=say;const tx=$('#sltx');if(tx)tx.textContent=say||'Listening for a transfer…'}
+    }
+   }
+   requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
  }
  function stopListen(){if(L){L.dead=true;if(L.mic)L.mic.stop();clearInterval(L.watch);L=null}}
  async function listen(mode){
   stopListen();const me=L={mode:mode||'d',dead:false,peak:0,t0:Date.now(),tid:-1,n:0,parts:null,got:0,dec:null,gg:null};
   openSheet(`<div class="snd" id="snd"><h3>Listen for sound</h3>
   <div class="seg" id="slt"><button data-snd="tab" data-v="d">Data</button><button data-snd="tab" data-v="p">Picture</button></div>
-  <div id="slbody"></div><div class="lvl"><i id="sllv"></i></div><p class="hint" id="slnote" style="text-align:center"></p>
+  <div id="slbody"></div><div class="spec"><canvas id="slspec" width="360" height="150"></canvas><div class="sb" id="slb1"><span>Near-silent</span></div><div class="sb" id="slb2"><span>Chirps</span></div></div><div class="lvl"><i id="sllv"></i></div><p class="hint" id="slnote" style="text-align:center"></p>
   <div class="btnrow"><button class="btn" data-snd="x">Close</button><button class="btn pri" data-snd="keep" id="slkeep" hidden>Keep what I have</button></div></div>`);
   try{me.mic=await micOpen(x=>onAudio(me,x))}catch(e){stopListen();const why=e&&(e.name||e.message)?esc(String(e.name||'')+(e.message?': '+e.message:'')).slice(0,160):'';return openSheet(`<h3>Microphone not available</h3><p class="hint">Allow the microphone for Margin Notes, then try again. On an iPhone, open the home-screen icon or Safari, not a link inside another app. Nothing is recorded or stored.</p>${why?`<p class="hint">Details: ${why}</p>`:''}<div class="btnrow"><button class="btn pri" data-snd="x">Close</button></div>`)}
   if(L!==me)return;
+  specStart(me);
   me.watch=setInterval(()=>{if(!alive()||L!==me){if(L===me)stopListen();else clearInterval(me.watch);return}
    const l=$('#sllv');if(l)l.style.width=Math.min(100,me.peak*260)+'%';me.peak*=.6;
    const n=$('#slnote');if(n&&!me.heard&&Date.now()-me.t0>9000)n.textContent='I cannot hear anything yet. Check the other device’s volume and bring the phones closer.'},200);
@@ -5470,7 +5507,7 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
   document.querySelectorAll('#slt button').forEach(b=>b.classList.toggle('on',b.dataset.v===m));
   const body=$('#slbody'),keep=$('#slkeep'),note=$('#slnote');if(keep)keep.hidden=true;
   if(m==='d'){
-   body.innerHTML='<div class="big" id="sltx">Listening for a transfer…</div><div class="bar"><i id="slbar"></i></div>';
+   body.innerHTML='<div class="big" id="sltx">Listening for a transfer…</div><div class="bar"><i id="slbar"></i></div><div class="grid" id="slgrid"></div>';
    if(note)note.textContent='The other device: Send by sound. Hold the phones close, speaker toward the microphone.';
    ggLoad(me.mic.rate).then(g=>{me.gg=g}).catch(()=>{const t=$('#sltx');if(t)t.textContent='Sound engine could not start'});
   }else{
@@ -5498,7 +5535,9 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
   if(!b||b.length<7)return;const tid=b[0]<<8|b[1],n=b[2]<<8|b[3],i=b[4]<<8|b[5];if(n<1||n>300||i>=n)return;
   if(me.tid!==tid||me.n!==n){me.tid=tid;me.n=n;me.parts=new Array(n).fill(null);me.got=0}
   if(!me.parts[i]){me.parts[i]=b.slice(6);me.got++}
-  const t=$('#sltx'),bar=$('#slbar');if(t)t.textContent=`Received ${me.got} of ${n} part${n>1?'s':''}`;if(bar)bar.style.width=(me.got/n*100)+'%';
+  const t=$('#sltx'),bar=$('#slbar');if(t)t.textContent=`Part ${me.got} of ${n} · ${Math.round(me.got/n*100)}%`;if(bar)bar.style.width=(me.got/n*100)+'%';
+  const gr=$('#slgrid');if(gr){if(gr.childElementCount!==n){gr.innerHTML=Array.from({length:n},()=>'<i></i>').join('');gr.classList.toggle('sm',n>80)}me.parts.forEach((p,k)=>{if(gr.children[k])gr.children[k].classList.toggle('on',!!p)});const c=gr.children[i];if(c){c.classList.add('flash');setTimeout(()=>c.classList.remove('flash'),350)}}
+  try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}
   if(me.got===n){
    let len=0;me.parts.forEach(p=>len+=p.length);const u8=new Uint8Array(len);let o=0;me.parts.forEach(p=>{u8.set(p,o);o+=p.length});
    stopListen();closeSheet();
@@ -5536,8 +5575,8 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
  },true);
  /* ---- entry points ---- */
  const _os=openScanner;
- openScanner=async function(){await _os.apply(this,arguments);const f=document.querySelector('#qrscan .qrfoot');if(f&&!f.querySelector('[data-snd=listen]'))f.insertAdjacentHTML('beforeend',`<button class="btn qrlink" data-snd="listen">Listen for sound instead</button>`);
-  const h=document.querySelector('#qrscan .qrhead');if(h&&!h.querySelector('[data-snd=listen]')){const x=h.querySelector('[data-qr=scanclose]');const bt=document.createElement('button');bt.className='cvbtn';bt.dataset.snd='listen';bt.setAttribute('aria-label','Listen for sound');bt.title='Listen for sound';bt.innerHTML=ic('recv',18);h.insertBefore(bt,x)}};
+ openScanner=async function(){const _p=_os.apply(this,arguments);const inj=()=>{const f=document.querySelector('#qrscan .qrfoot');if(f&&!f.querySelector('[data-snd=listen]'))f.insertAdjacentHTML('beforeend',`<button class="btn qrlink" data-snd="listen">Listen for sound instead</button>`);
+  const h=document.querySelector('#qrscan .qrhead');if(h&&!h.querySelector('[data-snd=listen]')){const x=h.querySelector('[data-qr=scanclose]');const bt=document.createElement('button');bt.className='cvbtn';bt.dataset.snd='listen';bt.setAttribute('aria-label','Listen for sound');bt.title='Listen for sound';bt.innerHTML=ic('recv',18);h.insertBefore(bt,x)}};inj();setTimeout(inj,60);setTimeout(inj,300);await _p;inj()};
  const _sf=scanFallback;scanFallback=function(m){_sf(m);const r=document.querySelector('#sheet .btnrow');if(r&&!r.querySelector('[data-snd=listen]'))r.insertAdjacentHTML('beforebegin',`<button class="opt" data-snd="listen">${ic('recv',18)}Listen for sound instead</button>`)};
  const _sh=openShare;
  openShare=function(id){_sh(id);const sh=$('#sheet');if(sh)sh.insertAdjacentHTML('beforeend',`<button class="opt" data-snd="page" data-id="${id}">${ic('recv')}Send by sound<small style="margin-left:auto;color:var(--muted)">short pages</small></button>`)};
@@ -5694,7 +5733,7 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
   const r=document.querySelector('#sheet .btnrow');if(r&&nbOK()&&!document.querySelector('#sheet [data-nb=send]'))r.insertAdjacentHTML('beforebegin',`<button class="opt" data-nb="send">${ic('scan',18)}Send to a nearby phone<small style="margin-left:auto;color:var(--muted)">no internet needed</small></button>`);
  };
  const _os=openScanner;
- openScanner=async function(){await _os.apply(this,arguments);const f=document.querySelector('#qrscan .qrfoot');if(f&&nbOK()&&!f.querySelector('[data-nb=recv]'))f.insertAdjacentHTML('beforeend','<button class="btn qrlink" data-nb="recv">Receive from a nearby phone</button>')};
+ openScanner=async function(){const _p=_os.apply(this,arguments);const inj=()=>{const f=document.querySelector('#qrscan .qrfoot');if(f&&nbOK()&&!f.querySelector('[data-nb=recv]'))f.insertAdjacentHTML('beforeend','<button class="btn qrlink" data-nb="recv">Receive from a nearby phone</button>')};inj();setTimeout(inj,60);setTimeout(inj,300);await _p;inj()};
 })();
 /* haptics: a light tick on every tappable control (native on Android, vibrate elsewhere, switch trick on iPhone) */
 (function(){
