@@ -5292,26 +5292,33 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  ];
  const BYID={};REG.forEach(t=>BYID[t.id]=t);
  const DEFAULT=['home','search','scan','send','connect','today','all','canvas','listen','newpage','folder','paper','backup','trash'];
- let more=false,edit=false;
+ let more=false,edit=false,target=null;
+ /* the first SHOWN entries are slots (a slot can be empty, null); the rest are hidden tiles */
  const order=()=>{
-  let o=Array.isArray(S.set&&S.set.tiles)?S.set.tiles.filter(x=>BYID[x]):[];
-  o=o.filter((x,i)=>o.indexOf(x)===i);
-  DEFAULT.forEach(x=>{if(!o.includes(x))o.push(x)});return o;
+  const a=S.set&&S.set.tiles;if(!Array.isArray(a))return DEFAULT.slice();
+  const seen=new Set(),top=[];
+  for(let i=0;i<SHOWN;i++){const x=a[i];if(x&&BYID[x]&&!seen.has(x)){seen.add(x);top.push(x)}else top.push(null)}
+  const rest=[];a.slice(SHOWN).forEach(x=>{if(x&&BYID[x]&&!seen.has(x)){seen.add(x);rest.push(x)}});
+  DEFAULT.forEach(x=>{if(!seen.has(x)){seen.add(x);rest.push(x)}});
+  return top.concat(rest);
  };
  const setOrder=o=>{S.set.tiles=o.slice();save()};
- const tileHTML=(id,i)=>{
+ const tileHTML=(id,edit)=>{
   const t=BYID[id];
   if(t.html&&!edit)return t.html();
-  const on=id==='home'&&S.cur==='root'&&!edit,cls='pill'+(on?' on':'')+(edit&&i>=SHOWN?' hid':'');
+  const on=id==='home'&&S.cur==='root'&&!edit;
   const idAttr=!edit&&t.el?` id="${t.el}"`:'';
-  return `<button class="${cls}"${idAttr} data-t="${id}"${edit?' data-edit':''}>${ic(t.icon,18)}${esc(t.label)}</button>`;
+  return `<button class="pill${on?' on':''}"${idAttr} data-t="${id}"${edit?' data-edit':''}>${ic(t.icon,18)}${esc(t.label)}</button>`;
  };
  const css=document.createElement('style');
  css.textContent=`.tgrid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:4px 10px}
 .tgrid .pill{min-width:0;white-space:nowrap}
-.tgrid .pill[data-edit]{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
-.tgrid .pill.hid{opacity:.55;border-style:dashed}
-.tgrid .pill.ph{opacity:.25}
+#tgrid{touch-action:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+#tgrid .pill[data-edit]{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+#tgrid .pill.hid{opacity:.55;border-style:dashed}
+#tgrid .pill.ph{opacity:.25}
+#tgrid .pill.empty{border:2px dashed var(--line);background:transparent;color:var(--muted);font-weight:500}
+#tgrid .pill.empty.sel{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 .tgrid .tsep{grid-column:1/-1;font-size:12px;color:var(--muted);text-align:center;padding:6px 0 2px;border-top:1px dashed var(--line);margin-top:2px}
 .tctl{display:flex;gap:6px;padding:2px 10px 6px;align-items:center}
 .tctl button{font:inherit;font-size:12.5px;color:var(--muted);background:transparent;border:0;padding:6px 8px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:4px}
@@ -5321,24 +5328,30 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
 .tdrag{position:fixed;z-index:600;pointer-events:none;opacity:.92;box-shadow:var(--shadow);transform:scale(1.06)}`;
  document.head.appendChild(css);
 
+ /* position everything with CSS order, so no tile is ever moved in the page while it is being dragged */
+ function layout(o){
+  const grid=document.getElementById('tgrid');if(!grid)return;
+  o.forEach((k,p)=>{if(!k)return;const el=grid.querySelector('.pill[data-t="'+k+'"]');if(el){el.style.order=2*p;el.classList.toggle('hid',p>=SHOWN)}});
+  grid.querySelectorAll('.pill[data-empty]').forEach(el=>{const p=+el.dataset.empty,show=o[p]===null;el.style.display=show?'':'none';el.style.order=2*p;el.classList.toggle('sel',target===p)});
+  const sep=grid.querySelector('.tsep');if(sep)sep.style.order=2*SHOWN-1;
+ }
  function build(){
   const side=document.getElementById('side');if(!side)return;
   side.querySelectorAll('.sb').forEach(x=>x.remove());
   side.querySelectorAll('.tiles').forEach(x=>x.remove());
   const tree=document.getElementById('tree');if(!tree)return;
-  const o=order(),shown=o.slice(0,SHOWN),rest=o.slice(SHOWN);
-  const wrap=document.createElement('div');wrap.className='tiles';
-  let h='';
+  const o=order(),wrap=document.createElement('div');wrap.className='tiles';let h='';
   if(edit){
-   h+=`<div class="tnote">Drag to rearrange. Tap a tile to show or hide it. The first ${SHOWN} show in the panel.</div><div class="sb tgrid" id="tgrid">${o.map((id,i)=>(i===SHOWN?'<div class="tsep">Hidden: under More</div>':'')+tileHTML(id,i)).join('')}</div>`;
+   h+=`<div class="tnote">Tap a top tile to clear its spot, then tap any other tile to put it there. Or drag tiles around.</div><div class="sb tgrid" id="tgrid">${REG.map(t=>tileHTML(t.id,true)).join('')}${[0,1,2,3,4,5].map(i=>`<button class="pill empty" data-empty="${i}" data-edit style="display:none">${ic('plus',18)}Empty</button>`).join('')}<div class="tsep">Hidden: under More</div></div>`;
    h+=`<div class="tctl"><span class="tsp"></span><button class="done" data-tc="done">Done</button></div>`;
   }else{
-   h+=`<div class="sb tgrid">${(more?o:shown).map(tileHTML).join('')}</div>`;
+   const shown=o.slice(0,SHOWN).filter(Boolean),all=shown.concat(o.slice(SHOWN));
+   h+=`<div class="sb tgrid">${(more?all:shown).map(id=>tileHTML(id,false)).join('')}</div>`;
    h+=`<div class="tctl"><button data-tc="more">${more?'Fewer':'More'} ${ic('kb',14)}</button><span class="tsp"></span><button data-tc="edit">${ic('sliders',14)}Rearrange</button></div>`;
   }
-  wrap.innerHTML=h;
-  tree.before(wrap);
-  if(!edit&&more){const m=wrap.querySelector('[data-tc=more] svg');if(m)m.style.transform='rotate(180deg)'}
+  wrap.innerHTML=h;tree.before(wrap);
+  if(edit)layout(o);
+  else if(more){const m=wrap.querySelector('[data-tc=more] svg');if(m)m.style.transform='rotate(180deg)'}
  }
  const _rs=renderSide;
  renderSide=function(){_rs.apply(this,arguments);build()};
@@ -5349,53 +5362,68 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
    e.stopPropagation();e.preventDefault();
    const k=c.dataset.tc;
    if(k==='more'){more=!more;build()}
-   else if(k==='edit'){edit=true;build()}
-   else if(k==='done'){edit=false;build()}
+   else if(k==='edit'){edit=true;target=null;build()}
+   else if(k==='done'){edit=false;target=null;build()}
    return;
   }
   const t=e.target.closest&&e.target.closest('#side .tgrid .pill[data-t]');if(!t)return;
-  const id=t.dataset.t,def=BYID[id];
-  if(edit){e.stopPropagation();e.preventDefault();return} /* taps are handled on pointer up */
+  const def=BYID[t.dataset.t];
+  if(edit){e.stopPropagation();e.preventDefault();return} /* edit taps are handled on pointer up */
   if(!def)return;
   if(def.run){e.stopPropagation();e.preventDefault();def.run();return}
   if(def.via){e.stopPropagation();e.preventDefault();const b=document.getElementById(def.via);if(b)b.click();return}
-  /* the rest (Home, Search, Scan, Today, All, Canvas, Connect) have their own handlers by id */
  },true);
 
- /* ---- drag to rearrange; a tap moves a tile across the line ---- */
+ /* ---- editing: tap to clear or fill a spot, drag to move ---- */
+ let dragging=false;
+ /* stop the panel from scrolling or being dragged while a finger is on a tile */
+ document.addEventListener('touchstart',e=>{if(edit&&e.target.closest&&e.target.closest('#tgrid .pill[data-edit]'))e.preventDefault()},{passive:false,capture:true});
+ document.addEventListener('touchmove',e=>{if(edit&&(dragging||(e.target.closest&&e.target.closest('#tgrid'))))e.preventDefault()},{passive:false,capture:true});
+ document.addEventListener('contextmenu',e=>{if(edit&&e.target.closest&&e.target.closest('#tgrid'))e.preventDefault()});
+
+ function moveIn(o,from,hit){
+  const id=o[from];
+  if(hit.k==='empty'){const j=hit.v;if(o[j]!==null)return false;if(from<SHOWN){o[from]=null;o[j]=id}else{o.splice(from,1);o[j]=id}return true}
+  if(hit.k==='sep'){if(from>=SHOWN)return false;o[from]=null;o.splice(SHOWN,0,id);return true}
+  const t=o.indexOf(hit.v);if(t<0||t===from)return false;
+  if(t<SHOWN){const x=o[t];o[t]=id;o[from]=x;return true}          /* swap with a top tile */
+  if(from<SHOWN){o[from]=null;o.splice(t,0,id);return true}       /* top tile to hidden: leaves a blank spot */
+  o.splice(from,1);o.splice(t,0,id);return true;                  /* reorder among hidden */
+ }
  document.addEventListener('pointerdown',e=>{
-  if(!edit)return;const t=e.target.closest('#tgrid .pill[data-edit]');if(!t||e.button>0)return;
-  const grid=document.getElementById('tgrid'),id=t.dataset.t;let o=order(),moved=false,ghost=null;
+  if(!edit)return;const t=e.target.closest('#tgrid .pill[data-edit]');if(!t||(e.pointerType==='mouse'&&e.button>0))return;
+  const grid=document.getElementById('tgrid');let o=order(),moved=false,ghost=null;
+  const isEmpty=t.hasAttribute('data-empty'),id=isEmpty?null:t.dataset.t,slot=isEmpty?+t.dataset.empty:-1;
   const x0=e.clientX,y0=e.clientY,r0=t.getBoundingClientRect(),ox=x0-r0.left,oy=y0-r0.top;
   try{t.setPointerCapture(e.pointerId)}catch(_){}
-  const relayout=()=>{ /* CSS order, so the dragged element is never moved in the page and keeps its pointer */
-   o.forEach((k,i)=>{const el=grid.querySelector('.pill[data-t="'+k+'"]');if(el){el.style.order=2*i;el.classList.toggle('hid',i>=SHOWN)}});
-   const sep=grid.querySelector('.tsep');if(sep)sep.style.order=2*SHOWN-1;
-  };
   const move=ev=>{
+   if(isEmpty)return;
    if(!moved&&Math.hypot(ev.clientX-x0,ev.clientY-y0)<7)return;
-   if(!moved){moved=true;ghost=t.cloneNode(true);ghost.classList.add('tdrag');ghost.style.width=r0.width+'px';document.body.appendChild(ghost);t.classList.add('ph')}
+   if(!moved){moved=true;dragging=true;ghost=t.cloneNode(true);ghost.classList.add('tdrag');ghost.style.width=r0.width+'px';ghost.style.order='';document.body.appendChild(ghost);t.classList.add('ph')}
    ghost.style.left=(ev.clientX-ox)+'px';ghost.style.top=(ev.clientY-oy)+'px';
-   const hit=document.elementsFromPoint(ev.clientX,ev.clientY).find(n=>n!==ghost&&n!==t&&(n.matches&&(n.matches('#tgrid .pill[data-t]')||n.matches('#tgrid .tsep'))));
-   if(!hit)return;
-   const from=o.indexOf(id);let to;
-   if(hit.classList.contains('tsep')){if(from>=SHOWN)return;to=SHOWN}
-   else to=o.indexOf(hit.dataset.t);
-   if(to<0||to===from)return;
-   o.splice(from,1);o.splice(to,0,id);relayout();
+   const el=document.elementsFromPoint(ev.clientX,ev.clientY).find(n=>n!==ghost&&n!==t&&n.matches&&n.matches('#tgrid .pill[data-t],#tgrid .pill[data-empty],#tgrid .tsep'));
+   if(!el||el.style.display==='none')return;
+   const hit=el.classList.contains('tsep')?{k:'sep'}:el.hasAttribute('data-empty')?{k:'empty',v:+el.dataset.empty}:{k:'tile',v:el.dataset.t};
+   if(moveIn(o,o.indexOf(id),hit)){target=null;layout(o)}
   };
   const up=ev=>{
    t.removeEventListener('pointermove',move);t.removeEventListener('pointerup',up);t.removeEventListener('pointercancel',up);
-   if(ghost)ghost.remove();t.classList.remove('ph');
+   dragging=false;if(ghost)ghost.remove();t.classList.remove('ph');
    if(moved){setOrder(o);build();return}
-   /* a tap: a shown tile is hidden, a hidden tile is shown */
-   const i=o.indexOf(id);o.splice(i,1);
-   o.splice(i<SHOWN?SHOWN:SHOWN-1,0,id);
-   setOrder(o);build();
+   if(ev.type==='pointercancel')return;
+   /* a tap */
+   if(isEmpty){target=target===slot?null:slot;layout(o);return}
+   const from=o.indexOf(id);
+   if(from<SHOWN){ /* clear this spot, leave it blank to be filled */
+    o[from]=null;o.splice(SHOWN,0,id);target=from;setOrder(o);layout(o);return;
+   }
+   const free=(target!==null&&o[target]===null)?target:o.slice(0,SHOWN).indexOf(null);
+   if(free<0){toast('Tap one of the top tiles first to make room');return}
+   o[free]=id;o.splice(from,1);target=null;setOrder(o);layout(o);
   };
   t.addEventListener('pointermove',move);t.addEventListener('pointerup',up);t.addEventListener('pointercancel',up);
  });
- window.__tiles={order,setOrder,reg:REG,get edit(){return edit},build};
+ window.__tiles={order,setOrder,reg:REG,get edit(){return edit},get target(){return target},build};
 })();
 
 /* Connect: a QR (or pasted code) sets up a direct, encrypted device-to-device link; then pages and vaults go over it */
