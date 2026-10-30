@@ -58,6 +58,9 @@
 
 
 
+
+
+
 <style>.app{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}</style>
 </head>
 <body>
@@ -3602,7 +3605,7 @@ async function streamQR(title,u8,note){
  <div class="qrspeed"><button class="btn" data-qs="-">Slower</button><span id="qrfps"></span><button class="btn" data-qs="+">Faster</button></div>
  <p class="hint" style="text-align:center">${esc(note||'')} The codes repeat until the other device has everything. It can miss some and resume later.</p><div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);
  const draw=()=>{if(S0!==strm||!document.getElementById('qrbox'))return;const box=$('#qrbox');box.innerHTML='';box.appendChild(qrCanvas(fxFrame(ctx,S0.idx),340));
-  const nt=$('#qrnote');if(nt)nt.textContent=`Showing code ${S0.idx+1}. About ${ctx.K} are needed; ${Math.ceil(ctx.K/S0.fps)} s at this speed.`;
+  const nt=$('#qrnote');if(nt)nt.textContent=`Keep the other phone pointed at this screen until it finishes. The codes repeat on their own, so nothing runs out. Usually about ${Math.max(2,Math.ceil(ctx.K*1.1/S0.fps))} s at this speed.`;
   const f=$('#qrfps');if(f)f.textContent=S0.fps+' per second';S0.idx++;S0.timer=setTimeout(draw,1000/S0.fps)};
  draw();
 }
@@ -5204,7 +5207,18 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
  let AC=null;
  const actx=()=>{if(!AC||AC.state==='closed')AC=new (window.AudioContext||window.webkitAudioContext)();try{AC.resume()}catch(e){}return AC};
  let TX=null;
+ const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||!!window.__sndIOS;
+ function wavUrl(f32,rate){
+  const n=f32.length,buf=new ArrayBuffer(44+n*2),v=new DataView(buf),w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))};
+  w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){const x=Math.max(-1,Math.min(1,f32[i]));v.setInt16(44+i*2,x<0?x*32768:x*32767,true)}
+  return URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));
+ }
  function play(ctx,f32){
+  if(IOS){ /* an <audio> element keeps playing with the silent switch on; Web Audio does not */
+   const u=wavUrl(f32,ctx.sampleRate),a=new Audio(u);a.preload='auto';
+   return new Promise(res=>{const done=()=>{try{URL.revokeObjectURL(u)}catch(e){}res()};a.onended=done;a.onerror=done;if(TX)TX.src={stop(){try{a.pause()}catch(e){}done()}};a.play().catch(done)});
+  }
   const b=ctx.createBuffer(1,f32.length,ctx.sampleRate);b.getChannelData(0).set(f32);const s=ctx.createBufferSource();s.buffer=b;s.connect(ctx.destination);
   return new Promise(res=>{s.onended=res;if(TX)TX.src=s;s.start()});
  }
@@ -5264,16 +5278,17 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
   openSheet(`<div class="snd" id="snd"><h3>Sending picture…</h3><div class="big" id="sdtx">Preparing</div><div class="bar"><i id="sdbar"></i></div><p class="hint" style="text-align:center">On the other device: Scan, Listen for sound, Picture. Keep it quiet nearby.</p><div class="btnrow"><button class="btn pri" data-snd="stop">Stop</button></div></div>`);
   stopTx();const me=TX={stop:false,src:null};
   await new Promise(r=>setTimeout(r,30));
-  const f=SSTV.encode(s.rgb,s.vis,ctx.sampleRate),total=f.length/ctx.sampleRate,t0=ctx.currentTime;
-  const tm=setInterval(()=>{if(!alive()||me.stop){clearInterval(tm);return}const p=Math.min(1,(ctx.currentTime-t0)/total),b=$('#sdbar'),t=$('#sdtx');if(b)b.style.width=p*100+'%';if(t)t.textContent=fmt(Math.max(0,total*(1-p)))+' left'},500);
+  const f=SSTV.encode(s.rgb,s.vis,ctx.sampleRate),total=f.length/ctx.sampleRate,t0=Date.now()/1000;
+  const tm=setInterval(()=>{if(!alive()||me.stop){clearInterval(tm);return}const p=Math.min(1,(Date.now()/1000-t0)/total),b=$('#sdbar'),t=$('#sdtx');if(b)b.style.width=p*100+'%';if(t)t.textContent=fmt(Math.max(0,total*(1-p)))+' left'},500);
   await play(ctx,f);clearInterval(tm);
   if(TX===me)TX=null;if(alive()&&!me.stop){const t=$('#sdtx'),b=$('#sdbar');if(t)t.textContent='Finished';if(b)b.style.width='100%'}
  }
  /* ---- listen ---- */
  let L=null;
  async function micOpen(cb){
-  const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
-  const ctx=new (window.AudioContext||window.webkitAudioContext)();try{await ctx.resume()}catch(e){}
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();try{ctx.resume()}catch(e){} /* created inside the tap so iOS lets it run */
+  let stream;try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}})}catch(e){try{ctx.close()}catch(x){}throw e}
+  try{await ctx.resume()}catch(e){}
   const src=ctx.createMediaStreamSource(stream),proc=ctx.createScriptProcessor(4096,1,1),mute=ctx.createGain();mute.gain.value=0;
   proc.onaudioprocess=e=>cb(new Float32Array(e.inputBuffer.getChannelData(0)));
   src.connect(proc);proc.connect(mute);mute.connect(ctx.destination);
@@ -5286,7 +5301,7 @@ function imgExt(id){const u=(IMG[id]||'').slice(0,30);return /png/.test(u)?'png'
   <div class="seg" id="slt"><button data-snd="tab" data-v="d">Data</button><button data-snd="tab" data-v="p">Picture</button></div>
   <div id="slbody"></div><div class="lvl"><i id="sllv"></i></div><p class="hint" id="slnote" style="text-align:center"></p>
   <div class="btnrow"><button class="btn" data-snd="x">Close</button><button class="btn pri" data-snd="keep" id="slkeep" hidden>Keep what I have</button></div></div>`);
-  try{me.mic=await micOpen(x=>onAudio(me,x))}catch(e){stopListen();return openSheet(`<h3>Microphone not available</h3><p class="hint">Allow the microphone for Margin Notes, then try again. Sound transfer needs it. Nothing is recorded or stored.</p><div class="btnrow"><button class="btn pri" data-snd="x">Close</button></div>`)}
+  try{me.mic=await micOpen(x=>onAudio(me,x))}catch(e){stopListen();const why=e&&(e.name||e.message)?esc(String(e.name||'')+(e.message?': '+e.message:'')).slice(0,160):'';return openSheet(`<h3>Microphone not available</h3><p class="hint">Allow the microphone for Margin Notes, then try again. On an iPhone, open the home-screen icon or Safari, not a link inside another app. Nothing is recorded or stored.</p>${why?`<p class="hint">Details: ${why}</p>`:''}<div class="btnrow"><button class="btn pri" data-snd="x">Close</button></div>`)}
   if(L!==me)return;
   me.watch=setInterval(()=>{if(!alive()||L!==me){if(L===me)stopListen();else clearInterval(me.watch);return}
    const l=$('#sllv');if(l)l.style.width=Math.min(100,me.peak*260)+'%';me.peak*=.6;
