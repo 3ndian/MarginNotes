@@ -560,6 +560,7 @@ html.nbar .app{box-sizing:border-box;padding-bottom:var(--sab,0px)}
 .qrcam:not(.live) .qrpill span{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;color:var(--muted)}
 html.nbar .qrhead{padding-top:calc(28px + env(safe-area-inset-top,0px))}
 .qrpaused{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;font-size:12.5px;color:var(--muted);line-height:1.4;padding:0 8px}.qrpaused .btn.qrlink{min-height:36px;padding:0 14px;font-size:13px;background:transparent;box-shadow:none;color:var(--muted);text-decoration:underline}
+.bgbar{height:10px;border-radius:6px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden;margin:10px 0 14px}.bgbar i{display:block;height:100%;background:var(--accent);transition:width .2s}
 </style>
 <script>try{if(localStorage.getItem("margin-lock"))document.documentElement.classList.add("locked")}catch(e){}</script>
 <div class="app">
@@ -4836,6 +4837,16 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  /* save one file */
  async function saveFile(f){
   try{
+   if(f.big&&f.blob){
+    if(window.NativeBridge&&NativeBridge.beginSave){
+     const ok=await new Promise(res=>{window.__bigReady=res;NativeBridge.beginSave(f.name,f.m)});
+     if(!ok){toast('Not saved');return}
+     toast('Saving…');
+     for(let o=0;o<f.blob.size;o+=3145728){const u=new Uint8Array(await f.blob.slice(o,o+3145728).arrayBuffer());let bin='';for(let i=0;i<u.length;i+=8192)bin+=String.fromCharCode.apply(null,u.subarray(i,i+8192));NativeBridge.appendSave(btoa(bin))}
+     const done=await new Promise(res=>{window.__nativeDone=res;NativeBridge.endSave()});toast(done?'Saved':'Could not save');return;
+    }
+    const a=document.createElement('a');a.href=f.url;a.download=f.name;document.body.appendChild(a);a.click();a.remove();toast('Downloaded');return;
+   }
    const b64=f.url.slice(f.url.indexOf(',')+1);
    if(window.NativeBridge&&NativeBridge.saveFile){const ok=await new Promise(res=>{window.__nativeDone=res;NativeBridge.saveFile(f.name,f.m,b64)});if(ok)toast('Saved');return}
    const bin=atob(b64),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
@@ -5292,10 +5303,10 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
 
 /* Send a file: pick files, then send them by QR, by QR in parts when they are big, or over a Connect link. No page needed. */
 (function(){
- const QR_CAP=1000000,PART=700000,MAXF=20000000,MAXT=40000000,MAXPARTS=8000000;
+ const QR_CAP=1000000,PART=700000,MAXF=20000000,MAXBIG=1000000000,MAXT=40000000,MAXPARTS=8000000;
  const kb=n=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
  const est=raw=>{const s=Math.max(5,Math.round(raw*1.3/2200));return s<90?s+' seconds':s<5400?Math.round(s/60)+' minutes':(Math.round(s/360)/10)+' hours'};
- const tile=f=>f.m.startsWith('image/')&&f.u8.length<400000?`<img src="data:${f.m};base64,${b64std(f.u8)}" alt="">`:`<div class="qft">${esc((extOf(f.name)||'file').slice(0,4).toUpperCase())}</div>`;
+ const tile=f=>!f.big&&f.m.startsWith('image/')&&f.u8.length<400000?`<img src="data:${f.m};base64,${b64std(f.u8)}" alt="">`:`<div class="qft">${esc((extOf(f.name)||'file').slice(0,4).toUpperCase())}</div>`;
  const ACCEPT=Object.keys(FT).map(x=>'.'+x).join(',');
  let SF=null; /* {fl,sel:Set} */
  const raw=()=>[...SF.sel].reduce((a,i)=>a+SF.fl[i].u8.length,0);
@@ -5306,13 +5317,16 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const f=document.createElement('input');f.type='file';f.multiple=true;f.style.cssText='position:fixed;left:-999px;opacity:0';document.body.appendChild(f);
   f.onchange=async()=>{
    const list=[...f.files];f.remove();if(!list.length)return;
-   const fl=SF?SF.fl.slice():[];let bad=0,total=fl.reduce((a,x)=>a+x.u8.length,0);
+   const fl=SF?SF.fl.slice():[];let bad=0,total=fl.reduce((a,x)=>a+(x.big?0:x.u8.length),0);
    for(const file of list){
-    const ext=extOf(file.name);if(!okAny(ext)||file.size<1||file.size>MAXF||total+file.size>MAXT){bad++;continue}
+    const ext=extOf(file.name);
+    const cleanName=file.name.replace(/[\\\/]+/g,'_').replace(/[^\w.\- ()]+/g,'_').slice(0,100);
+    if(okAny(ext)&&file.size>MAXF&&file.size<=MAXBIG){fl.push({name:cleanName,m:mimeAny(ext,new Uint8Array(0)),u8:{length:file.size},big:file});continue}
+    if(!okAny(ext)||file.size<1||file.size>MAXF||total+file.size>MAXT){bad++;continue}
     const u8=new Uint8Array(await file.arrayBuffer());if(!magicAny(ext,u8)){bad++;continue}
     total+=u8.length;fl.push({name:file.name.replace(/[\\\/]+/g,'_').replace(/[^\w.\- ()]+/g,'_').slice(0,100),m:mimeAny(ext,u8),u8});
    }
-   if(!fl.length)return openSheet(`<h3>That file can’t be sent</h3><p class="hint">Any type of file works, up to 20 MB each. It can’t be empty or too big.</p><div class="btnrow"><button class="btn" data-sf="x">Close</button><button class="btn pri" data-sf="add">Choose another</button></div>`);
+   if(!fl.length)return openSheet(`<h3>That file can’t be sent</h3><p class="hint">Any type of file works. Over Connect, up to 1 GB each. It can’t be empty or too big.</p><div class="btnrow"><button class="btn" data-sf="x">Close</button><button class="btn pri" data-sf="add">Choose another</button></div>`);
    if(bad)toast(bad+' file'+(bad>1?'s':'')+' skipped (type or size)');
    SF={fl,sel:new Set(fl.map((_,i)=>i))};draw();
   };
@@ -5337,7 +5351,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   qr.disabled=!n||!fits;small('sfqr').textContent=!n?'':fits?'About '+est(r)+'. The other phone scans the codes.':'Too big for one go. Use parts or Connect.';
   pt.hidden=fits;pt.disabled=!n||r>MAXPARTS;small('sfparts').textContent=r>MAXPARTS?'Over 8 MB. Use Connect for this much.':np+' parts, about '+est(r)+' in all. The other phone scans one part at a time.';
   const sd=btn('sfsound'),sc=window.__soundCap&&window.__soundCap();if(sd){if(!sc){sd.hidden=true}else{const est2=Math.ceil(r*1.37/sc.pk)*sc.sec,mins=est2<90?Math.max(1,Math.round(est2))+' seconds':Math.round(est2/60)+' minutes',okS=n&&r*1.37<sc.max*0.9;sd.disabled=!okS;small('sfsound').textContent=!n?'':okS?'About '+mins+'. The other device taps Listen. Tiny files only.':'Too big for sound (about '+Math.floor(sc.max*0.9/1.37/1000)+' KB at most). Use QR or Connect.'}}
-  const on=linked();cn.disabled=!n;small('sfconn').textContent=on?'Connected. Sends it straight across, any size up to 20 MB each.':'Not connected yet. Tap to set up a Connect link first.';
+  const on=linked();cn.disabled=!n;small('sfconn').textContent=on?(chosen().some(f=>f.big)?'Connected. Big files stream across with a progress bar. The other device is asked first.':'Connected. Sends it straight across, up to 1 GB each.'):'Not connected yet. Tap to set up a Connect link first.';
  }
  const msgOf=fl=>({t:'files',n:devName(),ts:Date.now(),files:fl.map(f=>({name:f.name,m:f.m,d:b64u(f.u8)}))});
 
@@ -5368,11 +5382,18 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   if(k==='parts'){SF=null;SP={g:uid(),fl,plan:planOf(fl),j:0};sendPart(0);return}
   if(k==='sound'){SF=null;try{await window.__sendSound(fl.length>1?fl.length+' files':fl[0].name,msgOf(fl))}catch(er){toast('Could not send by sound')}return}
   if(k==='conn'){
-   if(!linked()){SF=null;closeSheet();try{window.__link.menu()}catch(er){toast('Open Connect from the Home menu')}return}
-   SF=null;toast('Sending…');
-   try{const s=await sealMsg(msgOf(fl));await window.__link.sendStr(s)}catch(er){toast('Could not send')}
+   if(!linked()){SF=null;window.__pendSend=fl;setTimeout(()=>{if(window.__pendSend===fl)window.__pendSend=null},600000);closeSheet();toast('Set up Connect. Your file sends as soon as you are connected.');try{window.__link.menu()}catch(er){toast('Open Connect from the Home menu')}return}
+   SF=null;sendConn(fl);
   }
  });
+async function sendConn(fl){
+   const small=fl.filter(f=>!f.big),bigs=fl.filter(f=>f.big);
+   try{
+    if(small.length){toast('Sending…');const s=await sealMsg(msgOf(small));await window.__link.sendStr(s)}
+    for(const f of bigs){if(!(await window.__link.sendBig(f)))break}
+   }catch(er){toast('Could not send')}
+ }
+ window.__sendConn=sendConn;
  window.__pickSend=pick;
 
  /* ---- receiving parts ---- */
@@ -5699,18 +5720,95 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  function drop(){if(L){try{L.dc&&L.dc.close()}catch(e){}try{L.pc&&L.pc.close()}catch(e){}L=null}}
  function gathered(pc){return new Promise(res=>{if(pc.iceGatheringState==='complete')return res();const t=setTimeout(done,stunOn()?5000:2500);function done(){clearTimeout(t);pc.removeEventListener('icegatheringstatechange',ch);res()}function ch(){if(pc.iceGatheringState==='complete')done()}pc.addEventListener('icegatheringstatechange',ch)})}
  function wire(dc){
-  L.dc=dc;dc.onopen=()=>{clearTimeout(L.to);L.state='open';connected()};
+  L.dc=dc;try{dc.binaryType='arraybuffer'}catch(e){}
+  dc.onopen=()=>{clearTimeout(L.to);L.state='open';connected();const pf=window.__pendSend;if(pf){window.__pendSend=null;setTimeout(()=>{try{window.__sendConn(pf)}catch(e){}},900)}};
   dc.onclose=()=>{if(L&&L.dc===dc){L.state='closed';if(document.getElementById('lnkst'))toast('Connection closed')}};
   dc.onmessage=async ev=>{
-   if(typeof ev.data!=='string')return;
+   if(typeof ev.data!=='string'){bigBin(ev.data);return}
    if(ev.data.charAt(0)==='{'){let h;try{h=JSON.parse(ev.data)}catch(e){return}
     if(h.t==='start'){L.rx={id:h.id,len:h.len|0,buf:''}}
     else if(h.t==='end'&&L.rx&&L.rx.id===h.id){const s=L.rx.buf;L.rx=null;try{dc.send(JSON.stringify({t:'ack',id:h.id}))}catch(e){}closeSheet();await receiveMsg(s)}
     else if(h.t==='ack'){toast('Sent');if(document.getElementById('lnkst'))connected()}
     else if(h.t==='chunk'&&L.rx)L.rx.buf+=String(h.d||'');
+    else if(h.t==='faccept'||h.t==='fdeny'){const w=L.fw&&L.fw[h.id];if(w){delete L.fw[h.id];w(h.t==='faccept'?'yes':'no')}}
+    else if(h.t==='fstart'){bigStart(h)}
+    else if(h.t==='fend'){bigEnd(h)}
+    else if(h.t==='fcancel'){bigAbort(h.id,true)}
     return}
   };
  }
+
+ /* ---- big files: streamed in pieces, receiver is asked first ---- */
+ const bkb=n=>n<1048576?Math.round(n/1024)+' KB':n<1073741824?(n/1048576).toFixed(1)+' MB':(n/1073741824).toFixed(2)+' GB';
+ const bigSheet=(title,txt,pct,btn)=>openSheet(`<h3>${esc(title)}</h3><p class="hint" id="bgtx">${esc(txt)}</p><div class="bgbar"><i id="bgfill" style="width:${pct||0}%"></i></div><div class="btnrow">${btn||''}</div>`);
+ const bigProg=(txt,pct)=>{const a=document.getElementById('bgtx'),b=document.getElementById('bgfill');if(a)a.textContent=txt;if(b)b.style.width=pct+'%'};
+ let BS=null; /* sender state */
+ async function sendBig(f){
+  if(!L||!L.dc||L.dc.readyState!=='open'){toast('Not connected');return false}
+  const dc=L.dc,id=uid(),size=f.big.size,peer=L.name||'the other device';
+  await sendStr(await sealMsg({t:'fhead',n:devName(),ts:Date.now(),id,name:f.name,m:f.m,size}));
+  BS={id,stop:false};
+  bigSheet('Waiting for '+peer,'“'+f.name+'” ('+bkb(size)+'). The other device has to tap Accept first.',0,'<button class="btn" data-bg="cancel">Cancel</button>');
+  L.fw=L.fw||{};
+  const ans=await new Promise(res=>{L.fw[id]=res;BS.abort=()=>res('no');setTimeout(()=>res('timeout'),180000)});
+  if(L&&L.fw)delete L.fw[id];
+  if(ans!=='yes'){BS=null;closeSheet();toast(ans==='timeout'?'No answer':'Not accepted');try{dc.send(JSON.stringify({t:'fcancel',id}))}catch(e){}return false}
+  dc.send(JSON.stringify({t:'fstart',id,size}));
+  bigSheet('Sending “'+f.name+'”','0 of '+bkb(size),0,'<button class="btn" data-bg="cancel">Cancel</button>');
+  const CH=16384,BLK=1048576;let sent=0,last=0;
+  try{
+   for(let off=0;off<size&&!BS.stop;off+=BLK){
+    const buf=new Uint8Array(await f.big.slice(off,Math.min(size,off+BLK)).arrayBuffer());
+    for(let i=0;i<buf.length&&!BS.stop;i+=CH){
+     while(dc.bufferedAmount>1<<20&&!BS.stop){if(dc.readyState!=='open')throw 0;await new Promise(r=>setTimeout(r,20))}
+     if(dc.readyState!=='open')throw 0;
+     dc.send(buf.subarray(i,i+CH));sent+=Math.min(CH,buf.length-i);
+     if(Date.now()-last>200){last=Date.now();bigProg(bkb(sent)+' of '+bkb(size),Math.round(sent/size*100))}
+    }
+   }
+  }catch(e){BS=null;toast('Connection lost');return false}
+  if(BS.stop){BS=null;try{dc.send(JSON.stringify({t:'fcancel',id}))}catch(e){}closeSheet();toast('Cancelled');return false}
+  while(dc.bufferedAmount>0&&dc.readyState==='open')await new Promise(r=>setTimeout(r,30));
+  dc.send(JSON.stringify({t:'fend',id}));BS=null;
+  bigProg('Sent “'+f.name+'”.',100);setTimeout(()=>{if(document.getElementById('bgfill'))connected()},900);
+  return true;
+ }
+ /* receiver */
+ function bigStart(h){
+  const w=L&&L.want;if(!w||w.id!==h.id)return;L.want=null;
+  L.big={id:w.id,name:w.name,m:w.m,size:w.size,from:w.from,got:0,parts:[],cur:[],curLen:0,last:0};
+  bigSheet('Receiving “'+w.name+'”','0 of '+bkb(w.size),0,'<button class="btn" data-bg="rcancel">Cancel</button>');
+ }
+ function bigBin(d){
+  const b=L&&L.big;if(!b||!(d instanceof ArrayBuffer))return;
+  b.got+=d.byteLength;if(b.got>b.size)return bigAbort(b.id,false);
+  b.cur.push(d);b.curLen+=d.byteLength;
+  if(b.curLen>=8388608){b.parts.push(new Blob(b.cur));b.cur=[];b.curLen=0}
+  if(Date.now()-b.last>200){b.last=Date.now();bigProg(bkb(b.got)+' of '+bkb(b.size),Math.round(b.got/b.size*100))}
+ }
+ function bigAbort(id,remote){
+  if(BS&&BS.id===id){BS.stop=true;if(BS.abort)BS.abort();if(remote){closeSheet();toast('The other device cancelled')}return}
+  if(L&&L.want&&L.want.id===id){L.want=null;if(remote)closeSheet()}
+  if(L&&L.big&&L.big.id===id){L.big=null;if(!remote){try{L.dc.send(JSON.stringify({t:'fcancel',id}))}catch(e){}}closeSheet();toast(remote?'The other device cancelled':'Transfer stopped')}
+ }
+ function bigEnd(h){
+  const b=L&&L.big;if(!b||b.id!==h.id)return;L.big=null;
+  if(b.got!==b.size){closeSheet();return toast('The file did not arrive in full')}
+  if(b.cur.length)b.parts.push(new Blob(b.cur));
+  const ext=extOf(b.name),blob=new Blob(b.parts,{type:b.m||'application/octet-stream'});
+  const f={id:'',name:b.name,ext,m:b.m||'application/octet-stream',size:b.size,url:URL.createObjectURL(blob),big:true,blob};
+  QP={kind:'files',k:'',name:b.from,files:[f]};
+  const cp=window.__canPreview;if(cp&&!cp.__nb){const w=x=>!x.big&&cp(x);w.__nb=1;window.__canPreview=w}
+  try{L.dc.send(JSON.stringify({t:'ack',id:b.id}))}catch(e){}
+  openSheet(`<h3>Received “${esc(b.name)}”</h3><p class="hint">From ${esc(b.from)}. It was too big to preview. Nothing is opened. Tap the arrow to save it.</p>${filesHtml([f])}<div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);
+ }
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-bg]');if(!m)return;const k=m.dataset.bg;
+  if(k==='cancel'&&BS){BS.stop=true;if(BS.abort)BS.abort()}
+  if(k==='rcancel'&&L&&L.big)bigAbort(L.big.id,false);
+  if(k==='accept'&&L&&L.want){const w=L.want;try{L.dc.send(JSON.stringify({t:'faccept',id:w.id}))}catch(er){toast('Not connected')}bigSheet('Waiting for “'+w.name+'”','Starting…',0,'')}
+  if(k==='deny'&&L&&L.want){try{L.dc.send(JSON.stringify({t:'fdeny',id:L.want.id}))}catch(er){}L.want=null;closeSheet()}
+ });
  async function sendStr(s){
   if(!L||!L.dc||L.dc.readyState!=='open')return toast('Not connected');
   const id=uid(),dc=L.dc,CH=14000;
@@ -5768,6 +5866,14 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  const _rm=receiveMsg;
  receiveMsg=async function(str){
   let r=null;try{r=await openMsg(str)}catch(e){}
+  if(r&&r.obj&&r.obj.t==='fhead'){
+   const o=r.obj,known=isTrusted(r.k),from=sstr(o.n,40)||'Unknown device',size=+o.size|0;
+   if(!L||L.state!=='open'||!(size>0)||size>1000000000||typeof o.id!=='string'||o.id.length>40)return;
+   const nm=sstr(o.name,100).replace(/[^\w.\- ()]+/g,'_')||'file',ext=extOf(nm);
+   if(!okAny(ext))return;
+   L.want={id:o.id,name:nm,m:mimeAny(ext,new Uint8Array(0)),size,from};
+   return openSheet(`<h3>${esc(from)} wants to send a file</h3><div class="qrwho ${known?'ok':'new'}"><b>${devIcon(r.dt)}${esc(from)}</b><code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet'}</span></div><div class="qfiles"><div class="qfile"><div class="qft">${esc((ext||'file').slice(0,4).toUpperCase())}</div><span><em>${esc(nm)}</em><small>${bkb(size)}${RISKY.includes(ext)?' · could run code if opened':''}</small></span></div></div><p class="hint">It is saved only when you tap the arrow afterwards. Nothing is opened.</p><div class="btnrow"><button class="btn" data-bg="deny">Decline</button><button class="btn pri" data-bg="accept">Accept</button></div>`);
+  }
   if(!r||!r.obj||r.obj.t!=='conn')return _rm(str);
   const o=r.obj,known=isTrusted(r.k),from=sstr(o.n,40)||'Unknown device';
   if(o.k==='a'){closeSheet();return gotAnswer(o)}
@@ -5801,7 +5907,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  const _rside=renderSide;
  renderSide=function(){_rside.apply(this,arguments);const row=document.querySelectorAll('#side .sb')[1];if(row&&!$('#sConn')){const d=document.createElement('div');d.className='sb';d.innerHTML=`<button class="pill" id="sConn">${ic('link',18)}Connect a device</button>`;row.after(d)}};
  document.addEventListener('click',e=>{if(e.target.closest('#sConn')){if(innerWidth<900)closeSide();menu()}});
- window.__link={host,menu,sendStr,state:()=>L&&{role:L.role,state:L.state,name:L.name},drop};
+ window.__link={host,menu,sendStr,sendBig,state:()=>L&&{role:L.role,state:L.state,name:L.name},drop};
 })();
 /* live preview: show the start of a received text/page while the codes are still coming in */
 (function(){
