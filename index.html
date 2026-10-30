@@ -537,10 +537,11 @@ html.locked .app,html.locked .fab{visibility:hidden}
 
 .qrtext{max-height:min(46vh,360px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}.qrraw{overscroll-behavior:contain;touch-action:pan-y;user-select:text;-webkit-user-select:text}
 @media (orientation:landscape) and (max-height:540px){
-.sheet:has(.qrbox){display:grid;grid-template-columns:min(calc(100vh - 36px),340px) 1fr;column-gap:20px;align-items:center;left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));top:8px;bottom:8px;width:auto;transform:none;max-height:none;overflow:auto}
-.sheet:has(.qrbox)>.qrbox{grid-column:1;grid-row:1 / span 8;padding:0}
+.sheet:has(.qrbox){--qs:min(calc(100vh - 74px),340px);display:grid;grid-template-columns:var(--qs) 1fr;column-gap:20px;align-items:center;left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));top:8px;bottom:8px;width:auto;transform:none;max-height:none;overflow:auto}
+.sheet:has(.qrbox)>.qrbox{grid-column:1;grid-row:1 / span 8;padding:0;position:sticky;top:0;align-self:start}
 .sheet:has(.qrbox)>:not(.qrbox){grid-column:2}
-.sheet:has(.qrbox) .qrbox canvas{max-width:min(340px,calc(100vh - 36px))!important}
+.sheet:has(.qrbox) .qrbox canvas{max-width:var(--qs)!important;max-height:var(--qs)!important;width:var(--qs)!important;height:auto!important;aspect-ratio:1}
+@supports (height:100dvh){.sheet:has(.qrbox){--qs:min(calc(100dvh - 74px),340px)}}
 .sheet:has(.qrbox)::before{display:none}
 }
 .txt[data-zw]::before{content:attr(data-ph);color:var(--muted);opacity:.6;pointer-events:none;position:absolute}.row[data-type^=h] .txt[data-zw]::before{opacity:.45}
@@ -5630,10 +5631,21 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const nm=L.name||'the other device';
   openSheet(`<h3 id="lnkst">✓ Connected to ${esc(nm)}</h3><p class="hint">This link is direct and encrypted. Choose what to send. The other device is asked to accept it, and can send things back the same way.</p><div class="btnrow col"><button class="btn pri" data-cn="file">${ic('send',18)}Send a file…</button><button class="btn" data-cn="page">Send this page</button><button class="btn" data-cn="vault">Send my whole vault</button><button class="btn" data-cn="bye">Disconnect</button></div>`);
  }
+ function failSheet(){
+  if(!L||L.state==='open')return;clearTimeout(L.to);
+  openSheet(`<h3>Could not connect</h3><p class="hint">The two devices could not find each other. This usually means they are not on the same Wi‑Fi, or the Wi‑Fi blocks devices from talking to each other (guest and office networks often do).</p><div class="btnrow col"><button class="btn pri" data-cn="start">Try again</button>${stunOn()?'':'<button class="btn" data-cn="stunretry">Turn on “work across different networks” and try again</button>'}<button class="btn" data-qr="close">Close</button></div><p class="hint">${stunOn()?'Cross-network mode is on here. It must also be on for the other device (Connect → the checkbox).':'If the devices are on different networks, turn that on for <b>both</b> devices. Or use QR codes, which need no connection.'}</p>`);
+ }
+ function watch(pc){
+  pc.addEventListener('iceconnectionstatechange',()=>{
+   if(!L||L.pc!==pc)return;const st=pc.iceConnectionState,d=document.getElementById('lnkdiag');if(d)d.textContent='Status: '+st;
+   if(st==='checking'){clearTimeout(L.to);L.to=setTimeout(()=>{if(L&&L.pc===pc)failSheet()},25000)}
+   else if(st==='failed')failSheet();
+  });
+ }
  async function host(){
   if(!rtcOk())return openSheet('<h3>Not available here</h3><p class="hint">This device cannot make direct connections. You can still send with QR codes.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>');
   drop();toast('Getting ready…');
-  const pc=new RTCPeerConnection(ice());L={pc,role:'host',state:'wait'};
+  const pc=new RTCPeerConnection(ice());L={pc,role:'host',state:'wait'};watch(pc);
   wire(pc.createDataChannel('mn',{ordered:true}));
   await pc.setLocalDescription(await pc.createOffer());await gathered(pc);
   await show('Connect: step 1 of 3',{t:'conn',k:'o',n:devName(),ts:Date.now(),sdp:slim(pc.localDescription.sdp)},'On the other device: Home → Connect a device → I have a code, then scan this. Keep this screen open.');
@@ -5642,7 +5654,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  }
  async function accept(o,known){
   drop();toast('Connecting…');
-  const pc=new RTCPeerConnection(ice());L={pc,role:'guest',state:'wait',name:sstr(o.n,40)};
+  const pc=new RTCPeerConnection(ice());L={pc,role:'guest',state:'wait',name:sstr(o.n,40)};watch(pc);
   pc.ondatachannel=e=>wire(e.channel);
   await pc.setRemoteDescription({type:'offer',sdp:String(o.sdp||'').slice(0,20000)});
   await pc.setLocalDescription(await pc.createAnswer());await gathered(pc);
@@ -5653,8 +5665,8 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   if(!L||L.role!=='host'||L.state!=='wait'||!L.pc||L.pc.signalingState!=='have-local-offer'){return openSheet('<h3>No connection waiting</h3><p class="hint">Start a connection first, then scan the reply.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>')}
   L.name=sstr(o.n,40);
   try{await L.pc.setRemoteDescription({type:'answer',sdp:String(o.sdp||'').slice(0,20000)})}catch(e){return toast('That reply did not work. Try again.')}
-  const ref=L;openSheet('<h3>Connecting…</h3><p class="hint">Step 3 of 3. This takes a few seconds. This screen turns into the send screen as soon as the link is open.</p><div class="btnrow"><button class="btn" data-cn="cancel">Cancel</button></div>');
-  ref.to=setTimeout(()=>{if(L===ref&&ref.state!=='open')openSheet('<h3>Could not connect</h3><p class="hint">The two devices could not find each other. Check that both are on the same Wi‑Fi, or turn on “Also work across different networks” in Connect and try again. Some phones cannot reach computers on the same network; if so, send with QR codes for now.</p><div class="btnrow col"><button class="btn pri" data-cn="start">Try again</button><button class="btn" data-qr="close">Close</button></div>')},25000);
+  const ref=L;openSheet('<h3>Connecting…</h3><p class="hint">Step 3 of 3. This takes a few seconds. This screen turns into the send screen as soon as the link is open.</p><p class="hint" id="lnkdiag">Status: starting</p><div class="btnrow"><button class="btn" data-cn="cancel">Cancel</button></div>');
+  ref.to=setTimeout(()=>{if(L===ref&&ref.state!=='open')failSheet()},25000);
  }
  /* hook incoming signed messages */
  const _rm=receiveMsg;
@@ -5682,6 +5694,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   else if(k==='page'){const n=S.nodes[S.cur];if(!n||n.kind!=='page')return toast('Open a page first');await sendStr(await sealMsg({t:'page',n:devName(),ts:Date.now(),title:nm(n),blocks:exportBlocks(n,true),files:(window.__pagefiles?(await window.__pagefiles(n)).map(f=>({id:f.id,name:f.name,m:f.m,d:f.d})):[])}))}
   else if(k==='vault'){toast('Packing your vault…');const z=await buildVaultZip();await sendStr(await sealMsg({t:'vault',n:devName(),ts:Date.now(),z:b64u(z)}))}
   else if(k==='stun'){S.set.stun=m.checked;save()}
+  else if(k==='stunretry'){S.set.stun=true;save();host()}
   }catch(err){toast('That did not work')}
  });
  function menu(){
