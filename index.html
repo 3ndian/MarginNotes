@@ -5631,13 +5631,15 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const nm=L.name||'the other device';
   openSheet(`<h3 id="lnkst">✓ Connected to ${esc(nm)}</h3><p class="hint">This link is direct and encrypted. Choose what to send. The other device is asked to accept it, and can send things back the same way.</p><div class="btnrow col"><button class="btn pri" data-cn="file">${ic('send',18)}Send a file…</button><button class="btn" data-cn="page">Send this page</button><button class="btn" data-cn="vault">Send my whole vault</button><button class="btn" data-cn="bye">Disconnect</button></div>`);
  }
+ function cands(pc){const c={hidden:0,local:0,inet:0};try{((pc.localDescription&&pc.localDescription.sdp)||'').split(/\r?\n/).forEach(l=>{if(!l.startsWith('a=candidate'))return;if(/ typ srflx/.test(l))c.inet++;else if(/\.local /.test(l))c.hidden++;else c.local++})}catch(e){}return c}
  function failSheet(){
-  if(!L||L.state==='open')return;clearTimeout(L.to);
-  openSheet(`<h3>Could not connect</h3><p class="hint">The two devices could not find each other. This usually means they are not on the same Wi‑Fi, or the Wi‑Fi blocks devices from talking to each other (guest and office networks often do).</p><div class="btnrow col"><button class="btn pri" data-cn="start">Try again</button>${stunOn()?'':'<button class="btn" data-cn="stunretry">Turn on “work across different networks” and try again</button>'}<button class="btn" data-qr="close">Close</button></div><p class="hint">${stunOn()?'Cross-network mode is on here. It must also be on for the other device (Connect → the checkbox).':'If the devices are on different networks, turn that on for <b>both</b> devices. Or use QR codes, which need no connection.'}</p>`);
+  if(!L||L.state==='open')return;clearTimeout(L.to);const cd=cands(L.pc);
+  openSheet(`<h3>Could not connect</h3><p class="hint">The two devices could not find each other. This usually means they are not on the same Wi‑Fi, or the Wi‑Fi blocks devices from talking to each other (guest and office networks often do).</p><div class="btnrow col"><button class="btn pri" data-cn="start">Try again</button>${stunOn()?'':'<button class="btn" data-cn="stunretry">Turn on “work across different networks” and try again</button>'}<button class="btn" data-qr="close">Close</button></div><p class="hint" style="font-size:12px">Details: this device offered ${cd.local} network, ${cd.hidden} hidden-name and ${cd.inet} internet addresses.${cd.local+cd.inet===0?' This browser hides its network address, so the other device may not be able to find it. Cross-network mode or QR codes are the way around that.':''}</p><p class="hint">${stunOn()?'Cross-network mode is on here. It must also be on for the other device (Connect → the checkbox).':'If the devices are on different networks, turn that on for <b>both</b> devices. Or use QR codes, which need no connection.'}</p>`);
  }
  function watch(pc){
   pc.addEventListener('iceconnectionstatechange',()=>{
    if(!L||L.pc!==pc)return;const st=pc.iceConnectionState,d=document.getElementById('lnkdiag');if(d)d.textContent='Status: '+st;
+   if(st==='checking'&&L.role==='guest'){const n=document.getElementById('qrnote'),h=document.querySelector('#sheet h3');if(n&&h&&/step 2/.test(h.textContent)){h.textContent='Connect: step 3 of 3';n.textContent='The other device scanned this reply. Connecting… keep this screen open.'}}
    if(st==='checking'){clearTimeout(L.to);L.to=setTimeout(()=>{if(L&&L.pc===pc)failSheet()},25000)}
    else if(st==='failed')failSheet();
   });
