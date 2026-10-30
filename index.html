@@ -5434,6 +5434,33 @@ async function sendConn(fl){
 (function(){
  let SHOWN=6; /* how many tiles show at the top; the person chooses (S.set.tilesN) */
  /* tiles that already have a click handler keep their old element id so that handler runs */
+ /* Broadcast: a plain QR of text that ANY phone camera can read (not signed, not encrypted) */
+ const BC_MAX=2400;
+ function bcast(){
+  closeSide&&closeSide();
+  openSheet(`<h3>Broadcast a message</h3><p class="hint">Makes a normal QR code that any phone camera can read, with no app needed. Anyone who sees it can read it. It is not private or signed.</p><textarea class="inp" id="bctx" rows="4" placeholder="Type the message, or a link" style="width:100%;resize:vertical"></textarea><p class="hint" id="bcinfo" style="text-align:center"></p><div id="bcbox" style="text-align:center"></div><div class="btnrow"><button class="btn" data-bc="x">Close</button><button class="btn pri" data-bc="go">Show QR</button></div><p class="hint" style="text-align:center;margin-top:6px">Scanning from far away? After the code shows, tap <b>Fill screen</b>.</p>`);
+  const t=document.getElementById('bctx');setTimeout(()=>{try{t.focus()}catch(e){}},200);
+  const upd=()=>{const n=unescape(encodeURIComponent(t.value)).length,i=document.getElementById('bcinfo');if(i)i.textContent=n?n+' of '+BC_MAX+' characters'+(n>700&&n<=BC_MAX?'. Long messages make a dense code that is harder to scan.':''):'';};
+  t.addEventListener('input',upd);
+ }
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-bc]');if(!m)return;
+  if(m.dataset.bc==='x')return closeSheet();
+  const t=document.getElementById('bctx'),box=document.getElementById('bcbox');if(!t||!box)return;
+  const raw=t.value.trim();if(!raw)return toast('Type a message first');
+  const enc=/^[\x00-\x7f]*$/.test(raw)?raw:unescape(encodeURIComponent(raw));
+  if(enc.length>BC_MAX)return toast('Too long for one code. Shorten it.');
+  if(m.dataset.bc==='full'){
+   try{
+    const c=qrCanvas(enc,300,'L'),w=Math.min(innerWidth,innerHeight),ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;z-index:99999;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:pointer';
+    c.style.cssText='width:'+Math.floor(w*0.94)+'px;height:'+Math.floor(w*0.94)+'px;max-width:none;image-rendering:pixelated';
+    ov.appendChild(c);const hn=document.createElement('div');hn.textContent='Tap anywhere to close';hn.style.cssText='color:#555;font:14px system-ui;margin-top:8px';ov.appendChild(hn);
+    ov.onclick=()=>ov.remove();document.body.appendChild(ov);
+   }catch(er){toast('Could not make the code')}return;
+  }
+  try{const c=qrCanvas(enc,300,enc.length>500?'L':'M');box.innerHTML='';box.appendChild(c);box.insertAdjacentHTML('beforeend','<p class="hint">Point any camera at this. Raise the screen brightness for best results. The shorter the message, the bigger the squares, and the farther away it can be read.</p><div class="btnrow"><button class="btn" data-bc="full">Fill screen (for far away)</button></div>')}catch(er){toast('Could not make the code')}
+ });
  const REG=[
   {id:'home',label:'Home',icon:'home',html:()=>`<button class="pill ${S.cur==='root'?'on':''}" data-go="root" data-t="home">${ic('home',18)}Home</button>`},
   {id:'search',label:'Search',icon:'search',el:'sSearch'},
@@ -5446,10 +5473,11 @@ async function sendConn(fl){
   {id:'listen',label:'Listen',icon:'recv',run:()=>{closeSide();const b=document.createElement('button');b.dataset.snd='listen';b.hidden=true;document.body.appendChild(b);b.click();b.remove()}},
   {id:'newpage',label:'New page',icon:'plus',run:()=>{closeSide();newNote(S.cur)}},
   {id:'folder',label:'New folder',icon:'folder',via:'sFolder'},
-  {id:'paper',label:'Paper',icon:'pal',via:'sPaper'}
+  {id:'paper',label:'Paper',icon:'pal',via:'sPaper'},
+  {id:'broadcast',label:'Broadcast',icon:'scan',run:()=>{closeSide();bcast()}}
  ];
  const BYID={};REG.forEach(t=>BYID[t.id]=t);
- const DEFAULT=['home','search','scan','send','connect','today','folder','paper','all','canvas','listen','newpage']; /* Backups and Trash stay at the bottom of the panel */
+ const DEFAULT=['home','search','scan','send','connect','today','folder','paper','all','canvas','listen','newpage','broadcast']; /* Backups and Trash stay at the bottom of the panel */
  let more=false,edit=false,target=null;
  /* the first SHOWN entries are slots (a slot can be empty, null); the rest are hidden tiles */
  const order=()=>{
