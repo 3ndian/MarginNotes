@@ -387,7 +387,7 @@ details.psec>summary::after{content:"+";color:var(--muted)}details.psec[open]>su
 .gnote{padding:8px 4px;display:flex;gap:10px;align-items:center;font-size:14px;color:var(--muted,#888);flex-wrap:wrap}
 .page.fulldb{max-width:none;padding-left:10px;padding-right:10px}.fulldb .fullbtn{display:none}
 .scroller.swiping{box-shadow:0 14px 40px #0004;will-change:transform;touch-action:none}.scroller.pgin{animation:pgin .34s cubic-bezier(.2,.8,.2,1)}@keyframes pgin{from{transform:scale(.95);opacity:.2}to{transform:none;opacity:1}}
-.swhint{position:fixed;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:6px;align-items:center;padding:6px 12px;border-radius:999px;background:var(--paper);border:1px solid var(--line);font-size:13px;opacity:0;pointer-events:none;transition:background .15s}.swhint.ready{background:var(--accent);color:var(--accent-ink,#fff)}
+.swhint{position:fixed;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:6px;align-items:center;padding:6px 12px;border-radius:999px;background:var(--paper);border:1px solid var(--line);font-size:13px;opacity:0;pointer-events:none;transition:background .15s}.swhint .swic{display:inline-flex;align-items:center}.swhint.ready .swic{color:inherit!important}.swhint.ready{background:var(--accent);color:var(--accent-ink,#fff)}
 
 /* all notes */
 .main{position:relative}
@@ -2794,8 +2794,9 @@ function dbToFull(b){
  const ancs=()=>path(S.cur).reverse().filter(i=>S.nodes[i]);
  const lvl=d=>{const m=ancs().length;if(d<120||!m)return 0;return Math.min(m,1+Math.floor((d-120)/100))};
  const lname=id=>id==='root'?'Home':nm(S.nodes[id]);
- function hintTxt(l){const a=ancs();if(!hint)return;const t=l?a[l-1]:a[0];const col=window.nodeColor?nodeColor(t):'';hint.innerHTML=`${ic('up',16)}${col?`<i class="swdot" style="background:${col}"></i>`:''}<span>${esc(lname(t))}</span>${l>1?`<b class="swn">${l}</b>`:''}`;hint.style.borderColor=col||''}
- function mkHint(){if(hint)return;hint=document.createElement('div');hint.className='swhint';const p=parentOf();hint.innerHTML=`${ic('up',16)}<span>${esc(p?(p.id==='root'?'Home':nm(p)):'')}</span>`;document.body.appendChild(hint);const r=sc.getBoundingClientRect();hint.style.top=(r.top+12)+'px'}
+ const nico=id=>id==='root'?ic('home',16):kic(S.nodes[id],16); /* the page's own icon, so it is recognisable while pulling */
+ function hintTxt(l){const a=ancs();if(!hint)return;const t=l?a[l-1]:a[0];const col=window.nodeColor?nodeColor(t):'';hint.innerHTML=`${ic('up',16)}<span class="swic"${col?` style="color:${col}"`:''}>${nico(t)}</span>${col?`<i class="swdot" style="background:${col}"></i>`:''}<span>${esc(lname(t))}</span>${l>1?`<b class="swn">${l}</b>`:''}`;hint.style.borderColor=col||''}
+ function mkHint(){if(hint)return;hint=document.createElement('div');hint.className='swhint';const p=parentOf();hint.innerHTML=`${ic('up',16)}${p?`<span class="swic">${nico(p.id)}</span>`:''}<span>${esc(p?(p.id==='root'?'Home':nm(p)):'')}</span>`;document.body.appendChild(hint);const r=sc.getBoundingClientRect();hint.style.top=(r.top+12)+'px'}
  function reset(anim){sc.style.transition=anim?'transform .28s cubic-bezier(.2,.9,.3,1.2)':'none';sc.style.transform='';setTimeout(()=>{sc.style.transition='';sc.classList.remove('swiping')},anim?300:0);if(hint){hint.remove();hint=null}}
  sc.addEventListener('touchstart',e=>{
   sw=null;if(e.touches.length!==1||S.cur==='root'||sel.size||sc.scrollTop>0||document.body.classList.contains('keeping'))return;
@@ -3326,9 +3327,16 @@ const OKT=['p','h1','h2','h3','bullet','todo','toggle','quote','divider','num','
 const sstr=(v,n)=>typeof v==='string'?v.slice(0,n):'';
 /* ---- files that travel with a page, or on their own ---- */
 const FILE_MIMES={'image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/gif':'gif'};
-const FT={pdf:'application/pdf',txt:'text/plain',md:'text/markdown',csv:'text/csv',tsv:'text/tab-separated-values',json:'application/json',rtf:'application/rtf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',gif:'image/gif',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',odt:'application/vnd.oasis.opendocument.text',ods:'application/vnd.oasis.opendocument.spreadsheet',odp:'application/vnd.oasis.opendocument.presentation',epub:'application/epub+zip'};
+const FT={mp3:'audio/mpeg',m4a:'audio/mp4',aac:'audio/aac',wav:'audio/wav',ogg:'audio/ogg',oga:'audio/ogg',opus:'audio/ogg',flac:'audio/flac',pdf:'application/pdf',txt:'text/plain',md:'text/markdown',csv:'text/csv',tsv:'text/tab-separated-values',json:'application/json',rtf:'application/rtf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',gif:'image/gif',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',odt:'application/vnd.oasis.opendocument.text',ods:'application/vnd.oasis.opendocument.spreadsheet',odp:'application/vnd.oasis.opendocument.presentation',epub:'application/epub+zip'};
 const FT_ZIP=['docx','xlsx','pptx','odt','ods','odp','epub'],FT_TEXT=['txt','md','csv','tsv','json','rtf'];
-const extOf=name=>{const m=/\.([A-Za-z0-9]{1,5})$/.exec(String(name||''));return m?m[1].toLowerCase():''};
+/* sound files: played in the app, never run */
+const AUDIO=['mp3','m4a','aac','wav','ogg','oga','opus','flac'];
+/* Send a file takes any type. Types the app has no viewer for are only ever saved, as plain data, and never opened or run here */
+const RISKY=['html','htm','xhtml','svg','js','mjs','jar','apk','xapk','aab','exe','msi','bat','cmd','com','scr','sh','ps1','vbs','lnk','dll','dmg','pkg','deb','rpm','app','php','jsp','hta','url','reg','swf','wsf'];
+const okAny=ext=>true;
+const mimeAny=(ext,u)=>FT[ext]&&(!u||ftMagicOk(ext,u))?FT[ext]:'application/octet-stream'; /* a file that does not match its name is just kept as plain data */
+const magicAny=(ext,u)=>u.length>0;
+const extOf=name=>{const m=/\.([A-Za-z0-9]{1,12})$/.exec(String(name||''));return m?m[1].toLowerCase():''};
 const b64std=u8=>{let s=b64u(u8).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return s};
 const noFiles=o=>{if(!o||!o.files)return o;const c=Object.assign({},o);delete c.files;return c};
 function fileMagicOk(m,u){
@@ -3341,6 +3349,14 @@ function fileMagicOk(m,u){
 function ftMagicOk(ext,u){
  if(!FT[ext]||!u.length)return false;
  if(ext==='pdf')return u[0]===0x25&&u[1]===0x50&&u[2]===0x44&&u[3]===0x46;
+ if(AUDIO.includes(ext)){
+  if(ext==='mp3')return (u[0]===0x49&&u[1]===0x44&&u[2]===0x33)||(u[0]===0xFF&&(u[1]&0xE0)===0xE0);
+  if(ext==='aac')return (u[0]===0xFF&&(u[1]&0xF0)===0xF0)||(u[0]===0x49&&u[1]===0x44&&u[2]===0x33);
+  if(ext==='m4a')return u.length>12&&u[4]===0x66&&u[5]===0x74&&u[6]===0x79&&u[7]===0x70;
+  if(ext==='wav')return u.length>12&&u[0]===0x52&&u[1]===0x49&&u[2]===0x46&&u[3]===0x46&&u[8]===0x57&&u[9]===0x41&&u[10]===0x56&&u[11]===0x45;
+  if(ext==='flac')return u[0]===0x66&&u[1]===0x4C&&u[2]===0x61&&u[3]===0x43;
+  return u[0]===0x4F&&u[1]===0x67&&u[2]===0x67&&u[3]===0x53;
+ }
  if(FT_ZIP.includes(ext))return u[0]===0x50&&u[1]===0x4B;
  if(FT_TEXT.includes(ext)){for(let i=0;i<Math.min(u.length,4096);i++)if(u[i]===0)return false;return true}
  return fileMagicOk(FT[ext],u);
@@ -3364,12 +3380,12 @@ function cleanAnyFiles(a){
  if(!Array.isArray(a))return [];const out=[];let total=0;
  for(const f of a.slice(0,40)){
   if(!f||typeof f!=='object'||typeof f.d!=='string')continue;
-  const ext=extOf(f.name);if(!FT[ext])continue;
+  const ext=extOf(f.name);if(!okAny(ext))continue;
   let u8;try{u8=unb64u(f.d)}catch(e){continue}
-  if(u8.length<1||u8.length>20000000||total+u8.length>40000000||!ftMagicOk(ext,u8))continue;
+  if(u8.length<1||u8.length>20000000||total+u8.length>40000000||!magicAny(ext,u8))continue;
   total+=u8.length;
-  const name=sstr(f.name,100).replace(/[^\w.\- ]+/g,'_').replace(/\.[A-Za-z0-9]{1,5}$/,'').trim().slice(0,70)||'file';
-  out.push({id:'',name:name+'.'+ext,ext,m:FT[ext],size:u8.length,url:'data:'+FT[ext]+';base64,'+b64std(u8)});
+  const name=sstr(f.name,100).replace(/[^\w.\- ]+/g,'_').replace(/\.[A-Za-z0-9]{1,12}$/,'').trim().slice(0,70)||'file';
+  out.push({id:'',name:name+(ext?'.'+ext:''),ext,m:mimeAny(ext,u8),size:u8.length,url:'data:'+mimeAny(ext,u8)+';base64,'+b64std(u8)});
  }
  return out;
 }
@@ -3377,7 +3393,7 @@ IC.dl='<path d="M12 4v11"/><path d="M7.5 11 12 15.5 16.5 11"/><path d="M5 20h14"
 function filesHtml(files){
  if(!files||!files.length)return '';
  const kb=n=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
- return `<div class="qfiles"><b>${files.length>1?'Files ('+files.length+')':'File'}</b>`+files.map((f,i)=>`<div class="qfile">${f.m.startsWith('image/')?`<img src="${f.url}" alt="">`:`<div class="qft">${esc((f.ext||'file').slice(0,4).toUpperCase())}</div>`}<span><em>${esc(f.name)}</em><small>${kb(f.size)}</small></span><button class="qfdl" data-qf="${i}" aria-label="Download ${esc(f.name)}" title="Download">${ic('dl',18)}</button></div>`).join('')+`</div>`;
+ return `<div class="qfiles"><b>${files.length>1?'Files ('+files.length+')':'File'}${window.__canPreview&&files.some(window.__canPreview)?' <span class="qhint">· tap one to preview</span>':''}</b>`+files.map((f,i)=>`<div class="qfile"${window.__canPreview&&window.__canPreview(f)?` data-qv="${i}"`:''}>${f.m.startsWith('image/')?`<img src="${f.url}" alt="">`:`<div class="qft">${esc((f.ext||'file').slice(0,4).toUpperCase())}</div>`}<span><em>${esc(f.name)}</em><small>${kb(f.size)}</small>${RISKY.includes(f.ext)?'<small class="qwarn">Can run on some devices. Only open it if you trust who sent it.</small>':''}</span><button class="qfdl" data-qf="${i}" aria-label="Download ${esc(f.name)}" title="Download">${ic('dl',18)}</button></div>`).join('')+`</div>`;
 }
 function cleanDB(d){
  if(!d||!Array.isArray(d.cols)||!Array.isArray(d.rows))return null;
@@ -4861,7 +4877,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  }
  function drawPick(){
   const c=PF;if(!c)return;
-  openSheet(`<h3>${esc(c.title||'Choose files')}</h3><div class="qpick">${c.fl.map((f,i)=>`<label class="qrow"><input type="checkbox" data-pk="${i}" ${c.sel.has(i)?'checked':''}>${tile(f)}<span><em>${esc(f.name)}</em><small>${kb(f.size)}</small></span></label>`).join('')}</div><p class="hint" id="pkinfo" style="text-align:center"></p><div class="btnrow"><button class="btn" data-pf="x">Cancel</button><button class="btn" data-pf="all">${c.sel.size===c.fl.length?'Select none':'Select all'}</button><button class="btn pri" id="pksend" data-pf="send">Send</button></div>`);
+  openSheet(`<h3>${esc(c.title||'Choose files')}</h3><div class="qpick">${c.fl.map((f,i)=>`<label class="qrow"><input type="checkbox" data-pk="${i}" ${c.sel.has(i)?'checked':''}>${tile(f)}<span><em>${esc(f.name)}</em><small>${kb(f.size)}</small>${RISKY.includes(f.ext)?'<small class="qwarn">Can run on some devices. Only open it if you trust who sent it.</small>':''}</span></label>`).join('')}</div><p class="hint" id="pkinfo" style="text-align:center"></p><div class="btnrow"><button class="btn" data-pf="x">Cancel</button><button class="btn" data-pf="all">${c.sel.size===c.fl.length?'Select none':'Select all'}</button><button class="btn pri" id="pksend" data-pf="send">Send</button></div>`);
   pkInfo();
  }
  document.addEventListener('change',e=>{const m=e.target.closest('[data-pk]');if(!m||!PF)return;const i=+m.dataset.pk;if(m.checked)PF.sel.add(i);else PF.sel.delete(i);pkInfo()});
@@ -4911,7 +4927,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  const DOC_EXT=Object.keys(FT).filter(x=>!FT[x].startsWith('image/')),ACCEPT=DOC_EXT.map(x=>'.'+x).join(','),TXT=['txt','md','csv','tsv','json'];
  const kb=n=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
  const label=ext=>({pdf:'PDF',docx:'DOC',odt:'DOC',rtf:'DOC',xlsx:'XLS',ods:'XLS',csv:'CSV',tsv:'TSV',pptx:'PPT',odp:'PPT',epub:'EPUB',txt:'TXT',md:'MD',json:'JSON'})[ext]||(ext||'FILE').toUpperCase().slice(0,4);
- const canView=b=>{const e=extOf(b.name);return e==='pdf'||TXT.includes(e)};
+ const canView=b=>{const e=extOf(b.name);return e==='pdf'||TXT.includes(e)||AUDIO.includes(e)};
  const cleanName=n=>{n=String(n||'file').replace(/[\\\/]+/g,'_').replace(/[^\w.\- ()]+/g,'_').trim();const e=extOf(n);if(n.length>100){const base=n.slice(0,n.length-(e?e.length+1:0)).slice(0,90);n=base+(e?'.'+e:'')}return n||'file'};
  const toU8=u=>{const s=atob(u.slice(u.indexOf(',')+1)),a=new Uint8Array(s.length);for(let k=0;k<s.length;k++)a[k]=s.charCodeAt(k);return a};
  const readURL=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(f)});
@@ -4924,11 +4940,28 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
 .fileph{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px;border:1px dashed var(--line);border-radius:16px;margin:6px 0;color:var(--muted);font-size:14px}
 .filec+.imgt{margin:2px 0 8px}
 #pdfv{position:fixed;inset:0;z-index:400;background:var(--paper);color:var(--ink);display:flex;flex-direction:column}
-.pvbar{display:flex;gap:6px;align-items:center;padding:calc(env(safe-area-inset-top) + 8px) 10px 8px;border-bottom:1px solid var(--line);background:var(--paper)}
-.pvbar .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:600}
-.pvbar .pg{font-size:12.5px;color:var(--muted);white-space:nowrap;min-width:3.2em;text-align:right}
-.pvbar button{font:inherit;font-size:14px;padding:8px 12px;border-radius:11px;border:0;background:var(--accent-soft);color:var(--accent);font-weight:600;cursor:pointer;min-width:38px}
+.pvtitle{position:absolute;top:calc(env(safe-area-inset-top) + 10px);left:12px;right:12px;display:flex;justify-content:center;pointer-events:none;z-index:2}
+.pvtitle .chip{display:flex;align-items:center;gap:10px;max-width:100%;padding:8px 16px;border-radius:999px;background:color-mix(in srgb,var(--paper) 92%,transparent);border:1px solid var(--line);box-shadow:var(--shadow);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.pvtitle .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:600}
+.pvtitle .pg{font-size:12.5px;color:var(--muted);white-space:nowrap}.pvtitle .pg:empty{display:none}
+.pvbar{position:absolute;left:0;right:0;margin:0 auto;bottom:max(14px,env(safe-area-inset-bottom));width:calc(100% - 24px);max-width:440px;display:flex;gap:6px;padding:8px;border-radius:26px;background:color-mix(in srgb,var(--paper) 90%,transparent);border:1px solid var(--line);box-shadow:var(--shadow);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);z-index:3}
+.pvbar button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font:inherit;font-size:12px;font-weight:600;line-height:1;padding:11px 4px 9px;border-radius:18px;border:1px solid color-mix(in srgb,var(--ink) 8%,transparent);background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--ink);cursor:pointer;transition:background .12s,transform .08s;white-space:nowrap}
+.pvbar button:active{background:color-mix(in srgb,var(--ink) 17%,transparent);transform:scale(.96)}.pvbar button svg{width:20px;height:20px}.pvbar button[hidden]{display:none}
+.aud{max-width:420px;margin:0 auto;padding:28px 20px 40px;display:flex;flex-direction:column;align-items:center;gap:12px;background:var(--paper);min-height:100%;box-sizing:border-box}
+.audart{width:120px;height:120px;border-radius:28px;background:var(--accent-soft);color:var(--accent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}.audart span{font-size:44px;line-height:1}.audart b{font-size:13px;letter-spacing:.06em}
+.audnm{font-weight:600;font-size:15px;text-align:center;word-break:break-word}.audmsg{color:var(--muted);font-size:13px;text-align:center;min-height:1em}
+.aurg{width:100%;accent-color:var(--accent);height:32px}.autm{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.audrow{display:flex;gap:10px;align-items:stretch;justify-content:center;margin-top:6px}
+.audb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:78px;padding:12px 10px 10px;border-radius:16px;font:inherit;font-size:20px;font-weight:600;line-height:1;color:var(--ink);background:color-mix(in srgb,var(--ink) 6%,transparent);border:1px solid color-mix(in srgb,var(--ink) 8%,transparent);cursor:pointer;transition:background .12s,transform .08s}
+.audb b{font-size:17px}.audb small{font-size:12px;font-weight:600;color:var(--muted)}.audb:active{background:color-mix(in srgb,var(--ink) 17%,transparent);transform:scale(.96)}
+.audb.big{min-width:104px;background:var(--accent);color:var(--on-accent);border-color:transparent;font-size:24px}.audb.big small{color:inherit;opacity:.85}
+#pimv button{font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:66px;height:auto;padding:10px 12px 9px;border-radius:16px;font-size:12px;font-weight:600;line-height:1;color:#fff;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);transition:background .12s,transform .08s}
+#pimv button:active{background:rgba(255,255,255,.24);transform:scale(.96)}#pimv button svg{width:20px;height:20px}
+#pimv .ivbar button{font-size:12px}#pimv .ivpct b{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1}#pimv .ivbar .ivpct{min-width:96px;font-size:12px}
+
 .pvbody{flex:1;overflow:auto;background:var(--line);-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+#pdfv{background:color-mix(in srgb,var(--ink) 8%,var(--paper))}
+.pvbody{margin:62px 10px 104px;border-radius:22px;box-shadow:0 2px 14px rgba(0,0,0,.14);border:1px solid var(--line)}
 .pvlist{display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px;width:max-content;min-width:100%;box-sizing:border-box}
 .pvp{background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.18);position:relative;flex:none}.pvp canvas{display:block;width:100%;height:100%}
 .pvtxt{white-space:pre-wrap;word-break:break-word;font:13.5px/1.55 ui-monospace,Menlo,Consolas,monospace;padding:16px;margin:0 auto;max-width:820px;color:var(--ink);background:var(--paper)}
@@ -5039,18 +5072,36 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  }
  function closeV(){
   if(!V)return false;
-  const v=V;V=null;try{v.io&&v.io.disconnect()}catch(e){}try{v.task&&v.task.destroy()}catch(e){}try{v.doc&&v.doc.destroy()}catch(e){}v.el.remove();return true;
+  const v=V;V=null;try{v.kd&&window.removeEventListener('keydown',v.kd)}catch(e){}try{v.au&&(v.au.pause(),v.au.removeAttribute('src'),v.au.load())}catch(e){}try{v.io&&v.io.disconnect()}catch(e){}try{v.task&&v.task.destroy()}catch(e){}try{v.doc&&v.doc.destroy()}catch(e){}v.el.remove();if(v.b&&v.b.fid==='__prev')delete DOC.__prev;return true;
  }
  const _ab=window.__androidBack;window.__androidBack=function(){if(closeV())return true;return _ab?_ab():false};
  const msg=(v,h)=>{const b=v.el.querySelector('.pvbody');if(b)b.innerHTML=`<div class="pvmsg">${h}</div>`};
+ function audioBody(v,url){
+  const el=v.el,body=el.querySelector('.pvbody'),ext=extOf(v.b.name);
+  ['zo','zi'].forEach(k=>{const x=el.querySelector('[data-pv='+k+']');if(x)x.hidden=true});
+  const pg=el.querySelector('#pvpg');if(pg)pg.style.display='none';
+  body.innerHTML=`<div class="aud"><div class="audart"><span>&#9835;</span><b>${esc(ext.toUpperCase())}</b></div><div class="audnm">${esc(v.b.name)}</div><div class="audmsg"></div><input type="range" class="aurg" min="0" max="1000" value="0" aria-label="Position"><div class="autm">0:00 / –:––</div><div class="audrow"><button data-au="back" class="audb"><b>&minus;10</b><small>seconds</small></button><button data-au="play" class="audb big">&#9654;<small>Play</small></button><button data-au="fwd" class="audb"><b>+10</b><small>seconds</small></button></div></div>`;
+  const a=new Audio();a.preload='metadata';a.src=url;v.au=a;
+  const q=s=>body.querySelector(s),pl=q('[data-au=play]'),rg=q('.aurg'),tm=q('.autm');
+  const fmt=t=>{t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+':'+String(t%60).padStart(2,'0')};
+  const upd=()=>{if(a.duration&&!rg.__drag)rg.value=String(a.currentTime/a.duration*1000);tm.textContent=fmt(a.currentTime)+' / '+(isFinite(a.duration)?fmt(a.duration):'–:––');pl.innerHTML=a.paused?'&#9654;<small>Play</small>':'&#10074;&#10074;<small>Pause</small>'};
+  ['timeupdate','loadedmetadata','play','pause','ended'].forEach(n=>a.addEventListener(n,upd));
+  a.addEventListener('error',()=>{q('.audmsg').textContent='This device cannot play this kind of audio. You can still save it.'});
+  body.addEventListener('click',e=>{const k=e.target.closest('[data-au]');if(!k)return;const d=k.dataset.au;
+   if(d==='play'){a.paused?a.play().catch(()=>{}):a.pause()}else if(d==='back')a.currentTime=Math.max(0,a.currentTime-10);else if(d==='fwd')a.currentTime=Math.min(a.duration||1e9,a.currentTime+10)});
+  rg.addEventListener('input',()=>{rg.__drag=true;if(a.duration)a.currentTime=rg.value/1000*a.duration;tm.textContent=fmt(a.currentTime)+' / '+(isFinite(a.duration)?fmt(a.duration):'–:––')});
+  rg.addEventListener('change',()=>{rg.__drag=false});
+  upd();
+ }
  async function openDoc(b){
   const url=DOC[b.fid];if(!url)return toast('This file is not on this device');
   closeV();
   const el=document.createElement('div');el.id='pdfv';
-  el.innerHTML=`<div class="pvbar"><button data-pv="x">Close</button><span class="nm">${esc(b.name)}</span><span class="pg" id="pvpg"></span><button data-pv="zo" aria-label="Zoom out">−</button><button data-pv="zi" aria-label="Zoom in">+</button><button data-pv="save">Save</button></div><div class="pvbody" id="pvbody"><div class="pvmsg">Opening…</div></div>`;
+  el.innerHTML=`<div class="pvtitle"><div class="chip"><span class="nm">${esc(b.name)}</span><span class="pg" id="pvpg"></span></div></div><div class="pvbody" id="pvbody"><div class="pvmsg">Opening…</div></div><div class="pvbar"><button data-pv="x">${ic('x',20)}Close</button><button data-pv="zo" aria-label="Zoom out"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 12h14"/></svg>Zoom out</button><button data-pv="zi" aria-label="Zoom in">${ic('plus',20)}Zoom in</button><button data-pv="save">${ic('save',20)}Save</button></div>`;
   document.body.appendChild(el);
   const v=V={el,b,z:1,gen:1,pages:[],vis:new Set()};
   const ext=extOf(b.name);
+  if(AUDIO.includes(ext)){audioBody(v,url);return}
   if(ext!=='pdf'){
    try{const t=new TextDecoder('utf-8').decode(toU8(url));el.querySelector('.pvbody').innerHTML=`<pre class="pvtxt">${esc(t.length>400000?t.slice(0,400000)+'\n\n… (shortened, save the file to read the rest)':t)}</pre>`;el.querySelector('[data-pv=zo]').hidden=true;el.querySelector('[data-pv=zi]').hidden=true}catch(er){msg(v,'This file could not be shown. Use Save instead.')}
    return;
@@ -5151,7 +5202,81 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
     if(!ok){b.type='p';b.text='(file missing: '+(b.name||b.src)+')';delete b.name;delete b.fid;delete b.size;delete b.mime}
     delete b.src}}
   return r};
- window.__docs={DOC,putDoc,openDoc,get view(){return V}};
+ /* ---- preview a received file before saving it ---- */
+ const PREV_EXT=['pdf','txt','md','csv','tsv','json'].concat(AUDIO);
+ window.__canPreview=f=>!!f&&typeof f.m==='string'&&f.m!=='application/octet-stream'&&(f.m.startsWith('image/')||PREV_EXT.includes(extOf(f.name)));
+ const st2=document.createElement('style');
+ st2.textContent=`.sf .pill:not(.save){border:1px solid color-mix(in srgb,var(--ink) 8%,transparent);background:color-mix(in srgb,var(--ink) 6%,transparent);border-radius:14px;color:var(--ink);font-weight:600;cursor:pointer;transition:background .12s,border-color .12s,transform .08s}
+@media (hover:hover){.sf .pill:not(.save):hover{background:color-mix(in srgb,var(--ink) 11%,transparent);border-color:color-mix(in srgb,var(--ink) 17%,transparent)}.sf .pill.save:hover{filter:brightness(1.08)}.sf .optb:hover{background:color-mix(in srgb,var(--ink) 11%,transparent)}}
+.sf .pill:not(.save):active{background:color-mix(in srgb,var(--ink) 17%,transparent);transform:scale(.96)}.sf .pill.save{transition:filter .12s,transform .08s}.sf .pill.save:active{transform:scale(.98);filter:brightness(.92)}.sf .optb{transition:background .12s,transform .08s}.sf .optb:active{background:color-mix(in srgb,var(--ink) 17%,transparent);transform:scale(.94)}
+.qwarn{color:#b4540a;font-weight:600}#sFolder,#sPaper{display:none!important}.csteps{margin:2px 0 12px;padding-left:20px;font-size:13.5px;line-height:1.5;color:var(--ink)}.csteps li{margin:4px 0}.csteps b{font-weight:650}#sheet .btn small{font-weight:400;opacity:.75}.qfile[data-qv]{cursor:pointer}.qfile[data-qv]:active{background:var(--accent-soft)}.qfiles .qhint{font-weight:400;color:var(--muted);font-size:12px}
+#pimv{position:fixed;inset:0;z-index:700;background:#000;display:flex;flex-direction:column;color:#fff;touch-action:none;user-select:none;-webkit-user-select:none}
+#pimv .ivtop{display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top)) 12px 10px;position:relative;z-index:2}
+#pimv .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;opacity:.85}
+#pimv .ivstage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
+#pimv img{max-width:100%;max-height:100%;object-fit:contain;transform-origin:center;will-change:transform;-webkit-user-drag:none}
+#pimv .ivbar{display:flex;justify-content:center;align-items:center;gap:8px;padding:10px 12px max(14px,env(safe-area-inset-bottom))}
+
+#pimv .ivtop{position:absolute;top:0;left:0;right:0;justify-content:center;padding:max(12px,env(safe-area-inset-top)) 12px 0;pointer-events:none;z-index:2}
+#pimv .ivtop .chip{max-width:100%;padding:8px 16px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+#pimv .ivtop .chip,#pimv .ivtop .nm{color:#fff}#pimv .ivtop .nm{display:block;padding:0;opacity:1;font-weight:600}
+#pimv .ivbar{position:absolute;left:0;right:0;margin:0 auto;bottom:max(14px,env(safe-area-inset-bottom));width:calc(100% - 24px);max-width:440px;padding:8px;gap:6px;border-radius:26px;background:rgba(28,28,30,.78);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);z-index:3}
+#pimv .ivbar button{flex:1 1 0;min-width:0;padding:11px 2px 9px;border-radius:18px}#pimv .ivbar .ivpct{min-width:0;flex:1.2 1 0}
+#pimv .ivstage{position:absolute;inset:0;padding:60px 0 100px;box-sizing:border-box}
+.pvimg{display:flex;align-items:center;justify-content:center;padding:8px}.pvimg img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;cursor:zoom-in;background:#fff}
+.pvimg.zoom{display:block}.pvimg.zoom img{max-width:none;max-height:none;width:240%;cursor:zoom-out}`;
+ document.head.appendChild(st2);
+ function previewFile(f){
+  closeV();
+  const b={fid:'__prev',name:f.name,mime:f.m,size:f.size||0};DOC.__prev=f.url;
+  if(f.m.startsWith('image/')){
+   const el=document.createElement('div');el.id='pimv';
+   el.innerHTML=`<div class="ivtop"><div class="chip"><span class="nm">${esc(f.name)}</span></div></div><div class="ivstage"><img src="${f.url}" alt="" draggable="false"></div><div class="ivbar"><button data-iv="x" aria-label="Close">${ic('x')}Close</button><button data-iv="out" aria-label="Zoom out"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 12h14"/></svg>Zoom out</button><button data-iv="fit" class="ivpct" aria-label="Back to original size"><b>100%</b>Original</button><button data-iv="in" aria-label="Zoom in">${ic('plus')}Zoom in</button><button data-iv="save" aria-label="Save">${ic('save')}Save</button></div>`;
+   document.body.appendChild(el);V={el,b,z:1,gen:1,pages:[],vis:new Set()};
+   const st=el.querySelector('.ivstage'),img=el.querySelector('img'),pct=el.querySelector('.ivpct b');
+   let z=1,x=0,y=0;const P=new Map();let g=null,lastTap=0;
+   const clamp=()=>{const w=img.offsetWidth*z,h=img.offsetHeight*z,mx=Math.max(0,(w-st.clientWidth)/2),my=Math.max(0,(h-st.clientHeight)/2);x=Math.max(-mx,Math.min(mx,x));y=Math.max(-my,Math.min(my,y))};
+   const apply=()=>{if(z<=1){x=0;y=0}clamp();img.style.transform=`translate(${x}px,${y}px) scale(${z})`;pct.textContent=Math.round(z*100)+'%'};
+   const zoomAt=(nz,cx,cy)=>{nz=Math.max(1,Math.min(8,nz));const r=st.getBoundingClientRect(),px=cx-(r.left+r.width/2),py=cy-(r.top+r.height/2),k=nz/z;x=px-(px-x)*k;y=py-(py-y)*k;z=nz;apply()};
+   const mid=()=>{const r=st.getBoundingClientRect();return[r.left+r.width/2,r.top+r.height/2]};
+   const close=()=>closeV();
+   el.addEventListener('click',e=>{
+    const b=e.target.closest('[data-iv]');
+    if(b){const k=b.dataset.iv,[cx,cy]=mid();
+     if(k==='x')close();else if(k==='save')saveDoc(V.b);
+     else if(k==='in')zoomAt(z*1.5,cx,cy);else if(k==='out')zoomAt(z/1.5,cx,cy);else if(k==='fit'){z=1;apply()}
+     return}
+    if(e.target===st&&!st.__moved)close(); /* tap on the black area outside the picture */
+   });
+   const pos=()=>[...P.values()];
+   st.addEventListener('pointerdown',e=>{
+    st.setPointerCapture&&st.setPointerCapture(e.pointerId);P.set(e.pointerId,{x:e.clientX,y:e.clientY});st.__moved=false;st.__img=e.target===img;
+    const p=pos();
+    if(p.length===2){const d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);g={t:'pinch',d,z0:z}}
+    else if(p.length===1)g={t:'pan',sx:e.clientX,sy:e.clientY,x0:x,y0:y};
+   });
+   st.addEventListener('pointermove',e=>{
+    if(!P.has(e.pointerId))return;P.set(e.pointerId,{x:e.clientX,y:e.clientY});const p=pos();
+    if(g&&g.t==='pinch'&&p.length===2){const d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);st.__moved=true;zoomAt(g.z0*d/g.d,(p[0].x+p[1].x)/2,(p[0].y+p[1].y)/2)}
+    else if(g&&g.t==='pan'&&p.length===1){const dx=e.clientX-g.sx,dy=e.clientY-g.sy;if(Math.abs(dx)+Math.abs(dy)>6)st.__moved=true;if(z>1){x=g.x0+dx;y=g.y0+dy;apply()}}
+   });
+   const up=e=>{
+    if(!P.has(e.pointerId))return;P.delete(e.pointerId);
+    if(P.size===1){const q=pos()[0];g={t:'pan',sx:q.x,sy:q.y,x0:x,y0:y}}else if(!P.size){
+     if(!st.__moved&&st.__img){const n=Date.now();if(n-lastTap<320){lastTap=0;z>1.05?(z=1,apply()):zoomAt(2.5,e.clientX,e.clientY)}else lastTap=n}
+     g=null}
+   };
+   st.addEventListener('pointerup',up);st.addEventListener('pointercancel',up);
+   st.addEventListener('wheel',e=>{e.preventDefault();zoomAt(z*(e.deltaY<0?1.15:1/1.15),e.clientX,e.clientY)},{passive:false});
+   window.addEventListener('keydown',V.kd=e=>{if(!V||V.el!==el)return;if(e.key==='Escape')close();else if(e.key==='+'||e.key==='=')zoomAt(z*1.5,...mid());else if(e.key==='-')zoomAt(z/1.5,...mid())});
+   img.addEventListener('load',apply);
+  }else openDoc(b);
+ }
+ document.addEventListener('click',e=>{
+  const row=e.target.closest&&e.target.closest('.qfile[data-qv]');if(!row||e.target.closest('.qfdl'))return;
+  const f=QP&&QP.files&&QP.files[+row.dataset.qv];if(f&&window.__canPreview(f))previewFile(f);
+ });
+ window.__docs={DOC,putDoc,openDoc,previewFile,get view(){return V}};
 })();
 
 /* Send a file: pick files, then send them by QR, by QR in parts when they are big, or over a Connect link. No page needed. */
@@ -5167,16 +5292,16 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  const linked=()=>{try{const s=window.__link&&window.__link.state();return !!(s&&s.state==='open')}catch(e){return false}};
 
  async function pick(){
-  const f=document.createElement('input');f.type='file';f.multiple=true;f.accept=ACCEPT;f.style.cssText='position:fixed;left:-999px;opacity:0';document.body.appendChild(f);
+  const f=document.createElement('input');f.type='file';f.multiple=true;f.style.cssText='position:fixed;left:-999px;opacity:0';document.body.appendChild(f);
   f.onchange=async()=>{
    const list=[...f.files];f.remove();if(!list.length)return;
    const fl=SF?SF.fl.slice():[];let bad=0,total=fl.reduce((a,x)=>a+x.u8.length,0);
    for(const file of list){
-    const ext=extOf(file.name);if(!FT[ext]||file.size<1||file.size>MAXF||total+file.size>MAXT){bad++;continue}
-    const u8=new Uint8Array(await file.arrayBuffer());if(!ftMagicOk(ext,u8)){bad++;continue}
-    total+=u8.length;fl.push({name:file.name.replace(/[\\\/]+/g,'_').replace(/[^\w.\- ()]+/g,'_').slice(0,100),m:FT[ext],u8});
+    const ext=extOf(file.name);if(!okAny(ext)||file.size<1||file.size>MAXF||total+file.size>MAXT){bad++;continue}
+    const u8=new Uint8Array(await file.arrayBuffer());if(!magicAny(ext,u8)){bad++;continue}
+    total+=u8.length;fl.push({name:file.name.replace(/[\\\/]+/g,'_').replace(/[^\w.\- ()]+/g,'_').slice(0,100),m:mimeAny(ext,u8),u8});
    }
-   if(!fl.length)return openSheet(`<h3>That file can’t be sent</h3><p class="hint">PDF, text, Markdown, CSV, JSON, Word, Excel, PowerPoint, EPUB and pictures work, up to 20 MB each.</p><div class="btnrow"><button class="btn" data-sf="x">Close</button><button class="btn pri" data-sf="add">Choose another</button></div>`);
+   if(!fl.length)return openSheet(`<h3>That file can’t be sent</h3><p class="hint">Any type of file works, up to 20 MB each. It can’t be empty or too big.</p><div class="btnrow"><button class="btn" data-sf="x">Close</button><button class="btn pri" data-sf="add">Choose another</button></div>`);
    if(bad)toast(bad+' file'+(bad>1?'s':'')+' skipped (type or size)');
    SF={fl,sel:new Set(fl.map((_,i)=>i))};draw();
   };
@@ -5241,7 +5366,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  const bad=(t,p)=>openSheet(`<h3>${t}</h3><p class="hint">${p}</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
  window.__fpartRecv=async function(r,o,who,from,known){
   const g=sstr(o.g,32).replace(/[^\w-]/g,''),fn=o.fn|0,f=o.f|0,k=o.k|0,i=o.i|0,pi=o.pi|0,tp=o.tp|0,size=o.size|0,name=sstr(o.name,100).replace(/[\\\/]+/g,'_').replace(/[^\w.\- ()]+/g,'_'),ext=extOf(name);
-  if(!g||fn<1||fn>20||f<0||f>=fn||k<1||k>60||i<0||i>=k||tp<1||tp>200||pi<0||pi>=tp||size<1||size>MAXF||!FT[ext]||typeof o.d!=='string')return bad('Could not use this part','It is damaged or not a valid part.');
+  if(!g||fn<1||fn>20||f<0||f>=fn||k<1||k>60||i<0||i>=k||tp<1||tp>200||pi<0||pi>=tp||size<1||size>MAXF||!okAny(ext)||typeof o.d!=='string')return bad('Could not use this part','It is damaged or not a valid part.');
   let chunk;try{chunk=unb64u(o.d)}catch(er){return bad('Could not use this part','It is damaged.')}
   if(chunk.length<1||chunk.length>PART+16)return bad('Could not use this part','It is the wrong size.');
   const key=(r.k||'')+':'+g;let T=G[key];if(!T)T=G[key]={fn,tp,files:{},seen:new Set(),from,t:Date.now()};
@@ -5272,7 +5397,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
 
 /* Left panel tiles: the first six show at the top, More shows the rest, Rearrange lets you drag them or tap to show/hide. */
 (function(){
- const SHOWN=6;
+ let SHOWN=6; /* how many tiles show at the top; the person chooses (S.set.tilesN) */
  /* tiles that already have a click handler keep their old element id so that handler runs */
  const REG=[
   {id:'home',label:'Home',icon:'home',html:()=>`<button class="pill ${S.cur==='root'?'on':''}" data-go="root" data-t="home">${ic('home',18)}Home</button>`},
@@ -5286,15 +5411,20 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   {id:'listen',label:'Listen',icon:'recv',run:()=>{closeSide();const b=document.createElement('button');b.dataset.snd='listen';b.hidden=true;document.body.appendChild(b);b.click();b.remove()}},
   {id:'newpage',label:'New page',icon:'plus',run:()=>{closeSide();newNote(S.cur)}},
   {id:'folder',label:'New folder',icon:'folder',via:'sFolder'},
-  {id:'paper',label:'Paper',icon:'pal',via:'sPaper'},
-  {id:'backup',label:'Backups',icon:'undo',via:'sBackup'},
-  {id:'trash',label:'Trash',icon:'trash',via:'sTrash'}
+  {id:'paper',label:'Paper',icon:'pal',via:'sPaper'}
  ];
  const BYID={};REG.forEach(t=>BYID[t.id]=t);
- const DEFAULT=['home','search','scan','send','connect','today','all','canvas','listen','newpage','folder','paper','backup','trash'];
+ const DEFAULT=['home','search','scan','send','connect','today','folder','paper','all','canvas','listen','newpage']; /* Backups and Trash stay at the bottom of the panel */
  let more=false,edit=false,target=null;
  /* the first SHOWN entries are slots (a slot can be empty, null); the rest are hidden tiles */
  const order=()=>{
+  if(S.set&&S.set.tilesN==null){ /* one time: New folder and Paper moved up here from the bottom of the panel */
+   let a0=S.set.tiles;
+   if(Array.isArray(a0)){const top6=a0.slice(0,6),need=['folder','paper'].filter(x=>!top6.includes(x)),rest=a0.slice(6).filter(x=>!need.includes(x));S.set.tiles=top6.concat(need,rest);S.set.tilesN=top6.length+need.length}
+   else S.set.tilesN=8;
+   try{save()}catch(e){}
+  }
+  SHOWN=Math.max(1,Math.min(REG.length,(S.set&&+S.set.tilesN)||8));
   const a=S.set&&S.set.tiles;if(!Array.isArray(a))return DEFAULT.slice();
   const seen=new Set(),top=[];
   for(let i=0;i<SHOWN;i++){const x=a[i];if(x&&BYID[x]&&!seen.has(x)){seen.add(x);top.push(x)}else top.push(null)}
@@ -5311,7 +5441,8 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   return `<button class="pill${on?' on':''}"${idAttr} data-t="${id}"${edit?' data-edit':''}>${ic(t.icon,18)}${esc(t.label)}</button>`;
  };
  const css=document.createElement('style');
- css.textContent=`.tgrid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:4px 10px}
+ css.textContent=`.tiles .tgrid{transition:max-height .22s ease;overflow:hidden}.tiles.compact .tctl{display:none}
+.tgrid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:4px 10px}
 .tgrid .pill{min-width:0;white-space:nowrap}
 #tgrid{touch-action:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
 #tgrid .pill[data-edit]{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
@@ -5323,6 +5454,13 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
 .tctl{display:flex;gap:6px;padding:2px 10px 6px;align-items:center}
 .tctl button{font:inherit;font-size:12.5px;color:var(--muted);background:transparent;border:0;padding:6px 8px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:4px}
 .tctl button:active{background:var(--accent-soft)}.tctl .tsp{flex:1}
+.tctl .tstep{font-size:18px;line-height:1;width:30px;height:30px;justify-content:center;padding:0;background:var(--accent-soft);color:var(--accent);font-weight:600}.tctl .tstep:disabled{opacity:.35}.tctl .tcount{min-width:1.4em;text-align:center;font-size:14px;color:var(--ink)}.tctl>span:first-child{font-size:12.5px;color:var(--muted);padding-left:2px}
+.tctl.tview{flex-direction:column;align-items:stretch;gap:0;padding:4px 14px 6px}
+.tview .tl{display:flex;align-items:center;gap:6px}.tview .tl i{flex:1;height:1px;background:var(--line)}
+.tview .tmore,.tview .trear{font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);background:transparent;border:0;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:6px;cursor:pointer;transition:background .12s,color .12s,transform .08s}
+@media (hover:hover){.tview .tmore:hover,.tview .trear:hover{background:var(--accent-soft);color:var(--ink)}}
+.tview .tmore:active,.tview .trear:active{background:var(--accent-soft);transform:scale(.97)}
+.tview .tl2{justify-content:center;margin-top:12px}.tview .trear{padding:9px 16px;font-weight:500}
 .tctl .done{color:var(--on-accent);background:var(--accent);font-weight:600;padding:6px 14px}
 .tnote{padding:2px 12px 4px;font-size:12.5px;color:var(--muted)}
 .tdrag{position:fixed;z-index:600;pointer-events:none;opacity:.92;box-shadow:var(--shadow);transform:scale(1.06)}`;
@@ -5333,7 +5471,30 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const grid=document.getElementById('tgrid');if(!grid)return;
   o.forEach((k,p)=>{if(!k)return;const el=grid.querySelector('.pill[data-t="'+k+'"]');if(el){el.style.order=2*p;el.classList.toggle('hid',p>=SHOWN)}});
   grid.querySelectorAll('.pill[data-empty]').forEach(el=>{const p=+el.dataset.empty,show=o[p]===null;el.style.display=show?'':'none';el.style.order=2*p;el.classList.toggle('sel',target===p)});
-  const sep=grid.querySelector('.tsep');if(sep)sep.style.order=2*SHOWN-1;
+  const sep=grid.querySelector('.tsep');if(sep){sep.style.order=2*SHOWN-1;sep.style.display=o.length>SHOWN?'':'none'}
+ }
+ /* scrolling the list down tucks the tiles away: anything past two rows, and the More / Rearrange row, so the list gets the room */
+ let compact=false;
+ function rowsSetup(wrap,tree){
+  const grid=wrap.querySelector('.tgrid');if(!grid)return;
+  grid.style.maxHeight='';wrap.classList.remove('compact');
+  const tops=[...new Set([...grid.children].map(k=>k.offsetTop))].sort((a,b)=>a-b);
+  const cs=getComputedStyle(grid),gap=parseFloat(cs.rowGap)||6,pad=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0);
+  wrap.__lim=tops.length>2?Math.round(tops[2]-tops[0]-gap+pad):0;
+  wrap.__full=wrap.offsetHeight;wrap.__grid=grid;
+  if(!tree.__tc){tree.__tc=1;tree.addEventListener('scroll',()=>{const w=document.querySelector('#side .tiles');if(w&&!edit)setCompact(w,tree)},{passive:true})}
+  if(compact&&tree.scrollTop>0)setCompact(wrap,tree,true);
+ }
+ function setCompact(wrap,tree,force){
+  const st=tree.scrollTop;
+  if(!compact&&st>28){
+   const lim=wrap.__lim,tctl=wrap.querySelector('.tctl'),saved=(lim?wrap.__full-(lim+(wrap.__grid.getBoundingClientRect().top-wrap.getBoundingClientRect().top)):0)+(tctl?tctl.offsetHeight:0);
+   if(!force&&tree.scrollHeight-tree.clientHeight<saved+30)return;
+   compact=true
+  }else if(compact&&st<=1&&!force)compact=false;
+  else if(!force)return;
+  wrap.classList.toggle('compact',compact);
+  if(wrap.__grid)wrap.__grid.style.maxHeight=compact&&wrap.__lim?wrap.__lim+'px':'';
  }
  function build(){
   const side=document.getElementById('side');if(!side)return;
@@ -5342,16 +5503,17 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const tree=document.getElementById('tree');if(!tree)return;
   const o=order(),wrap=document.createElement('div');wrap.className='tiles';let h='';
   if(edit){
-   h+=`<div class="tnote">Tap a top tile to clear its spot, then tap any other tile to put it there. Or drag tiles around.</div><div class="sb tgrid" id="tgrid">${REG.map(t=>tileHTML(t.id,true)).join('')}${[0,1,2,3,4,5].map(i=>`<button class="pill empty" data-empty="${i}" data-edit style="display:none">${ic('plus',18)}Empty</button>`).join('')}<div class="tsep">Hidden: under More</div></div>`;
-   h+=`<div class="tctl"><span class="tsp"></span><button class="done" data-tc="done">Done</button></div>`;
+   h+=`<div class="tnote">Tap a top tile to clear its spot, then tap any other tile to put it there. Or drag tiles around.</div><div class="sb tgrid" id="tgrid">${REG.map(t=>tileHTML(t.id,true)).join('')}${REG.map((_,i)=>i).map(i=>`<button class="pill empty" data-empty="${i}" data-edit style="display:none">${ic('plus',18)}Empty</button>`).join('')}<div class="tsep">Hidden: under More</div></div>`;
+   h+=`<div class="tctl"><span>Tiles shown</span><button class="tstep" data-tc="minus" aria-label="Show one fewer tile" ${SHOWN<=1?'disabled':''}>−</button><b class="tcount">${SHOWN}</b><button class="tstep" data-tc="plus" aria-label="Show one more tile" ${o.length<=SHOWN?'disabled':''}>+</button><span class="tsp"></span><button class="done" data-tc="done">Done</button></div>`;
   }else{
    const shown=o.slice(0,SHOWN).filter(Boolean),all=shown.concat(o.slice(SHOWN));
    h+=`<div class="sb tgrid">${(more?all:shown).map(id=>tileHTML(id,false)).join('')}</div>`;
-   h+=`<div class="tctl"><button data-tc="more">${more?'Fewer':'More'} ${ic('kb',14)}</button><span class="tsp"></span><button data-tc="edit">${ic('sliders',14)}Rearrange</button></div>`;
+   const hid=o.length>SHOWN; /* Rearrange lives inside the opened state; with nothing hidden it takes More's place */
+   h+=`<div class="tctl tview"><div class="tl"><i></i>${hid?`<button class="tmore" data-tc="more">${more?'Fewer':'More'} ${ic('kb',14)}</button>`:`<button class="tmore" data-tc="edit">${ic('sliders',14)}Rearrange</button>`}<i></i></div>${hid&&more?`<div class="tl tl2"><button class="trear" data-tc="edit">${ic('sliders',14)}Rearrange</button></div>`:''}</div>`;
   }
   wrap.innerHTML=h;tree.before(wrap);
   if(edit)layout(o);
-  else if(more){const m=wrap.querySelector('[data-tc=more] svg');if(m)m.style.transform='rotate(180deg)'}
+  else{if(more){const m=wrap.querySelector('[data-tc=more] svg');if(m)m.style.transform='rotate(180deg)'}rowsSetup(wrap,tree)}
  }
  const _rs=renderSide;
  renderSide=function(){_rs.apply(this,arguments);build()};
@@ -5364,6 +5526,11 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
    if(k==='more'){more=!more;build()}
    else if(k==='edit'){edit=true;target=null;build()}
    else if(k==='done'){edit=false;target=null;build()}
+   else if(k==='plus'||k==='minus'){
+    const o=order();
+    if(k==='plus'&&o.length>SHOWN){S.set.tilesN=SHOWN+1;target=null;S.set.tiles=o;save();build()} /* the next hidden tile moves up into the new spot */
+    else if(k==='minus'&&SHOWN>1){const last=SHOWN-1;if(o[last]===null)o.splice(last,1);S.set.tilesN=SHOWN-1;target=null;S.set.tiles=o;save();build()}
+   }
    return;
   }
   const t=e.target.closest&&e.target.closest('#side .tgrid .pill[data-t]');if(!t)return;
@@ -5425,7 +5592,6 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  });
  window.__tiles={order,setOrder,reg:REG,get edit(){return edit},get target(){return target},build};
 })();
-
 /* Connect: a QR (or pasted code) sets up a direct, encrypted device-to-device link; then pages and vaults go over it */
 (function(){
  Object.assign(IC,{link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'});
@@ -5438,7 +5604,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  function drop(){if(L){try{L.dc&&L.dc.close()}catch(e){}try{L.pc&&L.pc.close()}catch(e){}L=null}}
  function gathered(pc){return new Promise(res=>{if(pc.iceGatheringState==='complete')return res();const t=setTimeout(done,stunOn()?5000:2500);function done(){clearTimeout(t);pc.removeEventListener('icegatheringstatechange',ch);res()}function ch(){if(pc.iceGatheringState==='complete')done()}pc.addEventListener('icegatheringstatechange',ch)})}
  function wire(dc){
-  L.dc=dc;dc.onopen=()=>{L.state='open';connected()};
+  L.dc=dc;dc.onopen=()=>{clearTimeout(L.to);L.state='open';connected()};
   dc.onclose=()=>{if(L&&L.dc===dc){L.state='closed';if(document.getElementById('lnkst'))toast('Connection closed')}};
   dc.onmessage=async ev=>{
    if(typeof ev.data!=='string')return;
@@ -5462,7 +5628,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  }
  function connected(){
   const nm=L.name||'the other device';
-  openSheet(`<h3 id="lnkst">Connected to ${esc(nm)}</h3><p class="hint">This link is encrypted and goes straight between the two devices. Choose what to send. They will be asked to accept it.</p><div class="btnrow col"><button class="btn pri" data-cn="page">Send this page</button><button class="btn" data-cn="vault">Send my whole vault</button><button class="btn" data-cn="bye">Disconnect</button></div>`);
+  openSheet(`<h3 id="lnkst">✓ Connected to ${esc(nm)}</h3><p class="hint">This link is direct and encrypted. Choose what to send. The other device is asked to accept it, and can send things back the same way.</p><div class="btnrow col"><button class="btn pri" data-cn="file">${ic('send',18)}Send a file…</button><button class="btn" data-cn="page">Send this page</button><button class="btn" data-cn="vault">Send my whole vault</button><button class="btn" data-cn="bye">Disconnect</button></div>`);
  }
  async function host(){
   if(!rtcOk())return openSheet('<h3>Not available here</h3><p class="hint">This device cannot make direct connections. You can still send with QR codes.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>');
@@ -5470,7 +5636,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const pc=new RTCPeerConnection(ice());L={pc,role:'host',state:'wait'};
   wire(pc.createDataChannel('mn',{ordered:true}));
   await pc.setLocalDescription(await pc.createOffer());await gathered(pc);
-  await show('Connect: step 1',{t:'conn',k:'o',n:devName(),ts:Date.now(),sdp:slim(pc.localDescription.sdp)},'On the other device: Connect → I have a code, then scan this.');
+  await show('Connect: step 1 of 3',{t:'conn',k:'o',n:devName(),ts:Date.now(),sdp:slim(pc.localDescription.sdp)},'On the other device: Home → Connect a device → I have a code, then scan this. Keep this screen open.');
   const br=document.querySelector('#sheet .btnrow');
   if(br)br.innerHTML='<button class="btn" data-cn="cancel">Cancel</button><button class="btn" data-cn="paste">Paste reply</button><button class="btn pri" data-cn="scan">Scan their reply</button>';
  }
@@ -5480,13 +5646,15 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   pc.ondatachannel=e=>wire(e.channel);
   await pc.setRemoteDescription({type:'offer',sdp:String(o.sdp||'').slice(0,20000)});
   await pc.setLocalDescription(await pc.createAnswer());await gathered(pc);
-  await show('Connect: step 2',{t:'conn',k:'a',n:devName(),ts:Date.now(),sdp:slim(pc.localDescription.sdp)},'On the first device, choose Scan their reply and point it at this.');
+  await show('Connect: step 2 of 3',{t:'conn',k:'a',n:devName(),ts:Date.now(),sdp:slim(pc.localDescription.sdp)},'Now go back to the first device, tap Scan their reply and point it at this. Keep this screen open until it says Connected.');
   const br=document.querySelector('#sheet .btnrow');if(br)br.innerHTML='<button class="btn" data-cn="cancel">Cancel</button>';
  }
  async function gotAnswer(o){
   if(!L||L.role!=='host'||L.state!=='wait'||!L.pc||L.pc.signalingState!=='have-local-offer'){return openSheet('<h3>No connection waiting</h3><p class="hint">Start a connection first, then scan the reply.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>')}
-  L.name=sstr(o.n,40);toast('Connecting…');
-  try{await L.pc.setRemoteDescription({type:'answer',sdp:String(o.sdp||'').slice(0,20000)})}catch(e){toast('That reply did not work. Try again.')}
+  L.name=sstr(o.n,40);
+  try{await L.pc.setRemoteDescription({type:'answer',sdp:String(o.sdp||'').slice(0,20000)})}catch(e){return toast('That reply did not work. Try again.')}
+  const ref=L;openSheet('<h3>Connecting…</h3><p class="hint">Step 3 of 3. This takes a few seconds. This screen turns into the send screen as soon as the link is open.</p><div class="btnrow"><button class="btn" data-cn="cancel">Cancel</button></div>');
+  ref.to=setTimeout(()=>{if(L===ref&&ref.state!=='open')openSheet('<h3>Could not connect</h3><p class="hint">The two devices could not find each other. Check that both are on the same Wi‑Fi, or turn on “Also work across different networks” in Connect and try again. Some phones cannot reach computers on the same network; if so, send with QR codes for now.</p><div class="btnrow col"><button class="btn pri" data-cn="start">Try again</button><button class="btn" data-qr="close">Close</button></div>')},25000);
  }
  /* hook incoming signed messages */
  const _rm=receiveMsg;
@@ -5510,6 +5678,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   else if(k==='paste'){closeSheet();const b=document.createElement('button');b.dataset.qrp='open';document.body.appendChild(b);b.click();b.remove()}
   else if(k==='cancel'){drop();closeSheet()}
   else if(k==='bye'){drop();closeSheet();toast('Disconnected')}
+  else if(k==='file'){closeSheet();try{window.__pickSend()}catch(er){toast('Open Send a file from the Home menu')}}
   else if(k==='page'){const n=S.nodes[S.cur];if(!n||n.kind!=='page')return toast('Open a page first');await sendStr(await sealMsg({t:'page',n:devName(),ts:Date.now(),title:nm(n),blocks:exportBlocks(n,true),files:(window.__pagefiles?(await window.__pagefiles(n)).map(f=>({id:f.id,name:f.name,m:f.m,d:f.d})):[])}))}
   else if(k==='vault'){toast('Packing your vault…');const z=await buildVaultZip();await sendStr(await sealMsg({t:'vault',n:devName(),ts:Date.now(),z:b64u(z)}))}
   else if(k==='stun'){S.set.stun=m.checked;save()}
@@ -5517,7 +5686,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  });
  function menu(){
   if(L&&L.state==='open')return connected();
-  openSheet(`<h3>Connect a device</h3><p class="hint">Scan a code on each device once to open a direct, encrypted link. Then send pages or your whole vault, even big ones. The codes carry no notes.</p><div class="btnrow col"><button class="btn pri" data-cn="start">Show my code</button><button class="btn" data-cn="have">I have a code</button></div><label class="hint" style="display:flex;gap:10px;align-items:flex-start;margin-top:14px"><input type="checkbox" data-cn="stun" ${stunOn()?'checked':''}><span>Also work across different networks. This asks a public server for your device’s internet address. Leave off to stay local only.</span></label>`);
+  openSheet(`<h3>Connect a device</h3><p class="hint">Link two devices once, then send files, pages or your whole vault straight across. The codes carry no notes.</p><ol class="csteps"><li><b>First device:</b> tap Show my code.</li><li><b>Second device:</b> tap I have a code, scan it, then tap Connect. It shows a reply code.</li><li><b>First device:</b> tap Scan their reply and scan that.</li><li>Both devices say Connected, and you can send.</li></ol><div class="btnrow col"><button class="btn pri" data-cn="start">Show my code <small>(first device)</small></button><button class="btn" data-cn="have">I have a code <small>(second device)</small></button></div><label class="hint" style="display:flex;gap:10px;align-items:flex-start;margin-top:14px"><input type="checkbox" data-cn="stun" ${stunOn()?'checked':''}><span>Also work across different networks. This asks a public server for your device’s internet address. Leave off to stay local only.</span></label>`);
  }
  const _rside=renderSide;
  renderSide=function(){_rside.apply(this,arguments);const row=document.querySelectorAll('#side .sb')[1];if(row&&!$('#sConn')){const d=document.createElement('div');d.className='sb';d.innerHTML=`<button class="pill" id="sConn">${ic('link',18)}Connect a device</button>`;row.after(d)}};
