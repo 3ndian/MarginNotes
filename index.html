@@ -847,7 +847,7 @@ function split(i,t){
  applyCollapse();setCaret(row.querySelector('.txt'),0);touch();
 }
 function removeEmpty(i){
- const b=B[i];if(!b||b.text!==''||b.type==='divider'||b.type==='page'||b.type==='image')return false;
+ const b=B[i];if(!b||b.text!==''||b.type==='divider'||b.type==='page'||b.type==='image'||b.type==='file')return false;
  if(b.type!=='p'){snapshot();b.type='p';b.done=false;fill(rowsEl().children[i],b);setCaret(txtOf(i),0);save();return true}
  const kids=i+1<B.length&&B[i+1].ind>b.ind,j=neighbor(i,-1);
  if(j<0&&B.length<2)return false;
@@ -865,13 +865,13 @@ function backspaceStart(i,t){
  if(j<0){const ti=$('#title');if(ti)setCaret(ti,Infinity);return}
  const p=B[j];
  if(p.type==='divider'){snapshot();B.splice(j,1);rowsEl().children[j].remove();return}
- if(p.type==='page'||p.type==='table'||p.type==='db'||p.type==='image')return;
+ if(p.type==='page'||p.type==='table'||p.type==='db'||p.type==='image'||p.type==='file')return;
  snapshot();const len=p.text.length;p.text+=b.text;B.splice(i,1);r.remove();
  const pt=txtOf(j);pt.textContent=p.text;normalize();syncRows();setCaret(pt,len);touch();
 }
 function shiftSubtree(i,d){const b=B[i];if(d>0&&!(i>0&&b.ind<=B[i-1].ind))return false;if(d<0&&b.ind<1)return false;
  snapshot();const e=endOf(i);for(let k=i;k<e;k++)B[k].ind+=d;syncRows();touch();return true}
-function neighbor(i,d){let j=i+d;while(j>=0&&j<B.length){const rw=rowsEl().children[j];if(!rw.hidden&&!['page','divider','table','db','image'].includes(B[j].type))return j;j+=d}return -1}
+function neighbor(i,d){let j=i+d;while(j>=0&&j<B.length){const rw=rowsEl().children[j];if(!rw.hidden&&!['page','divider','table','db','image','file'].includes(B[j].type))return j;j+=d}return -1}
 function lineEdge(t,up){
  const s=getSelection();if(!s.rangeCount)return true;const rg=s.getRangeAt(0).cloneRange();rg.collapse(true);
  let rc=rg.getClientRects()[0];if(!rc||!rc.height)return true;const tr=t.getBoundingClientRect();
@@ -882,7 +882,7 @@ function toParent(i){const j=parentIdx(i);if(j<0)return toast('Already at the to
 function exitSection(i){
  const j=parentIdx(i);if(j<0)return toast('Already at the top level');
  const e=endOf(j);
- if(e<B.length){const n=B[e];if(['page','divider','table','db','image'].includes(n.type)){const nb=blk('p','',B[j].ind);snapshot();B.splice(e,0,nb);renderBlocks(nb.id,0);touch()}else setCaret(txtOf(e),0)}
+ if(e<B.length){const n=B[e];if(['page','divider','table','db','image','file'].includes(n.type)){const nb=blk('p','',B[j].ind);snapshot();B.splice(e,0,nb);renderBlocks(nb.id,0);touch()}else setCaret(txtOf(e),0)}
  else{snapshot();const nb=blk('p','',B[j].ind);B.push(nb);renderBlocks(nb.id,0);touch()}
 }
 function moveFocused(i,d){ // move block+children among siblings
@@ -1162,7 +1162,7 @@ function closeSheet(){$('#sw').hidden=true;$('#sheet').innerHTML=''}
 $('#swbg').addEventListener('click',closeSheet);
 function nodeMenu(id){
  const n=S.nodes[id];
- if(id==='root')return openSheet(`<h3>Home</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button>${window.NativeBridge&&NativeBridge.openHtml?`<button class="opt" data-m="openhtml">${ic('page')}Open an HTML file</button>`:''}<button class="opt" data-m="all">${ic('all')}All notes</button><button class="opt" data-m="canvas">${ic('table')}Canvas</button><button class="opt" data-m="qrscan">${ic('scan')}Scan QR code</button><button class="opt" data-snd="listen">${ic('recv')}Listen for sound</button><button class="opt" data-m="devices">${ic('sliders')}Devices and trust</button><button class="opt" data-m="note" data-id="root">${ic('page')}New page</button><button class="opt" data-m="dbpage" data-id="root">${ic('table')}New database page</button><button class="opt" data-m="folder" data-id="root">${ic('folder')}New folder</button>`);
+ if(id==='root')return openSheet(`<h3>Home</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button>${window.NativeBridge&&NativeBridge.openHtml?`<button class="opt" data-m="openhtml">${ic('page')}Open an HTML file</button>`:''}<button class="opt" data-m="all">${ic('all')}All notes</button><button class="opt" data-m="canvas">${ic('table')}Canvas</button><button class="opt" data-m="qrscan">${ic('scan')}Scan QR code</button><button class="opt" data-snd="listen">${ic('recv')}Listen for sound</button><button class="opt" data-xf="pick">${ic('send')}Send files by QR</button><button class="opt" data-m="devices">${ic('sliders')}Devices and trust</button><button class="opt" data-m="note" data-id="root">${ic('page')}New page</button><button class="opt" data-m="dbpage" data-id="root">${ic('table')}New database page</button><button class="opt" data-m="folder" data-id="root">${ic('folder')}New folder</button>`);
  openSheet(`<h3>${esc(nm(n))}</h3><button class="opt" data-m="paper">${ic('pal')}Paper &amp; colors</button>
  ${n.kind==='page'&&id===S.cur?`<button class="opt" data-m="find">${ic('search')}Find on this page</button><button class="opt" data-m="stats">${ic('all')}Word count</button>`:''}
  <button class="opt" data-m="pin" data-id="${id}">${ic('star')}${(S.pins||[]).includes(id)?'Unpin from sidebar':'Pin to sidebar'}</button>
@@ -1411,6 +1411,7 @@ function mdRange(bl,i,end,base){
    L.push('');prevList=false;i=e;continue;
   }
   if(b.type==='code'||b.type==='table'||b.type==='db'){const ls=b.type==='code'?['```'].concat(b.text.split('\n'),['```']):b.type==='db'?dbMD(b):tableMD(b);if(L.length&&L[L.length-1]!=='')L.push('');ls.forEach(x=>L.push(x?pad+x:''));L.push('');prevList=false;i++;continue}
+  if(b.type==='file'){if(b.fid){if(L.length&&L[L.length-1]!=='')L.push('');L.push(pad+'[📎 '+String(b.name||'file').replace(/[\[\]\n]/g,' ')+'](attachments/'+b.fid+'.'+(extOf(b.name)||'bin')+')');L.push('')}prevList=false;i++;continue}
   if(b.type==='image'){if(b.img){if(L.length&&L[L.length-1]!=='')L.push('');L.push(pad+'!['+String(b.cap||'').replace(/[\[\]\n]/g,' ')+'](attachments/'+b.img+'.'+imgExt(b.img)+')');L.push('')}prevList=false;i++;continue}
   const listy=b.type==='bullet'||b.type==='todo'||b.type==='num'||(rel>0&&b.type!=='divider');
   let line;
@@ -1442,6 +1443,7 @@ async function buildVaultZip(){
   else z.file(dir+nmv+'.md',pageMD(c))});
  walk('root','');
  {const seen=new Set();Object.values(S.nodes).forEach(n=>(n.blocks||[]).forEach(b=>{if(b.type==='image'&&b.img&&IMG[b.img]&&!seen.has(b.img)){seen.add(b.img);const u=IMG[b.img];z.file('attachments/'+b.img+'.'+imgExt(b.img),u.slice(u.indexOf(',')+1),{base64:true})}}))}
+ {const seenD=new Set();Object.values(S.nodes).forEach(n=>(n.blocks||[]).forEach(b=>{if(b.type==='file'&&b.fid&&DOC[b.fid]&&!seenD.has(b.fid)){seenD.add(b.fid);const u=DOC[b.fid];z.file('attachments/'+b.fid+'.'+(extOf(b.name)||'bin'),u.slice(u.indexOf(',')+1),{base64:true})}}))}
  z.file('_margin/vault.json',payload(S));
  return await z.generateAsync({type:'uint8array',compression:'DEFLATE'});
 }
@@ -1853,7 +1855,7 @@ page.addEventListener('focusout',e=>{
  const t=e.target;if(rendering||!t.isConnected||!isTxt(t))return;
  const b=byId(t.closest('.row').dataset.id);if(!b)return;
  if(b.type==='code'){if(b.text.endsWith('\n')){b.text=b.text.slice(0,-1);t.textContent=b.text}return}
- if(['page','divider','table','db','image'].includes(b.type))return;
+ if(['page','divider','table','db','image','file'].includes(b.type))return;
  const h=richHTML(b.text);if(h!=null){rendering=true;try{t.innerHTML=h}finally{rendering=false}}
 });
 function selOffsets(t){
@@ -1870,7 +1872,7 @@ function setSelRange(t,s,e){
 const MKS={b:['**','**'],i:['*','*'],code:['`','`'],s:['~~','~~']};
 function applyFmt(kind){
  const i=focusId?idx(focusId):-1;if(i<0)return;const b=B[i];
- if(['code','page','divider','table','db','image'].includes(b.type))return;
+ if(['code','page','divider','table','db','image','file'].includes(b.type))return;
  const t=txtOf(i);syncText(b,t);const [s,e]=selOffsets(t);let x=b.text,ns,ne;
  snapshot();
  if(kind==='link'){
@@ -1897,7 +1899,7 @@ $('#acc').addEventListener('click',e=>{const a=e.target.closest('[data-acc]');if
 page.addEventListener('paste',e=>{
  const t=e.target;if(!isTxt(t))return;const tx=(e.clipboardData&&e.clipboardData.getData('text/plain')||'').trim();
  if(!/^https?:\/\/\S+$/i.test(tx))return;const [s,en]=selOffsets(t);if(s===en)return;
- const b=byId(t.closest('.row').dataset.id);if(!b||['code','page','divider','image'].includes(b.type))return;
+ const b=byId(t.closest('.row').dataset.id);if(!b||['code','page','divider','image','file'].includes(b.type))return;
  e.preventDefault();e.stopImmediatePropagation();syncText(b,t);snapshot();
  b.text=b.text.slice(0,s)+'['+b.text.slice(s,en)+']('+tx+')'+b.text.slice(en);t.textContent=b.text;setCaret(t,s+(en-s)+tx.length+4);touch();
 },true);
@@ -2710,6 +2712,24 @@ function shrink(file,max){return new Promise((res,rej)=>{const u=URL.createObjec
 function pickFiles(cb){const f=document.createElement('input');f.type='file';f.accept='image/*';f.multiple=true;f.style.cssText='position:fixed;left:-999px;opacity:0';document.body.appendChild(f);f.onchange=async()=>{const fl=[...f.files];f.remove();if(fl.length)cb(fl)};f.click()}
 OPS.image=OPS.link||OPS.text;
 loadImgs();
+/* ---------- attached files: PDFs and other documents (device storage, included in backups) ---------- */
+const DOC={};
+async function loadDocs(){
+ const idx=await idbGet('docidx');if(!Array.isArray(idx))return;
+ for(const id of idx){const u=await idbGet('doc:'+id);if(u)DOC[id]=u}
+ document.querySelectorAll('#page .row[data-type="file"]').forEach(r=>{const b=byId(r.dataset.id);if(b)fill(r,b)});
+}
+async function putDoc(id,url){DOC[id]=url;await idbSet('doc:'+id,url);const idx=(await idbGet('docidx'))||[];if(!idx.includes(id)){idx.push(id);await idbSet('docidx',idx)}}
+function ingestDocs(m){if(m&&typeof m==='object')Object.keys(m).forEach(id=>{const u=m[id];if(typeof u==='string'&&/^data:[\w.+\/-]+;base64,/.test(u)&&!u.startsWith('data:image/')&&u.length<28000000&&/^[\w-]{1,64}$/.test(id))putDoc(id,u)})}
+const _payload2=payload;
+payload=function(src){
+ const s=_payload2(src),docs={};let any=false;
+ try{Object.values((src&&src.nodes)||{}).forEach(n=>(n.blocks||[]).forEach(b=>{if(b&&b.type==='file'&&DOC[b.fid]&&!docs[b.fid]){docs[b.fid]=DOC[b.fid];any=true}}))}catch(e){}
+ return any?s.slice(0,s.lastIndexOf('}'))+',"docs":'+JSON.stringify(docs)+'}':s;
+};
+const _applyData2=applyData;
+applyData=function(d,f){if(d&&d.docs){ingestDocs(d.docs);delete d.docs}return _applyData2(d,f)};
+loadDocs();
 /* ---------- image picker sheet ---------- */
 function openImgPicker(b,rid,cid){dbCtx={b,rowId:rid,colId:cid};drawImg()}
 function drawImg(){
@@ -3302,8 +3322,63 @@ async function openMsg(str){
  return {obj:JSON.parse(env.d),k:env.k,fp:await fpOf(pub)};
 }
 /* ---- strict, data-only sanitising of anything received ---- */
-const OKT=['p','h1','h2','h3','bullet','todo','toggle','quote','divider','num','code','table','db'],OKC=['text','num','check','select','multi','date','formula'];
+const OKT=['p','h1','h2','h3','bullet','todo','toggle','quote','divider','num','code','table','db','image','file'],OKC=['text','num','check','select','multi','date','formula','image'];
 const sstr=(v,n)=>typeof v==='string'?v.slice(0,n):'';
+/* ---- files that travel with a page, or on their own ---- */
+const FILE_MIMES={'image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/gif':'gif'};
+const FT={pdf:'application/pdf',txt:'text/plain',md:'text/markdown',csv:'text/csv',tsv:'text/tab-separated-values',json:'application/json',rtf:'application/rtf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',gif:'image/gif',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',odt:'application/vnd.oasis.opendocument.text',ods:'application/vnd.oasis.opendocument.spreadsheet',odp:'application/vnd.oasis.opendocument.presentation',epub:'application/epub+zip'};
+const FT_ZIP=['docx','xlsx','pptx','odt','ods','odp','epub'],FT_TEXT=['txt','md','csv','tsv','json','rtf'];
+const extOf=name=>{const m=/\.([A-Za-z0-9]{1,5})$/.exec(String(name||''));return m?m[1].toLowerCase():''};
+const b64std=u8=>{let s=b64u(u8).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return s};
+const noFiles=o=>{if(!o||!o.files)return o;const c=Object.assign({},o);delete c.files;return c};
+function fileMagicOk(m,u){
+ if(m==='image/png')return u[0]===0x89&&u[1]===0x50&&u[2]===0x4E&&u[3]===0x47;
+ if(m==='image/jpeg')return u[0]===0xFF&&u[1]===0xD8&&u[2]===0xFF;
+ if(m==='image/gif')return u[0]===0x47&&u[1]===0x49&&u[2]===0x46;
+ if(m==='image/webp')return u[0]===0x52&&u[1]===0x49&&u[2]===0x46&&u[3]===0x46&&u[8]===0x57&&u[9]===0x45&&u[10]===0x42&&u[11]===0x50;
+ return false;
+}
+function ftMagicOk(ext,u){
+ if(!FT[ext]||!u.length)return false;
+ if(ext==='pdf')return u[0]===0x25&&u[1]===0x50&&u[2]===0x44&&u[3]===0x46;
+ if(FT_ZIP.includes(ext))return u[0]===0x50&&u[1]===0x4B;
+ if(FT_TEXT.includes(ext)){for(let i=0;i<Math.min(u.length,4096);i++)if(u[i]===0)return false;return true}
+ return fileMagicOk(FT[ext],u);
+}
+function cleanFiles(a){
+ if(!Array.isArray(a))return [];const out=[];let total=0;
+ for(const f of a.slice(0,100)){
+  if(!f||typeof f!=='object'||typeof f.d!=='string')continue;
+  const isImg=!!FILE_MIMES[f.m],dx=isImg?'':extOf(f.name);
+  if(!isImg&&!(FT[dx]&&!FT[dx].startsWith('image/')))continue;
+  let u8;try{u8=unb64u(f.d)}catch(e){continue}
+  if(u8.length<(isImg?12:1)||u8.length>8000000||total+u8.length>24000000||!(isImg?fileMagicOk(f.m,u8):ftMagicOk(dx,u8)))continue;
+  total+=u8.length;
+  const mm=isImg?f.m:FT[dx],ext=isImg?FILE_MIMES[f.m]:dx,name=sstr(f.name,80).replace(/[^\w.\- ]+/g,'_').replace(/\.[A-Za-z0-9]{1,5}$/,'').trim().slice(0,60)||'picture';
+  out.push({id:sstr(f.id,64).replace(/[^\w-]/g,''),name:name+'.'+ext,ext,m:mm,size:u8.length,url:'data:'+mm+';base64,'+b64std(u8)});
+ }
+ return out;
+}
+/* files sent on their own: what they are is decided here from the name and the first bytes, never from what the sender claims */
+function cleanAnyFiles(a){
+ if(!Array.isArray(a))return [];const out=[];let total=0;
+ for(const f of a.slice(0,40)){
+  if(!f||typeof f!=='object'||typeof f.d!=='string')continue;
+  const ext=extOf(f.name);if(!FT[ext])continue;
+  let u8;try{u8=unb64u(f.d)}catch(e){continue}
+  if(u8.length<1||u8.length>8000000||total+u8.length>24000000||!ftMagicOk(ext,u8))continue;
+  total+=u8.length;
+  const name=sstr(f.name,100).replace(/[^\w.\- ]+/g,'_').replace(/\.[A-Za-z0-9]{1,5}$/,'').trim().slice(0,70)||'file';
+  out.push({id:'',name:name+'.'+ext,ext,m:FT[ext],size:u8.length,url:'data:'+FT[ext]+';base64,'+b64std(u8)});
+ }
+ return out;
+}
+IC.dl='<path d="M12 4v11"/><path d="M7.5 11 12 15.5 16.5 11"/><path d="M5 20h14"/>';
+function filesHtml(files){
+ if(!files||!files.length)return '';
+ const kb=n=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
+ return `<div class="qfiles"><b>${files.length>1?'Files ('+files.length+')':'File'}</b>`+files.map((f,i)=>`<div class="qfile">${f.m.startsWith('image/')?`<img src="${f.url}" alt="">`:`<div class="qft">${esc((f.ext||'file').slice(0,4).toUpperCase())}</div>`}<span><em>${esc(f.name)}</em><small>${kb(f.size)}</small></span><button class="qfdl" data-qf="${i}" aria-label="Download ${esc(f.name)}" title="Download">${ic('dl',18)}</button></div>`).join('')+`</div>`;
+}
 function cleanDB(d){
  if(!d||!Array.isArray(d.cols)||!Array.isArray(d.rows))return null;
  const cmap={},omap={};let hasTitle=false;
@@ -3318,6 +3393,7 @@ function cleanDB(d){
   const cells={};cols.forEach(c=>{const old=Object.keys(cmap).find(k=>cmap[k]===c.id),v=old!==undefined&&Object.prototype.hasOwnProperty.call(r.cells,old)?r.cells[old]:undefined;if(v===undefined)return;
    if(c.type==='check')cells[c.id]=!!v;
    else if(c.type==='select'||c.type==='multi'){const a=(Array.isArray(v)?v:[v]).map(x=>omap[x]).filter(Boolean);cells[c.id]=c.type==='select'?a.slice(0,1):a}
+   else if(c.type==='image')cells[c.id]=(Array.isArray(v)?v:[]).slice(0,8).map(x=>sstr(x,64).replace(/[^\w-]/g,'')).filter(Boolean);
    else if(c.type!=='formula')cells[c.id]=sstr(typeof v==='number'?String(v):v,2000)});
   return {id:uid(),cells,page:null}});
  return {cols,rows,views:[],view:null};
@@ -3327,6 +3403,8 @@ function cleanBlocks(a){
  for(const b of a.slice(0,2000)){
   if(!b||typeof b!=='object')continue;let type=b.type;if(type==='page'){type='p'}if(!OKT.includes(type))type='p';
   const o={id:uid(),type,text:sstr(b.text,20000),ind:Math.max(0,Math.min(8,(b.ind|0))),col:false,done:!!b.done};
+  if(type==='image'){o.text='';o.img=sstr(b.img,64).replace(/[^\w-]/g,'');o.w=100;o.al='c';o.cap=sstr(b.cap,200)}
+  if(type==='file'){o.text='';o.fid=sstr(b.fid,64).replace(/[^\w-]/g,'');o.name=sstr(b.name,100).replace(/[\\\/]+/g,'_').replace(/[^\w.\- ()]+/g,'_').trim()||'file';const fe=extOf(o.name);if(!FT[fe]||FT[fe].startsWith('image/')){o.type='p';o.text='(attachment removed: '+o.name+')';delete o.fid;delete o.name}else{o.mime=FT[fe];o.size=Math.max(0,Math.min(30000000,+b.size|0))}}
   if(['1','a','i','A','I'].includes(b.ns))o.ns=b.ns;
   if(b.type==='page'&&!o.text)o.text='↗ '+sstr(b.title||'page',200);
   if(type==='table'){o.rows=(Array.isArray(b.rows)?b.rows:[]).slice(0,300).map(r=>(Array.isArray(r)?r:[]).slice(0,40).map(x=>sstr(typeof x==='number'?String(x):x,2000)));if(!o.rows.length)o.rows=[['','']]}
@@ -3335,10 +3413,10 @@ function cleanBlocks(a){
  }
  return out;
 }
-function exportBlocks(n){
+function exportBlocks(n,keep){
  return JSON.parse(JSON.stringify(n.blocks||[])).map(b=>{
   if(b.type==='page'){const t=S.nodes[b.ref];return {type:'p',text:'↗ '+(t?nm(t):b.text||'page'),ind:b.ind}}
-  if(b.type==='db'&&b.db){const db=b.db;db.cols=db.cols.filter(c=>c.type!=='link'&&c.type!=='image');db.rows.forEach(r=>{r.page=null});return b}
+  if(b.type==='db'&&b.db){const db=b.db;db.cols=db.cols.filter(c=>c.type!=='link'&&(keep||c.type!=='image'));db.rows.forEach(r=>{r.page=null});return b}
   return b});
 }
 /* ---- showing a QR ---- */
@@ -3430,14 +3508,20 @@ async function receiveMsg(str){
   return openSheet(`<h3>Add a device</h3>${who}<p class="hint">Only trust this if the code above matches what is shown on <b>that</b> device under Devices.</p><div class="btnrow"><button class="btn" data-qr="close">Cancel</button><button class="btn pri" data-qr="trustonly">${known?'Already trusted':'Trust this device'}</button></div>`);
  }
  if(o.t==='page'){
-  const bl=cleanBlocks(o.blocks),title=sstr(o.title,200)||'Untitled',prev=bl.filter(b=>b.text).slice(0,4).map(b=>esc(b.text.slice(0,90))).join('<br>');
-  QP={kind:'page',k:r.k,name:from,title,blocks:bl};
-  return openSheet(`<h3>Received a page</h3>${who}<div class="qrprev"><b>${esc(title)}</b><div>${prev||'<i>Empty page</i>'}</div><small>${bl.length} blocks</small></div>`
+  const files=cleanFiles(o.files),fids=new Set(files.map(f=>f.id).filter(Boolean)),bl=cleanBlocks(o.blocks).map(b=>{if(b.type==='file'){if(fids.has(b.fid))return b;b.text='(attachment not included: '+b.name+')';b.type='p';delete b.fid;delete b.name;delete b.size;delete b.mime;return b}if(b.type!=='image'||fids.has(b.img))return b;delete b.img;delete b.w;delete b.al;delete b.cap;b.type='p';b.text='(picture not included)';return b}),title=sstr(o.title,200)||'Untitled',prev=bl.filter(b=>b.text).slice(0,4).map(b=>esc(b.text.slice(0,90))).join('<br>');
+  QP={kind:'page',k:r.k,name:from,title,blocks:bl,files};
+  return openSheet(`<h3>Received a page</h3>${who}<div class="qrprev"><b>${esc(title)}</b><div>${prev||'<i>Empty page</i>'}</div><small>${bl.length} blocks</small></div>${filesHtml(files)}`
    +`<div class="btnrow"><button class="btn" data-qr="copypage">Copy all text</button></div><div class="btnrow"><button class="btn" data-qr="close">Cancel</button>${known?'':'<button class="btn" data-qr="once">Import once</button>'}<button class="btn pri" data-qr="${known?'import':'trustimp'}">${known?'Import':'Trust and import'}</button></div>`);
  }
  if(o.t==='text'){
   const tx=sstr(o.text,60000);QP={kind:'text',k:r.k,name:from,title:sstr(o.title,200),text:tx};
   return openSheet(`<h3>Received text</h3>${who}<pre class="qrtext">${esc(tx)}</pre><p class="hint">Nothing is imported. Copy it, or keep it as a page.</p><div class="btnrow"><button class="btn" data-qr="close">Close</button><button class="btn" data-qr="text2page">Save as page</button><button class="btn pri" data-qr="copytext">Copy text</button></div>`);
+ }
+ if(o.t==='files'){
+  const files=cleanAnyFiles(o.files);QP={kind:'files',k:r.k,name:from,files};
+  if(!files.length)return openSheet(`<h3>No usable files</h3>${who}<p class="hint">Nothing in this code could be accepted. Only PDFs, text, office documents, EPUBs and pictures are taken.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
+  const pics=files.some(f=>f.m.startsWith('image/'));
+  return openSheet(`<h3>Received ${files.length} file${files.length>1?'s':''}</h3>${who}${filesHtml(files)}<p class="hint">Nothing is opened or imported. Tap the arrow to save a file, or add them to a page.</p><div class="btnrow"><button class="btn" data-qr="close">Close</button><button class="btn" data-qr="picspage">Add to a page</button></div>`);
  }
  if(o.t==='img'&&window.__imgRecv)return window.__imgRecv(r,o,who,from,known);
  openSheet(`<h3>Unsupported code</h3><p class="hint">This code comes from a newer version. Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
@@ -3904,7 +3988,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  }
  const txtVal=i=>{const t=txtOf(i);return t?t.textContent.replace(/ /g,' '):(B[i].text||'')};
  function xText(r){
-  const out=[];for(let i=r.s.i;i<=r.e.i;i++){const rw=rowsEl().children[i];if(!rw||rw.hidden)continue;const b=B[i];if(['divider','table','db','page','image'].includes(b.type))continue;
+  const out=[];for(let i=r.s.i;i<=r.e.i;i++){const rw=rowsEl().children[i];if(!rw||rw.hidden)continue;const b=B[i];if(['divider','table','db','page','image','file'].includes(b.type))continue;
    const full=txtVal(i);let t=full,part=false;if(i===r.e.i&&r.e.o<t.length){t=t.slice(0,r.e.o);part=true}if(i===r.s.i&&r.s.o>0){t=t.slice(r.s.o);part=true}
    if(part||!t){out.push(t);continue}
    try{out.push(blocksToMD([Object.assign({},b,{text:t})]).replace(/\n+$/,''))}catch(e){out.push(t)}}
@@ -3913,7 +3997,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
  function xDelete(r){
   const rs=rowsEl().children;snapshot();
   const bs=B[r.s.i];const head=txtVal(r.s.i).slice(0,r.s.o),tail=txtVal(r.e.i).slice(r.e.o);
-  for(let k=r.e.i;k>r.s.i;k--){const b=B[k];if(!b||['table','db','page','divider','image'].includes(b.type))continue;if(rs[k].hidden)continue;B.splice(k,1);rs[k].remove()}
+  for(let k=r.e.i;k>r.s.i;k--){const b=B[k];if(!b||['table','db','page','divider','image','file'].includes(b.type))continue;if(rs[k].hidden)continue;B.splice(k,1);rs[k].remove()}
   bs.text=head+tail;const t=txtOf(r.s.i);t.textContent=bs.text;normalize();syncRows();
   xRelease(false);setCaret(txtOf(r.s.i),r.s.o);touch();
  }
@@ -4591,7 +4675,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   <p class="hint" style="margin-bottom:2px">Link works for</p>
   <div class="seg" id="slkttl">${TTLS.map(t=>`<button data-slk="ttl" data-v="${t[0]}" class="${t[0]===ttl()?'on':''}">${t[1]}</button>`).join('')}</div>
   <div class="seg" id="slkonce"><button data-slk="once" data-v="1" class="${once()?'on':''}">Opens once per device</button><button data-slk="once" data-v="0" class="${once()?'':'on'}">Until it expires</button></div>
-  <p class="hint">${big?'Too long for a link ('+n+' characters). Use the QR codes for this one.':'The app that opens the link checks the expiry. “Once” is per device: a link forwarded to another phone still opens there once.'}</p>
+  ${C.hadFiles?'<p class="hint">Files are not included in links.</p>':''}<p class="hint">${big?'Too long for a link ('+n+' characters). Use the QR codes for this one.':'The app that opens the link checks the expiry. “Once” is per device: a link forwarded to another phone still opens there once.'}</p>
   <div class="btnrow"><button class="btn" data-slk="copy" ${big?'disabled':''}>Copy link</button><button class="btn pri" data-slk="share" ${big?'disabled':''}>Share…</button></div>
   <button class="btn qrlink" data-slk="base">Address: ${esc(b.replace(/^https?:\/\//,'').slice(0,42))}. Change</button>`);
  }
@@ -4615,7 +4699,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const r=await _sq.apply(this,arguments);
   try{
    if(obj&&OKT.includes(obj.t)){
-    C={title:String(obj.title||title||'This'),obj};
+    C={title:String(obj.title||title||'This'),obj:noFiles(obj),hadFiles:!!(obj.files&&obj.files.length)};
     const row=document.querySelector('#sheet .btnrow');
     if(row&&!document.getElementById('slkopen'))row.insertAdjacentHTML('beforebegin',`<button class="opt" id="slkopen" data-slk="open">${ic('link',18)}Share as a link<small style="margin-left:auto;color:var(--muted)">expires</small></button>`);
    }
@@ -4678,7 +4762,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   try{
    const n=nb();
    if(n&&obj&&OKT.includes(obj.t)&&n.nfcState()!==0){
-    C={title:String(obj.title||title||'This'),obj};
+    C={title:String(obj.title||title||'This'),obj:noFiles(obj),hadFiles:!!(obj.files&&obj.files.length)};
     const row=document.querySelector('#sheet .btnrow');
     if(row&&!document.getElementById('nfcopen'))row.insertAdjacentHTML('beforebegin',`<button class="opt" id="nfcopen" data-nfc="open">${ic('send',18)}Tap phones together<small style="margin-left:auto;color:var(--muted)">NFC</small></button>`);
    }
@@ -4686,6 +4770,389 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   return r;
  };
 })();
+/* Files: a page can be sent whole, as text, or as individual files, and any files can go by QR on their own */
+(function(){
+ const QR_CAP=1000000; /* the fountain code on the other side handles about this much comfortably */
+ const st=document.createElement('style');
+ st.textContent='.qfiles{margin:10px 0;max-height:34vh;overflow:auto;-webkit-overflow-scrolling:touch}.qfiles>b{display:block;font-size:13px;margin-bottom:6px}.qfile,.qrow{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:14px;margin-bottom:6px}.qrow{cursor:pointer}.qfile img,.qrow img,.qft{width:44px;height:44px;border-radius:9px;object-fit:cover;flex:none}.qrow img,.qrow .qft{width:40px;height:40px}.qft{display:grid;place-items:center;background:var(--accent-soft);color:var(--ink);font-size:11px;font-weight:700;letter-spacing:.03em}.qfile img,.qrow img{background:var(--accent-soft)}.qfile span,.qrow span{flex:1;min-width:0;display:flex;flex-direction:column}.qfile em,.qrow em{font-style:normal;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.qfile small,.qrow small{font-size:12px;color:var(--muted)}.qfdl{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--accent-soft);color:var(--ink);flex:none}.qrow input{width:20px;height:20px;accent-color:var(--accent);flex:none;margin:0}.qpick{max-height:40vh;overflow:auto;-webkit-overflow-scrolling:touch;margin:8px 0}.qopt{align-items:flex-start}.qopt[disabled]{opacity:.45}.qopt span{display:flex;flex-direction:column;gap:2px;min-width:0}.qopt b{font-weight:600}.qopt small{color:var(--muted);font-size:12.5px;line-height:1.35}';
+ document.head.appendChild(st);
+ const kb=n=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
+ const est=raw=>{const s=Math.max(5,Math.round(raw*1.3/2200));return s<90?s+' seconds':(Math.round(s/6)/10)+' minutes'};
+ const dUrl=(m,d)=>{let s=d.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return 'data:'+m+';base64,'+s};
+ const tile=f=>f.url?`<img src="${f.url}" alt="">`:`<div class="qft">${esc((extOf(f.name)||'file').slice(0,4).toUpperCase())}</div>`;
+ /* every picture a page holds, including database covers, ready to send */
+ async function pageFiles(n){
+  const out=[],seen=new Set();let total=0,k=0,c=0;
+  const add=(id,name)=>{
+   if(!id||seen.has(id))return;seen.add(id);
+   const u=IMG[id];if(typeof u!=='string'||!u.startsWith('data:image/'))return;
+   const i=u.indexOf(','),m=u.slice(5,u.indexOf(';'));if(!FILE_MIMES[m]||i<0)return;
+   const d=u.slice(i+1).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),size=Math.floor(d.length*3/4);
+   if(size>8000000||total+size>24000000)return;total+=size;
+   out.push({id,name:name+'.'+FILE_MIMES[m],m,d,size,url:u});
+  };
+  const addF=b=>{
+   if(!b.fid||seen.has(b.fid))return;seen.add(b.fid);
+   const u=DOC[b.fid];if(typeof u!=='string')return;const i=u.indexOf(',');if(i<0)return;
+   const m=u.slice(5,u.indexOf(';')),d=u.slice(i+1).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),size=Math.floor(d.length*3/4);
+   if(size>8000000||total+size>24000000)return;total+=size;
+   out.push({id:b.fid,name:b.name||'file',m,d,size,url:''});
+  };
+  for(const b of (n&&n.blocks)||[]){
+   if(!b)continue;
+   if(b.type==='file')addF(b);
+   else if(b.type==='image')add(b.img,String(b.cap||'').replace(/[^\w.\- ]+/g,'').trim().slice(0,50)||'picture-'+(++k));
+   else if(b.type==='db'&&b.db)for(const col of b.db.cols.filter(x=>x.type==='image'))for(const r of b.db.rows)for(const id of (r.cells[col.id]||[]).slice(0,8))add(id,'cover-'+(++c));
+  }
+  return out;
+ }
+ window.__pagefiles=pageFiles;
+ /* save one file */
+ async function saveFile(f){
+  try{
+   const b64=f.url.slice(f.url.indexOf(',')+1);
+   if(window.NativeBridge&&NativeBridge.saveFile){const ok=await new Promise(res=>{window.__nativeDone=res;NativeBridge.saveFile(f.name,f.m,b64)});if(ok)toast('Saved');return}
+   const bin=atob(b64),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+   const file=new File([u8],f.name,{type:f.m}),a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('Downloaded');
+  }catch(er){toast('Could not save that file')}
+ }
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-qf]');if(!m||!QP||!QP.files)return;
+  const f=QP.files[+m.dataset.qf];if(f)saveFile(f);
+ });
+ /* importing a page keeps its pictures and database covers */
+ const _ip=importPage;
+ importPage=function(){
+  try{
+   if(QP&&QP.kind==='page'){
+    const map={};(QP.files||[]).forEach(f=>{if(!f.id)return;const nid=uid();map[f.id]=nid;if(f.m.startsWith('image/'))putImg(nid,f.url);else putDoc(nid,f.url)});
+    QP.blocks.forEach(b=>{
+     if(b.type==='image'&&map[b.img])b.img=map[b.img];
+     if(b.type==='file'&&map[b.fid])b.fid=map[b.fid];
+     if(b.type==='db'&&b.db)b.db.cols.filter(c=>c.type==='image').forEach(c=>b.db.rows.forEach(r=>{r.cells[c.id]=(r.cells[c.id]||[]).map(id=>map[id]).filter(Boolean)}));
+    });QP.files=[];
+   }
+  }catch(er){}
+  return _ip.apply(this,arguments);
+ };
+ /* ---- what to send when sharing a page by QR ---- */
+ const _snq=shareNodeQR;let PF=null;
+ const rawOf=l=>l.reduce((a,f)=>a+f.size,0);
+ shareNodeQR=async function(id){
+  const n=S.nodes[id];if(!n||n.kind!=='page')return;
+  let fl=[];try{fl=await pageFiles(n)}catch(er){}
+  if(!fl.length)return _snq.apply(this,arguments);
+  PF={id,n,fl,mode:'page'};
+  const raw=rawOf(fl),big=raw>QR_CAP,N=fl.length+' file'+(fl.length>1?'s':'');
+  openSheet(`<h3>Share “${esc(nm(n))}”</h3><p class="hint">What should the other phone get?</p>
+  <button class="opt qopt" data-pf="whole" ${big?'disabled':''}>${ic('page',18)}<span><b>Whole page</b><small>${big?'Too big for QR codes ('+kb(raw)+'). Choose files, or use Connect.':'Opens in Margin Notes with its '+N+' ('+kb(raw)+'). About '+est(raw)+'.'}</small></span></button>
+  <button class="opt qopt" data-pf="nopics">${ic('page',18)}<span><b>Page without files</b><small>Faster. The text and layout only.</small></span></button>
+  <button class="opt qopt" data-pf="text">${ic('copy',18)}<span><b>Text only</b><small>Plain text the other phone can copy.</small></span></button>
+  <button class="opt qopt" data-pf="pick">${ic('save',18)}<span><b>Choose files…</b><small>Send some or all of the ${N} on their own.</small></span></button>
+  <div class="btnrow"><button class="btn" data-pf="x">Cancel</button></div>`);
+ };
+ /* ---- the picker: some files, a few, or all ---- */
+ function pkInfo(){
+  const c=PF;if(!c)return;const sel=[...c.sel].map(i=>c.fl[i]),raw=rawOf(sel),over=raw>QR_CAP;
+  const i=document.getElementById('pkinfo'),b=document.getElementById('pksend');
+  if(i)i.textContent=!sel.length?'Tick the files to send.':over?sel.length+' selected, '+kb(raw)+'. Over the QR limit of about 1 MB, so untick some.':sel.length+' selected · '+kb(raw)+' · about '+est(raw);
+  if(b)b.disabled=!sel.length||over;
+ }
+ function drawPick(){
+  const c=PF;if(!c)return;
+  openSheet(`<h3>${esc(c.title||'Choose files')}</h3><div class="qpick">${c.fl.map((f,i)=>`<label class="qrow"><input type="checkbox" data-pk="${i}" ${c.sel.has(i)?'checked':''}>${tile(f)}<span><em>${esc(f.name)}</em><small>${kb(f.size)}</small></span></label>`).join('')}</div><p class="hint" id="pkinfo" style="text-align:center"></p><div class="btnrow"><button class="btn" data-pf="x">Cancel</button><button class="btn" data-pf="all">${c.sel.size===c.fl.length?'Select none':'Select all'}</button><button class="btn pri" id="pksend" data-pf="send">Send</button></div>`);
+  pkInfo();
+ }
+ document.addEventListener('change',e=>{const m=e.target.closest('[data-pk]');if(!m||!PF)return;const i=+m.dataset.pk;if(m.checked)PF.sel.add(i);else PF.sel.delete(i);pkInfo()});
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('[data-pf]');if(!m||!PF||m.disabled)return;const k=m.dataset.pf,c=PF;
+  if(k==='x'){PF=null;closeSheet();return}
+  if(k==='nopics'){PF=null;return _snq(c.id)}
+  if(k==='text'){PF=null;try{await showQR('Text of “'+nm(c.n)+'”',{t:'text',n:devName(),ts:Date.now(),title:nm(c.n),text:(nm(c.n)+'\n\n'+mdOf(c.n)).slice(0,60000)},'Scan on the other device. It shows the text with a Copy button.')}catch(er){toast('Could not make the codes')}return}
+  if(k==='whole'){PF=null;try{await showQR('Share “'+nm(c.n)+'”',{t:'page',n:devName(),ts:Date.now(),title:nm(c.n),blocks:exportBlocks(c.n,true),files:c.fl.map(f=>({id:f.id,name:f.name,m:f.m,d:f.d}))},'On the other device: Scan.','page:'+c.id+':'+c.n.t+':w')}catch(er){toast('Could not make the codes')}return}
+  if(k==='pick'){c.sel=new Set(c.fl.map((_,i)=>i));c.title='Choose files';drawPick();return}
+  if(k==='all'){c.sel=c.sel.size===c.fl.length?new Set():new Set(c.fl.map((_,i)=>i));drawPick();return}
+  if(k==='send'){
+   const sel=[...c.sel].sort((a,b)=>a-b).map(i=>c.fl[i]);if(!sel.length||rawOf(sel)>QR_CAP)return;PF=null;
+   try{await showQR(sel.length>1?'Send '+sel.length+' files':'Send “'+sel[0].name+'”',{t:'files',n:devName(),ts:Date.now(),files:sel.map(f=>({name:f.name,m:f.m,d:f.d}))},'On the other device: Scan. It lists the files so they can save each one.')}catch(er){toast('Could not make the codes')}
+  }
+ });
+ /* ---- send any files by QR: Home, then Send files ---- */
+ const ACCEPT=Object.keys(FT).map(x=>'.'+x).join(',');
+ function pickAny(){
+  const f=document.createElement('input');f.type='file';f.multiple=true;f.accept=ACCEPT;f.style.cssText='position:fixed;left:-999px;opacity:0';document.body.appendChild(f);
+  f.onchange=async()=>{
+   const list=[...f.files];f.remove();if(!list.length)return;
+   const fl=[];let skipped=0;
+   for(const file of list){
+    const ext=extOf(file.name);if(!FT[ext]||file.size<1||file.size>QR_CAP){skipped++;continue}
+    const u8=new Uint8Array(await file.arrayBuffer());if(!ftMagicOk(ext,u8)){skipped++;continue}
+    const d=b64u(u8),m=FT[ext];fl.push({name:file.name.replace(/[^\w.\- ]+/g,'_').slice(0,80),m,d,size:u8.length,url:m.startsWith('image/')?dUrl(m,d):''});
+   }
+   if(!fl.length)return openSheet(`<h3>Those can’t go by QR</h3><p class="hint">QR transfer works for PDF, text, Markdown, CSV, JSON, Word, Excel, PowerPoint, EPUB and pictures, up to about 1 MB in total. For bigger files use Connect or Nearby.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
+   if(skipped)toast(skipped+' file'+(skipped>1?'s':'')+' skipped (type or size)');
+   PF={mode:'files',fl,sel:new Set(fl.map((_,i)=>i)),title:'Send files'};drawPick();
+  };
+  f.click();
+ }
+ document.addEventListener('click',e=>{const m=e.target.closest('[data-xf]');if(!m)return;if(m.dataset.xf==='pick'){closeSheet();pickAny()}});
+ /* pictures that arrived on their own can become a page */
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-qr="picspage"]');if(!m||!QP||QP.kind!=='files')return;
+  const imgs=QP.files.map((f,i)=>Object.assign({},f,{id:'p'+i}));if(!imgs.length)return;
+  QP={kind:'page',k:QP.k,name:QP.name,title:(imgs.every(f=>f.m.startsWith('image/'))?'Pictures from ':'Files from ')+QP.name,blocks:imgs.map(f=>f.m.startsWith('image/')?blk('image','',0,{img:f.id,w:100,al:'c',cap:f.name.replace(/\.[^.]+$/,'')}):blk('file','',0,{fid:f.id,name:f.name,size:f.size,mime:f.m})),files:imgs};
+  importPage();
+ });
+})();
+/* Attachments: a PDF (or another document) can sit inside a page. PDFs and text open in the app; every file can be saved or sent by QR. */
+(function(){
+ const MAXDOC=20000000,QR_CAP=1000000;
+ const DOC_EXT=Object.keys(FT).filter(x=>!FT[x].startsWith('image/')),ACCEPT=DOC_EXT.map(x=>'.'+x).join(','),TXT=['txt','md','csv','tsv','json'];
+ const kb=n=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
+ const label=ext=>({pdf:'PDF',docx:'DOC',odt:'DOC',rtf:'DOC',xlsx:'XLS',ods:'XLS',csv:'CSV',tsv:'TSV',pptx:'PPT',odp:'PPT',epub:'EPUB',txt:'TXT',md:'MD',json:'JSON'})[ext]||(ext||'FILE').toUpperCase().slice(0,4);
+ const canView=b=>{const e=extOf(b.name);return e==='pdf'||TXT.includes(e)};
+ const cleanName=n=>{n=String(n||'file').replace(/[\\\/]+/g,'_').replace(/[^\w.\- ()]+/g,'_').trim();const e=extOf(n);if(n.length>100){const base=n.slice(0,n.length-(e?e.length+1:0)).slice(0,90);n=base+(e?'.'+e:'')}return n||'file'};
+ const toU8=u=>{const s=atob(u.slice(u.indexOf(',')+1)),a=new Uint8Array(s.length);for(let k=0;k<s.length;k++)a[k]=s.charCodeAt(k);return a};
+ const readURL=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(f)});
+ const st=document.createElement('style');
+ st.textContent=`.filec{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:16px;background:var(--paper);margin:6px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.filec.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.fct{flex:none;width:44px;height:44px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:11px;font-weight:700;letter-spacing:.04em}
+.fci{flex:1;min-width:0}.fci b{display:block;font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fci small{color:var(--muted);font-size:12.5px}
+.fcb{flex:none;font:inherit;font-size:14px;font-weight:600;padding:8px 14px;border-radius:11px;border:0;background:var(--accent);color:var(--on-accent);cursor:pointer}.fcb.alt{background:var(--accent-soft);color:var(--accent)}
+.fileph{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px;border:1px dashed var(--line);border-radius:16px;margin:6px 0;color:var(--muted);font-size:14px}
+.filec+.imgt{margin:2px 0 8px}
+#pdfv{position:fixed;inset:0;z-index:400;background:var(--paper);color:var(--ink);display:flex;flex-direction:column}
+.pvbar{display:flex;gap:6px;align-items:center;padding:calc(env(safe-area-inset-top) + 8px) 10px 8px;border-bottom:1px solid var(--line);background:var(--paper)}
+.pvbar .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:600}
+.pvbar .pg{font-size:12.5px;color:var(--muted);white-space:nowrap;min-width:3.2em;text-align:right}
+.pvbar button{font:inherit;font-size:14px;padding:8px 12px;border-radius:11px;border:0;background:var(--accent-soft);color:var(--accent);font-weight:600;cursor:pointer;min-width:38px}
+.pvbody{flex:1;overflow:auto;background:var(--line);-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.pvlist{display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px;width:max-content;min-width:100%;box-sizing:border-box}
+.pvp{background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.18);position:relative;flex:none}.pvp canvas{display:block;width:100%;height:100%}
+.pvtxt{white-space:pre-wrap;word-break:break-word;font:13.5px/1.55 ui-monospace,Menlo,Consolas,monospace;padding:16px;margin:0 auto;max-width:820px;color:var(--ink);background:var(--paper)}
+.pvmsg{text-align:center;padding:40px 20px;color:var(--muted);font-size:15px}.pvmsg .inp{max-width:260px;margin:12px auto 8px;display:block}`;
+ document.head.appendChild(st);
+
+ /* ---- adding files ---- */
+ async function ingest(file){
+  const ext=extOf(file.name);
+  if(!DOC_EXT.includes(ext))return {err:'“'+file.name+'” is not a type that can be attached. PDF, text, Word, Excel, PowerPoint and similar files work.'};
+  if(file.size>MAXDOC)return {err:'“'+file.name+'” is over the '+kb(MAXDOC)+' limit.'};
+  if(file.size<1)return {err:'“'+file.name+'” is empty.'};
+  const head=new Uint8Array(await file.slice(0,4100).arrayBuffer());
+  if(!ftMagicOk(ext,head))return {err:'“'+file.name+'” does not look like a real '+ext.toUpperCase()+' file.'};
+  const u=await readURL(file),url='data:'+FT[ext]+';base64,'+u.slice(u.indexOf(',')+1),id=uid();
+  await putDoc(id,url);
+  return {fid:id,name:cleanName(file.name),size:file.size,mime:FT[ext]};
+ }
+ async function attach(bid,files,replace){
+  const infos=[];let bad='';
+  for(const f of files){try{const r=await ingest(f);if(r.err)bad=bad||r.err;else infos.push(r)}catch(e){bad=bad||'Could not read “'+f.name+'”.'}}
+  if(bad)toast(bad);
+  if(!infos.length)return;
+  snapshot();let i=idx(bid);if(i<0)return;
+  infos.forEach((info,k)=>{
+   if(k===0&&B[i].type==='file'&&(replace||!B[i].fid))Object.assign(B[i],info,{text:''});
+   else if(k===0&&B[i].type==='p'&&!B[i].text){B[i].type='file';Object.assign(B[i],info,{text:''})}
+   else{B.splice(i+1,0,blk('file','',B[i].ind,info));i++}
+  });
+  const nx=B[i+1];if(!nx||nx.type==='file'||nx.type==='image')B.splice(i+1,0,blk('p','',B[i].ind));
+  normalize();renderBlocks();touch();
+  toast(infos.length>1?infos.length+' files attached':'Attached');
+ }
+ function pickFor(bid,replace){
+  const inp=document.createElement('input');inp.type='file';inp.accept=ACCEPT;inp.multiple=!replace;inp.style.display='none';document.body.appendChild(inp);
+  inp.onchange=async()=>{const fl=[...inp.files];inp.remove();if(fl.length)attach(bid,fl,replace)};
+  inp.addEventListener('cancel',()=>inp.remove());inp.click();
+ }
+ CMDS.push({t:'PDF or file',d:'Attach a PDF or document',g:'PDF',type:'file',kw:'pdf attach attachment document file upload word excel',init:b=>{b.text='';Object.assign(b,{fid:'',name:'',size:0,mime:''})},after:i=>{const nx=B[i+1];if(!nx||nx.type==='file'||nx.type==='image')B.splice(i+1,0,blk('p','',B[i].ind));renderBlocks();pickFor(B[i].id)}});
+
+ /* ---- the block on the page ---- */
+ let selF=null;
+ function render(t,b){
+  t.contentEditable='false';
+  const r=t.closest('.row');if(r)r.querySelector('.mark').innerHTML='';
+  if(!b.fid||!b.name){t.innerHTML=`<div class="fileph filec-ph"><button class="btn" data-fb="pick">${ic('plus',16)}Add a PDF or file</button><span>or drop one here</span></div>`;return}
+  const e=extOf(b.name),have=!!DOC[b.fid],view=canView(b)&&have,sel=selF===b.id;
+  t.innerHTML=`<div class="filec${sel?' sel':''}" data-fc><div class="fct">${esc(label(e))}</div><div class="fci"><b>${esc(b.name)}</b><small>${kb(b.size||0)}${have?'':' · not on this device'}</small></div>${have?(view?`<button class="fcb" data-fb="open">Open</button>`:`<button class="fcb alt" data-fb="save">Save</button>`):''}</div>${sel?`<div class="imgt"><button data-fb="save">Save</button><button data-fb="qr">Send by QR</button><button data-fb="replace">Replace</button><button data-fb="del" class="del">Remove</button></div>`:''}`;
+ }
+ const _fill=fill;fill=function(r,b){_fill(r,b);if(b.type==='file'){b.text='';render(r.querySelector('.txt'),b)}};
+ function refresh(b){const r=rowsEl().querySelector('.row[data-id="'+b.id+'"]');if(r)fill(r,b)}
+ function setSel(id){const old=selF;selF=id;[old,id].forEach(x=>{if(!x)return;const b=byId(x);if(b)refresh(b)})}
+ function delBlock(b){snapshot();selF=null;const i=B.indexOf(b);if(i<0)return;B.splice(i,1);if(!B.length)B.push(blk('p',''));renderBlocks();touch()}
+ document.addEventListener('click',async e=>{
+  const card=e.target.closest&&e.target.closest('#page .filec, #page .fileph, #page .filec + .imgt');
+  if(!card){if(selF&&!e.target.closest('#sheet,#pdfv'))setSel(null);return}
+  if(sel.size)return;
+  const row=card.closest('.row'),b=row&&byId(row.dataset.id);if(!b)return;
+  e.stopPropagation();e.preventDefault();
+  const a=e.target.closest('[data-fb]');
+  if(!a){setSel(selF===b.id?null:b.id);return}
+  const k=a.dataset.fb;
+  if(k==='pick')pickFor(b.id,false);
+  else if(k==='replace')pickFor(b.id,true);
+  else if(k==='open')openDoc(b);
+  else if(k==='save')saveDoc(b);
+  else if(k==='qr')sendDoc(b);
+  else if(k==='del')delBlock(b);
+ },true);
+ document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&closeV()){e.preventDefault();return}
+  if(selF&&(e.key==='Backspace'||e.key==='Delete')){const a=document.activeElement;if(a&&(a.isContentEditable||/INPUT|TEXTAREA/.test(a.tagName)))return;const b=byId(selF);if(b){e.preventDefault();delBlock(b)}}
+ });
+ /* dropping files on the page */
+ const pg=document.getElementById('page');
+ if(pg){
+  pg.addEventListener('dragover',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files'))e.preventDefault()});
+  pg.addEventListener('drop',e=>{
+   const fl=e.dataTransfer?[...e.dataTransfer.files].filter(f=>DOC_EXT.includes(extOf(f.name))):[];if(!fl.length)return;
+   e.preventDefault();const r=e.target.closest('.row');let i=r?idx(r.dataset.id):B.length-1;if(i<0)i=B.length-1;
+   attach(B[i].id,fl,false);
+  });
+ }
+
+ /* ---- save and send ---- */
+ async function saveDoc(b){
+  const url=DOC[b.fid];if(!url)return toast('This file is not on this device');
+  const m=b.mime||FT[extOf(b.name)]||'application/octet-stream';
+  try{
+   if(window.NativeBridge&&NativeBridge.saveFile){const ok=await new Promise(res=>{window.__nativeDone=res;NativeBridge.saveFile(b.name,m,url.slice(url.indexOf(',')+1))});if(ok)toast('Saved');return}
+   const f=new File([toU8(url)],b.name,{type:m});
+   if(/Android|iPhone|iPad/i.test(navigator.userAgent)&&navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:b.name});
+   else{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=b.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('Downloaded')}
+  }catch(er){}
+ }
+ async function sendDoc(b){
+  const url=DOC[b.fid];if(!url)return toast('This file is not on this device');
+  const u8=toU8(url);
+  if(u8.length>QR_CAP)return toast('Too big for QR codes ('+kb(u8.length)+'). Use Connect or Nearby for this one.');
+  try{await showQR('Send “'+b.name+'”',{t:'files',n:devName(),ts:Date.now(),files:[{name:b.name,m:FT[extOf(b.name)],d:b64u(u8)}]},'On the other device: Scan. It lists the file so it can be saved.')}catch(er){toast('Could not make the codes')}
+ }
+
+ /* ---- the viewer ---- */
+ let V=null,LIBP=null;
+ function lib(){
+  if(!LIBP)LIBP=import(new URL('pdf.min.js',document.baseURI).href).then(m=>{m.GlobalWorkerOptions.workerSrc=new URL('pdf.worker.min.js',document.baseURI).href;return m});
+  LIBP.catch(()=>{LIBP=null});return LIBP;
+ }
+ function closeV(){
+  if(!V)return false;
+  const v=V;V=null;try{v.io&&v.io.disconnect()}catch(e){}try{v.task&&v.task.destroy()}catch(e){}try{v.doc&&v.doc.destroy()}catch(e){}v.el.remove();return true;
+ }
+ const _ab=window.__androidBack;window.__androidBack=function(){if(closeV())return true;return _ab?_ab():false};
+ const msg=(v,h)=>{const b=v.el.querySelector('.pvbody');if(b)b.innerHTML=`<div class="pvmsg">${h}</div>`};
+ async function openDoc(b){
+  const url=DOC[b.fid];if(!url)return toast('This file is not on this device');
+  closeV();
+  const el=document.createElement('div');el.id='pdfv';
+  el.innerHTML=`<div class="pvbar"><button data-pv="x">Close</button><span class="nm">${esc(b.name)}</span><span class="pg" id="pvpg"></span><button data-pv="zo" aria-label="Zoom out">−</button><button data-pv="zi" aria-label="Zoom in">+</button><button data-pv="save">Save</button></div><div class="pvbody" id="pvbody"><div class="pvmsg">Opening…</div></div>`;
+  document.body.appendChild(el);
+  const v=V={el,b,z:1,gen:1,pages:[],vis:new Set()};
+  const ext=extOf(b.name);
+  if(ext!=='pdf'){
+   try{const t=new TextDecoder('utf-8').decode(toU8(url));el.querySelector('.pvbody').innerHTML=`<pre class="pvtxt">${esc(t.length>400000?t.slice(0,400000)+'\n\n… (shortened, save the file to read the rest)':t)}</pre>`;el.querySelector('[data-pv=zo]').hidden=true;el.querySelector('[data-pv=zi]').hidden=true}catch(er){msg(v,'This file could not be shown. Use Save instead.')}
+   return;
+  }
+  let L;try{L=await lib()}catch(er){if(V===v)msg(v,'The PDF reader could not load.<br>Use Save to open the file in another app.');return}
+  if(V!==v)return;
+  const task=L.getDocument({data:toU8(url),isEvalSupported:false});v.task=task;
+  task.onPassword=(update,reason)=>{
+   const bd=el.querySelector('.pvbody');
+   bd.innerHTML=`<div class="pvmsg">${reason===2?'That password was not right.':'This PDF is protected by a password.'}<input class="inp" id="pvpw" type="password" autocomplete="off" placeholder="Password"><button class="btn pri" id="pvgo">Open</button></div>`;
+   const go=()=>{const p=document.getElementById('pvpw');if(p&&p.value)update(p.value)};
+   const gb=document.getElementById('pvgo');gb.onclick=go;document.getElementById('pvpw').addEventListener('keydown',ev=>{if(ev.key==='Enter')go()});
+  };
+  let doc;try{doc=await task.promise}catch(er){if(V===v)msg(v,'This PDF could not be opened.');return}
+  if(V!==v){try{doc.destroy()}catch(e){}return}
+  v.doc=doc;
+  const p1=await doc.getPage(1),vp=p1.getViewport({scale:1});v.ratio=vp.height/vp.width;
+  const body=el.querySelector('.pvbody');body.innerHTML='<div class="pvlist" id="pvlist"></div>';
+  const list=body.firstChild;v.list=list;v.body=body;
+  v.BW=Math.max(200,Math.min(body.clientWidth-24,900));
+  for(let n=1;n<=doc.numPages;n++){
+   const d=document.createElement('div');d.className='pvp';d.dataset.n=n;const cv=document.createElement('canvas');d.appendChild(cv);list.appendChild(d);
+   v.pages.push({el:d,cv,ratio:v.ratio,done:0,busy:false,task:null});
+  }
+  sizeAll(v);
+  v.io=new IntersectionObserver(es=>{
+   for(const en of es){
+    const n=+en.target.dataset.n;
+    if(en.isIntersecting){v.vis.add(n);renderPage(v,n)}
+    else{v.vis.delete(n);unrender(v,n)}
+   }
+  },{root:body,rootMargin:'700px 0px'});
+  v.pages.forEach(p=>v.io.observe(p.el));
+  const upd=()=>{
+   if(V!==v)return;const top=body.scrollTop+body.clientHeight*.35;let cur=1;
+   for(let n=0;n<v.pages.length;n++){const e=v.pages[n].el;if(e.offsetTop<=top)cur=n+1;else break}
+   const pgEl=document.getElementById('pvpg');if(pgEl)pgEl.textContent=cur+' / '+doc.numPages;
+  };
+  let raf=0;body.addEventListener('scroll',()=>{if(!raf)raf=requestAnimationFrame(()=>{raf=0;upd()})},{passive:true});
+  upd();v.upd=upd;
+  pinch(v);
+ }
+ function sizeAll(v){
+  const w=Math.round(v.BW*v.z);
+  v.pages.forEach(p=>{p.el.style.width=w+'px';p.el.style.height=Math.round(w*p.ratio)+'px'});
+ }
+ function unrender(v,n){const p=v.pages[n-1];if(!p)return;try{p.task&&p.task.cancel()}catch(e){}p.task=null;p.cv.width=0;p.cv.height=0;p.done=0}
+ async function renderPage(v,n){
+  const p=v.pages[n-1];if(!p||p.busy||p.done===v.gen)return;
+  p.busy=true;const gen=v.gen;
+  try{
+   const page=await v.doc.getPage(n);if(V!==v||gen!==v.gen||!v.vis.has(n))return;
+   const v1=page.getViewport({scale:1}),cssW=v.BW*v.z,k=cssW/v1.width;
+   p.ratio=v1.height/v1.width;p.el.style.width=Math.round(cssW)+'px';p.el.style.height=Math.round(cssW*p.ratio)+'px';
+   let sc=k*Math.min(window.devicePixelRatio||1,2);const px=v1.width*sc*v1.height*sc;if(px>12e6)sc*=Math.sqrt(12e6/px);
+   const vp=page.getViewport({scale:sc}),cv=p.cv;cv.width=Math.floor(vp.width);cv.height=Math.floor(vp.height);
+   p.task=page.render({canvas:cv,canvasContext:cv.getContext('2d'),viewport:vp});
+   await p.task.promise;p.task=null;if(gen===v.gen)p.done=gen;
+  }catch(er){/* cancelled or failed: the page stays blank and is tried again when it scrolls back */}
+  finally{p.busy=false;if(V===v&&p.done!==v.gen&&v.vis.has(n)&&!p.task)setTimeout(()=>{if(V===v&&v.vis.has(n)&&p.done!==v.gen)renderPage(v,n)},150)}
+ }
+ /* zoom around a point on screen */
+ function zoomTo(v,z,fx,fy){
+  z=Math.max(.5,Math.min(4,z));if(Math.abs(z-v.z)<.005)return;
+  const body=v.body,k=z/v.z,cx=body.scrollLeft+fx,cy=body.scrollTop+fy;
+  v.z=z;v.gen++;v.pages.forEach(p=>{try{p.task&&p.task.cancel()}catch(e){}p.task=null;p.done=0});
+  sizeAll(v);
+  body.scrollLeft=cx*k-fx;body.scrollTop=cy*k-fy;
+  v.vis.forEach(n=>renderPage(v,n));v.upd&&v.upd();
+ }
+ function pinch(v){
+  const body=v.body;let d0=0,z0=1,mid=null,r=1;
+  const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+  body.addEventListener('touchstart',e=>{if(e.touches.length===2){d0=dist(e.touches);z0=v.z;r=1;const b=body.getBoundingClientRect();mid={x:(e.touches[0].clientX+e.touches[1].clientX)/2-b.left,y:(e.touches[0].clientY+e.touches[1].clientY)/2-b.top};
+   const o=v.list;o.style.transformOrigin=(body.scrollLeft+mid.x-o.offsetLeft)+'px '+(body.scrollTop+mid.y-o.offsetTop)+'px'}},{passive:true});
+  body.addEventListener('touchmove',e=>{if(e.touches.length===2&&d0){e.preventDefault();r=Math.max(.5/z0,Math.min(4/z0,dist(e.touches)/d0));v.list.style.transform='scale('+r+')'}},{passive:false});
+  const end=()=>{if(!d0)return;d0=0;const o=v.list;o.style.transform='';o.style.transformOrigin='';if(mid&&Math.abs(r-1)>.02)zoomTo(v,z0*r,mid.x,mid.y);mid=null};
+  body.addEventListener('touchend',e=>{if(e.touches.length<2)end()},{passive:true});body.addEventListener('touchcancel',end,{passive:true});
+  body.addEventListener('wheel',e=>{if(!e.ctrlKey)return;e.preventDefault();const b=body.getBoundingClientRect();zoomTo(v,v.z*(e.deltaY<0?1.12:1/1.12),e.clientX-b.left,e.clientY-b.top)},{passive:false});
+ }
+ document.addEventListener('click',e=>{
+  const m=e.target.closest&&e.target.closest('[data-pv]');if(!m||!V)return;const v=V,k=m.dataset.pv;
+  if(k==='x')closeV();
+  else if(k==='save')saveDoc(v.b);
+  else if(v.body&&(k==='zi'||k==='zo')){const b=v.body;zoomTo(v,k==='zi'?v.z*1.25:v.z/1.25,b.clientWidth/2,b.clientHeight/2)}
+ });
+
+ /* ---- vault export and import: files travel as attachments/ID.ext ---- */
+ const _pm=parseMD;parseMD=function(t){const r=_pm(t);if(window.__zipImp)r.blocks.forEach(b=>{const m=b.type==='p'&&b.text.match(/^\[📎 ([^\]]*)\]\((attachments\/[^)\s]+)\)$/);if(m){b.type='file';b.text='';b.name=m[1];b.src=m[2];b.fid='';b.size=0;b.mime=''}});return r};
+ const _iz=importZipInto;importZipInto=async function(z,pid){
+  const before=new Set(Object.keys(S.nodes));const r=await _iz.apply(this,arguments);
+  for(const k of Object.keys(S.nodes)){if(before.has(k))continue;const n=S.nodes[k];
+   for(let i=0;i<(n.blocks||[]).length;i++){const b=n.blocks[i];if(b.type!=='file'||!b.src)continue;
+    let f=null;try{f=z.file(decodeURIComponent(b.src))||z.file(b.src)}catch(e){f=z.file(b.src)}
+    let ok=false;
+    if(f){try{const u8=await f.async('uint8array'),nm0=cleanName(b.name||b.src.split('/').pop()),ext=extOf(nm0);
+     if(DOC_EXT.includes(ext)&&u8.length>0&&u8.length<=MAXDOC&&ftMagicOk(ext,u8)){const id=uid();await putDoc(id,'data:'+FT[ext]+';base64,'+b64(u8));b.fid=id;b.name=nm0;b.size=u8.length;b.mime=FT[ext];ok=true}}catch(e){}}
+    if(!ok){b.type='p';b.text='(file missing: '+(b.name||b.src)+')';delete b.name;delete b.fid;delete b.size;delete b.mime}
+    delete b.src}}
+  return r};
+ window.__docs={DOC,putDoc,openDoc,get view(){return V}};
+})();
+
 /* Connect: a QR (or pasted code) sets up a direct, encrypted device-to-device link; then pages and vaults go over it */
 (function(){
  Object.assign(IC,{link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'});
@@ -4770,7 +5237,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   else if(k==='paste'){closeSheet();const b=document.createElement('button');b.dataset.qrp='open';document.body.appendChild(b);b.click();b.remove()}
   else if(k==='cancel'){drop();closeSheet()}
   else if(k==='bye'){drop();closeSheet();toast('Disconnected')}
-  else if(k==='page'){const n=S.nodes[S.cur];if(!n||n.kind!=='page')return toast('Open a page first');await sendStr(await sealMsg({t:'page',n:devName(),ts:Date.now(),title:nm(n),blocks:exportBlocks(n)}))}
+  else if(k==='page'){const n=S.nodes[S.cur];if(!n||n.kind!=='page')return toast('Open a page first');await sendStr(await sealMsg({t:'page',n:devName(),ts:Date.now(),title:nm(n),blocks:exportBlocks(n,true),files:(window.__pagefiles?(await window.__pagefiles(n)).map(f=>({id:f.id,name:f.name,m:f.m,d:f.d})):[])}))}
   else if(k==='vault'){toast('Packing your vault…');const z=await buildVaultZip();await sendStr(await sealMsg({t:'vault',n:devName(),ts:Date.now(),z:b64u(z)}))}
   else if(k==='stun'){S.set.stun=m.checked;save()}
   }catch(err){toast('That did not work')}

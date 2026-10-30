@@ -1,11 +1,13 @@
 // Margin Notes offline cache. Bump V whenever index.html changes.
-const V='margin-notes-v81';
+const V='margin-notes-v84';
 const CORE=['./','./index.html','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png'];
+const PDFJS=['./pdf.min.js','./pdf.worker.min.js']; // the PDF reader, fetched once and kept for offline use
 const CDN='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
 self.addEventListener('install',e=>{e.waitUntil((async()=>{
   const c=await caches.open(V);
   await c.addAll(CORE.map(u=>new Request(u,{cache:'reload'})));
   try{await c.add(new Request(CDN,{mode:'cors'}))}catch(_){}
+  for(const u of PDFJS){try{await c.add(new Request(u,{cache:'reload'}))}catch(_){}}
   self.skipWaiting();
 })())});
 self.addEventListener('activate',e=>{e.waitUntil((async()=>{
