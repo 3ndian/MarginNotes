@@ -989,9 +989,14 @@ page.addEventListener('focusout',e=>{
 page.addEventListener('pointerdown',e=>{if(e.target.closest('.mark button'))e.preventDefault()});
 $('#slash').addEventListener('pointerdown',e=>e.preventDefault());
 $('#slash').addEventListener('click',e=>{const b=e.target.closest('.pi');if(b)pickSlash(+b.dataset.k)});
-function setEditing(on){document.body.classList.toggle('editing',on);$('#acc').hidden=!on;placeAcc()}
-function placeAcc(){const vv=window.visualViewport;if(!vv)return;$('#acc').style.bottom=Math.max(0,innerHeight-vv.height-vv.offsetTop)+'px'}
-if(window.visualViewport){visualViewport.addEventListener('resize',placeAcc);visualViewport.addEventListener('scroll',placeAcc)}
+function setEditing(on){document.body.classList.toggle('editing',on);$('#acc').hidden=!on;if(on)trackAcc(900)}
+function placeAcc(){const a=$('#acc'),vv=window.visualViewport;if(!a||a.hidden)return;
+ /* pin the bar to the bottom edge of what is actually visible (above the keyboard), measured from the top so iOS's shifting layout viewport can't hide it */
+ if(!vv){a.style.bottom='0px';return}
+ a.style.bottom='auto';a.style.top=Math.max(0,vv.offsetTop+vv.height-a.offsetHeight-8)+'px'}
+let accRaf=0;function trackAcc(ms){const t0=Date.now();cancelAnimationFrame(accRaf);const f=()=>{placeAcc();if(Date.now()-t0<(ms||700))accRaf=requestAnimationFrame(f)};f()}
+if(window.visualViewport){visualViewport.addEventListener('resize',()=>trackAcc(500));visualViewport.addEventListener('scroll',placeAcc)}
+window.addEventListener('resize',()=>trackAcc(500));document.addEventListener('focusin',()=>{if(document.body.classList.contains('editing'))trackAcc(900)});
 $('#acc').innerHTML=['undo','redo','outdent','indent','toparent','exitsec','up','down','slash','kb'].map(a=>`<button class="ib" data-acc="${a}" aria-label="${a}">${ic(a)}</button>`).join('');
 $('#acc').addEventListener('pointerdown',e=>e.preventDefault());
 $('#acc').addEventListener('click',e=>{
@@ -1343,13 +1348,13 @@ function fontSeg(key){
 let selP=null,pMode=null;
 function presetUI(){
  const all=BUILTIN.concat(presets()),now=appNow();
- const dot=p=>{const s=p.set||{};if(s.shade==='custom'&&s.custom)return okStr(s.custom.paper);const h=(SHADES.find(x=>x[0]===(s.shade||'auto'))||[])[2];return h||'#cfcfcf'};
+ const dot=p=>{const s=p.set||{};if(s.shade==='custom'&&s.custom)return okStr(s.custom.paper);if(!s.shade||s.shade==='auto'){const t=document.documentElement.dataset.theme,dk=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);return dk?'#17181b':'#fbfbf9'}const h=(SHADES.find(x=>x[0]===s.shade)||[])[2];return h||'#cfcfcf'};
  const chips=`<div class="pchips">${all.map(p=>{const full=Object.assign({},p.set);return `<button class="pchip ${JSON.stringify(normApp(full))===now?'on':''}" data-pre="${p.id}"><i style="background:${dot(p)}"></i>${esc(p.name)}</button>`}).join('')}</div>`;
  const user=presets().find(p=>p.id===selP);let row='';
  if(pMode==='save'||(pMode==='rename'&&user))row=`<input class="inp" id="pName" placeholder="Preset name" maxlength="30" value="${pMode==='rename'?esc(user.name):''}" style="margin-bottom:8px"><div class="btnrow" style="justify-content:flex-start;margin:0 0 8px"><button class="btn" data-pm="cancel">Cancel</button><button class="btn pri" data-pm="${pMode==='save'?'savego':'renamego'}">Save</button></div>`;
  else{
   if(user)row+=`<div class="btnrow" style="justify-content:flex-start;margin:0 0 8px"><button class="btn" data-pm="update">Update to current look</button><button class="btn" data-pm="rename">Rename</button><button class="btn" data-pm="del">Delete</button></div>`;
-  row+=`<button class="btn" data-pm="save">Save current look as preset</button>`}
+  row+=`<div class="btnrow" style="justify-content:flex-start;margin:0"><button class="btn" data-pm="save">Save current look as preset</button><button class="btn" data-pm="share">${ic('send',16)}Share${user?' this preset':' this look'}…</button></div>`}
  return chips+row+`<p class="hint" style="margin-top:8px">Presets are saved with your notes, so every backup carries them. Reset look never removes them.</p>`;
 }
 shEl.addEventListener('click',e=>{
@@ -3024,9 +3029,11 @@ var SSTV=(function(){
       const ln=Math.round(tImg/lm);this.line=Math.max(this.line,Math.min(hh-1,ln));
      }else this.forced=false;
     }else{
-     if(exp+this.msr(lm+8)>this.n)break;
-     const f=this.findSync(exp-this.msr(7),exp+this.msr(7),sm);
-     if(f>=0){s=f;found=true}
+     if(exp+this.msr(lm*1.5+8)>this.n)break;
+     let f=this.findSync(exp-this.msr(7),exp+this.msr(7),sm);
+     /* lost the beat (audio dropped out, or noise)? look across the whole line period for the next sync */
+     if(f<0&&this.miss>=1)f=this.findSync(exp-this.msr(lm*0.5),exp+this.msr(lm*0.5),sm);
+     if(f>=0){s=f;found=true;this.miss=0}else this.miss=(this.miss||0)+1;
     }
     if(found&&!hunted&&this.prevS>=0){const dl=s-this.prevS,rel=dl/this.lenEst;if(rel>0.985&&rel<1.015){this.lenEst=this.lenEst*0.85+dl*0.15}}
     if(found)this.prevS=s;
@@ -3612,6 +3619,7 @@ async function receiveMsg(str){
   return openSheet(`<h3>Received ${files.length} file${files.length>1?'s':''}</h3>${who}${filesHtml(files)}<p class="hint">Nothing is opened or imported. Tap the arrow to save a file, or add them to a page.</p><div class="btnrow"><button class="btn" data-qr="close">Close</button><button class="btn" data-qr="picspage">Add to a page</button></div>`);
  }
  if(o.t==='img'&&window.__imgRecv)return window.__imgRecv(r,o,who,from,known);
+ if(o.t==='preset'&&window.__presetRecv)return window.__presetRecv(r,o,who,from,known);
  if(o.t==='fpart'&&window.__fpartRecv)return window.__fpartRecv(r,o,who,from,known);
  openSheet(`<h3>Unsupported code</h3><p class="hint">This code comes from a newer version. Nothing was imported.</p><div class="btnrow"><button class="btn pri" data-qr="close">Close</button></div>`);
 }
@@ -5400,6 +5408,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   <p class="hint" id="sfinfo" style="text-align:center"></p>
   <button class="opt qopt" data-sf="qr" id="sfqr">${ic('scan',18)}<span><b>Send by QR</b><small></small></span></button>
   <button class="opt qopt" data-sf="parts" id="sfparts">${ic('scan',18)}<span><b>Send by QR in parts</b><small></small></span></button>
+  <button class="opt qopt" data-sf="stream" id="sfstream">${ic('scan',18)}<span><b>Send by QR stream</b><small></small></span></button>
   <button class="opt qopt" data-sf="conn" id="sfconn">${ic('link',18)}<span><b>Send over Connect</b><small></small></span></button>
   <button class="opt qopt" data-sf="sound" id="sfsound">${ic('recv',18)}<span><b>Send by sound</b><small></small></span></button>
   <div class="btnrow"><button class="btn" data-sf="x">Cancel</button><button class="btn" data-sf="add">Add more</button></div>`);
@@ -5410,9 +5419,10 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   const i=document.getElementById('sfinfo');if(i)i.textContent=n?n+' selected · '+kb(r):'Tick the files to send.';
   const qr=btn('sfqr'),pt=btn('sfparts'),cn=btn('sfconn');if(!qr)return;
   const fits=r<=QR_CAP,np=chosen().reduce((a,f)=>a+Math.max(1,Math.ceil(f.u8.length/PART)),0);
-  qr.disabled=!n||!fits;small('sfqr').textContent=!n?'':fits?'About '+est(r)+'. The other phone scans the codes.':'Too big for one go. Use parts or Connect.';
-  pt.hidden=fits;pt.disabled=!n||r>MAXPARTS;small('sfparts').textContent=r>MAXPARTS?'Over 8 MB. Use Connect for this much.':np+' parts, about '+est(r)+' in all. The other phone scans one part at a time.';
+  qr.disabled=!n||!fits;small('sfqr').textContent=!n?'':fits?'About '+est(r)+'. The other phone scans the codes.':'Too big for one go. Use parts, QR stream or Connect.';
+  pt.hidden=fits;pt.disabled=!n||r>MAXPARTS;small('sfparts').textContent=r>MAXPARTS?'Over 8 MB. Use QR stream or Connect.':np+' parts, about '+est(r)+' in all. The other phone scans one part at a time.';
   const sd=btn('sfsound'),sc=window.__soundCap&&window.__soundCap();if(sd){if(!sc){sd.hidden=true}else{const est2=Math.ceil(r*1.37/sc.pk)*sc.sec,mins=est2<90?Math.max(1,Math.round(est2))+' seconds':Math.round(est2/60)+' minutes',okS=n&&r*1.37<sc.max*0.9;sd.disabled=!okS;small('sfsound').textContent=!n?'':okS?'About '+mins+'. The other device taps Listen. Tiny files only.':'Too big for sound (about '+Math.floor(sc.max*0.9/1.37/1000)+' KB at most). Use QR or Connect.'}}
+  const ss=btn('sfstream');if(ss){const SZ=r,tt=SZ/(600*8);ss.disabled=n!==1||SZ>80000000||!window.__qrStream;small('sfstream').textContent=!n?'':n!==1?'Pick one file to stream it.':SZ>80000000?'Over 80 MB. Use Connect.':'Up to 80 MB, no repair codes. About '+(tt<90?Math.round(tt)+' seconds':tt<5400?Math.round(tt/60)+' minutes':(Math.round(tt/360)/10)+' hours')+' at Dense, 8 a second.'}
   const on=linked();cn.disabled=!n;small('sfconn').textContent=on?(chosen().some(f=>f.big)?'Connected. Big files stream across with a progress bar. The other device is asked first.':'Connected. Sends it straight across, up to 1 GB each.'):'Not connected yet. Tap to set up a Connect link first.';
  }
  const msgOf=fl=>({t:'files',n:devName(),ts:Date.now(),files:fl.map(f=>({name:f.name,m:f.m,d:b64u(f.u8)}))});
@@ -5441,6 +5451,7 @@ window.__fx={shareNodeQR:(i)=>shareNodeQR(i),qrFeed:(x)=>qrFeed(x),qrCanvas,seal
   if(k==='add'){pick();return}
   const fl=chosen();if(!fl.length)return;
   if(k==='qr'){if(raw()>QR_CAP)return;SF=null;try{await showQR(fl.length>1?'Send '+fl.length+' files':'Send “'+fl[0].name+'”',msgOf(fl),'On the other device: Scan. It lists the files so they can save each one.')}catch(er){toast('Could not make the codes')}return}
+  if(k==='stream'){SF=null;try{await window.__qrStream.start(fl[0])}catch(er){toast('Could not start the stream')}return}
   if(k==='parts'){SF=null;SP={g:uid(),fl,plan:planOf(fl),j:0};sendPart(0);return}
   if(k==='sound'){SF=null;try{await window.__sendSound(fl.length>1?fl.length+' files':fl[0].name,msgOf(fl))}catch(er){toast('Could not send by sound')}return}
   if(k==='conn'){
@@ -5452,7 +5463,7 @@ async function sendConn(fl){
    const small=fl.filter(f=>!f.big),bigs=fl.filter(f=>f.big);
    try{
     if(small.length){toast('Sending…');const s=await sealMsg(msgOf(small));await window.__link.sendStr(s)}
-    for(const f of bigs){if(!(await window.__link.sendBig(f)))break}
+    if(bigs.length)await window.__link.sendBig(bigs)
    }catch(er){toast('Could not send')}
  }
  window.__sendConn=sendConn;
@@ -5500,8 +5511,13 @@ async function sendConn(fl){
  const BC_MAX=2400;
  function bcast(){
   closeSide&&closeSide();
-  openSheet(`<h3>Broadcast a message</h3><p class="hint">Makes a normal QR code that any phone camera can read, with no app needed. Anyone who sees it can read it. It is not private or signed.</p><textarea class="inp" id="bctx" rows="4" placeholder="Type the message, or a link" style="width:100%;resize:vertical"></textarea><p class="hint" id="bcinfo" style="text-align:center"></p><div id="bcbox" style="text-align:center"></div><div class="btnrow"><button class="btn" data-bc="x">Close</button><button class="btn pri" data-bc="full" id="bcfull" disabled>Fill screen (for far away)</button></div>`);
+  const sh0=document.getElementById('sheet');if(sh0)sh0.classList.remove('bctyping');
+  openSheet(`<h3>Broadcast a message</h3><p class="hint" id="bchint">Makes a normal QR code that any phone camera can read, with no app needed. Anyone who sees it can read it. It is not private or signed.</p><div id="bcbox" style="text-align:center;min-height:120px"></div><textarea class="inp" id="bctx" rows="3" placeholder="Type the message, or a link" style="width:100%;resize:vertical"></textarea><p class="hint" id="bcinfo" style="text-align:center"></p><div class="btnrow"><button class="btn" data-bc="x">Close</button><button class="btn pri" data-bc="full" id="bcfull" disabled>Fill screen (for far away)</button></div>`);
+  /* the code sits above the box you type in, and shrinks while the keyboard is up, so it never covers your text */
+  if(!document.getElementById('bcstyle')){const st=document.createElement('style');st.id='bcstyle';st.textContent='#bcbox canvas{max-width:min(100%,300px)!important}#sheet.bctyping #bchint{display:none}#sheet.bctyping #bcbox{min-height:0!important}#sheet.bctyping #bcbox canvas{max-width:min(100%,170px)!important}';document.head.appendChild(st)}
   const t=document.getElementById('bctx');setTimeout(()=>{try{t.focus()}catch(e){}},200);
+  t.addEventListener('focus',()=>{const sh=document.getElementById('sheet');if(sh)sh.classList.add('bctyping');setTimeout(()=>{try{t.scrollIntoView({block:'nearest'})}catch(e){}},250)});
+  t.addEventListener('blur',()=>{const sh=document.getElementById('sheet');if(sh)sh.classList.remove('bctyping')});
   const upd=()=>{const n=unescape(encodeURIComponent(t.value)).length,i=document.getElementById('bcinfo');if(i)i.textContent=n?n+' of '+BC_MAX+' characters'+(n>700&&n<=BC_MAX?'. Long messages make a dense code that is harder to scan.':''):'';};
   const live=()=>{
    upd();const box=document.getElementById('bcbox'),fb=document.getElementById('bcfull');if(!box)return;
@@ -5828,18 +5844,20 @@ async function sendConn(fl){
 #sstv .ss_stabs button.on,#sstv .ss_chips button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 #sstv .ss_sb{flex:1;overflow:auto;padding:4px 14px calc(18px + var(--sab,env(safe-area-inset-bottom,0px)))}
 #sstv .ss_chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
-#sstv canvas.ss_pic{display:block;width:auto;max-width:100%;max-height:52vh;margin:6px auto;border-radius:14px;background:#000;border:1px solid var(--line)}
-#sstv .ss_empty{position:absolute;inset:12px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:14px;border:2px dashed color-mix(in srgb,#fff 35%,transparent);background:transparent;color:#fff;cursor:pointer;transition:background .15s}
+#sstv canvas.ss_pic{display:block;width:auto;max-width:100%;max-height:52vh;margin:6px auto;border-radius:14px;background:#000;border:1px solid var(--line);box-shadow:0 0 0 3px color-mix(in srgb,var(--ink) 14%,transparent)}
+#sstv .ss_empty{position:absolute;inset:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:14px;border:2px dashed color-mix(in srgb,#fff 35%,transparent);background:transparent;color:#fff;cursor:pointer;transition:background .15s}
 #sstv .ss_empty:hover{background:rgba(255,255,255,.08)}
 #sstv .ss_empty b{font-size:17px;font-weight:600}
 #sstv .ss_empty small{font-size:13px;opacity:.7}
 #sstv .ss_ei{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.14)}
+#sstv .ss_win{max-width:560px;max-height:52vh;margin:6px auto;overflow-y:auto;overflow-x:hidden;border-radius:14px;background:#000;border:1px solid var(--line);box-shadow:0 0 0 3px color-mix(in srgb,var(--ink) 14%,transparent);-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+#sstv .ss_win canvas.ss_pic{width:100%;height:auto;max-width:none;max-height:none;margin:0;border:0;border-radius:0;box-shadow:none;display:block}
 #sstv .ss_cols{display:block}
 @media (orientation:landscape) and (max-height:560px){
  #sstv .ss_cols{display:flex;gap:16px;align-items:flex-start}
  #sstv .ss_view{flex:1 1 55%;position:sticky;top:0;min-width:0}
  #sstv .ss_ctl{flex:1 1 45%;min-width:0}
- #sstv canvas.ss_pic{max-height:calc(100vh - 150px)}
+ #sstv .ss_win{max-height:calc(100vh - 150px)}
 }
 #sstv .ss_st{text-align:center;font-weight:600;margin:6px 0 2px}
 #sstv .ss_sub{text-align:center;color:var(--muted);font-size:13px;margin:0 0 8px}
@@ -5904,7 +5922,7 @@ async function sendConn(fl){
  /* ---------- receive ---------- */
  function drawRecv(){
   const b=$$('ssb');
-  b.innerHTML=`<div class="ss_cols"><div class="ss_view"><canvas class="ss_pic" id="sscv" width="320" height="240" data-ss="full" style="cursor:zoom-in"></canvas>
+  b.innerHTML=`<div class="ss_cols"><div class="ss_view"><div class="ss_win" id="sswin"><canvas class="ss_pic" id="sscv" width="320" height="240" data-ss="full" style="cursor:zoom-in"></canvas></div>
   <div class="ss_st" id="sstx">Not listening</div><p class="ss_sub" id="sssub"></p>
   <div class="ss_bar"><i id="ssbar"></i></div><div class="ss_lv"><i id="sslv"></i></div></div><div class="ss_ctl"><p class="hint">Hold this device near a speaker or radio playing a slow-scan picture. It draws as it arrives. Keep it quiet. Tap the picture to see it full screen.</p>
   <div class="ss_row"><button class="ss_tb pri" data-ss="listen" id="sslisten">${ic('recv',18)}Listen</button><button class="ss_tb" data-ss="pause" id="sspause" disabled>Pause</button><button class="ss_tb" data-ss="clear">Clear</button></div>
@@ -5917,13 +5935,15 @@ async function sendConn(fl){
   if(ST.shown)paintImg(ST.shown.rgb,ST.shown.h);
   syncBtns();drawGal();
  }
- function paintImg(rgb,h){
+ function paintImg(rgb,h,line){
   for(const id of ['sscv','ssfullcv']){
    const cv=$$(id);if(!cv)continue;if(cv.height!==h)cv.height=h;
    const cx=cv.getContext('2d'),im=cx.createImageData(W,h),o=im.data;
    for(let i=0,j=0;i<o.length;i+=4,j+=3){o[i]=rgb[j];o[i+1]=rgb[j+1];o[i+2]=rgb[j+2];o[i+3]=255}
    cx.putImageData(im,0,0);
   }
+  const win=$$('sswin');
+  if(win&&line!=null&&ST&&!ST.noFollow&&win.scrollHeight>win.clientHeight+4)win.scrollTop=Math.max(0,win.scrollHeight*(line/h)-win.clientHeight*0.8);
  }
  /* full-screen viewer: scales to fit, pinch or scroll to zoom, drag to move; keeps updating while a picture arrives */
  function openFull(){
@@ -5965,8 +5985,8 @@ async function sendConn(fl){
   d.onUpdate=(k,dd)=>{
    if(!ST||ST.dec!==d)return;
    const h=dd.mode.h||E.H;
-   if(k==='vis'){ST.shown=null;say('Receiving '+dd.mode.name+'…','Header heard. The picture draws line by line.');const cv=$$('sscv');if(cv){cv.height=h;const cx=cv.getContext('2d');cx.fillStyle='#000';cx.fillRect(0,0,W,h)}syncBtns();return}
-   ST.shown={rgb:dd.rgb.slice(0,W*h*3),h,mode:dd.mode};paintImg(dd.rgb,h);
+   if(k==='vis'){ST.shown=null;ST.noFollow=false;const w0=$$('sswin');if(w0)w0.scrollTop=0;say('Receiving '+dd.mode.name+'…','Header heard. The picture draws line by line.');const cv=$$('sscv');if(cv){cv.height=h;const cx=cv.getContext('2d');cx.fillStyle='#000';cx.fillRect(0,0,W,h)}syncBtns();return}
+   ST.shown={rgb:dd.rgb.slice(0,W*h*3),h,mode:dd.mode};paintImg(dd.rgb,h,dd.line);
    const bar=$$('ssbar');if(bar)bar.style.width=Math.round(dd.line/h*100)+'%';
    if(k==='done'){
     say('Done · '+dd.mode.name,'Saved to this session. Listening for the next one.');
@@ -5998,13 +6018,19 @@ async function sendConn(fl){
   };
   src.connect(proc);proc.connect(mute);mute.connect(ctx.destination);
   ST.mic={stop(){try{proc.onaudioprocess=null;proc.disconnect();src.disconnect()}catch(e){}try{stream.getTracks().forEach(t=>t.stop())}catch(e){}try{ctx.close()}catch(e){}}};
-  ST.listening=true;ST.paused=false;ST.t0=Date.now();
+  ST.listening=true;ST.paused=false;ST.t0=Date.now();ST.lastLoud=Date.now();awake(true);
   say('Listening…','Waiting for a picture. Start it on the other device.');
-  ST.lvT=setInterval(()=>{if(!ST){return}const l=$$('sslv');if(l)l.style.width=Math.min(100,ST.peak*260)+'%';if(ST.peak>0.01)ST.heard=true;ST.peak*=.6;
+  ST.lvT=setInterval(()=>{if(!ST){return}const l=$$('sslv');if(l)l.style.width=Math.min(100,ST.peak*260)+'%';if(ST.peak>0.01)ST.heard=true;if(ST.peak>0.02)ST.lastLoud=Date.now();ST.peak*=.6;
+   if(ST.listening&&!ST.paused&&ST.dec&&ST.dec.state==='image'&&Date.now()-ST.lastLoud>5000){const dd=ST.dec,hh=dd.mode.h||E.H,pct=Math.round(dd.line/hh*100);ST.dec=newDecoder(ST.rate);say('Signal ended at '+pct+'%','Showing the part that arrived. Save it, or start again.');
+    if(ST.shown){const c=document.createElement('canvas');c.width=W;c.height=ST.shown.h;const x=c.getContext('2d'),im=x.createImageData(W,ST.shown.h);for(let i=0,j=0;i<im.data.length;i+=4,j+=3){im.data[i]=ST.shown.rgb[j];im.data[i+1]=ST.shown.rgb[j+1];im.data[i+2]=ST.shown.rgb[j+2];im.data[i+3]=255}x.putImageData(im,0,0);ST.gal.push({url:c.toDataURL('image/png'),rgb:ST.shown.rgb,h:ST.shown.h,mode:ST.shown.mode});ST.sel=ST.gal.length-1;drawGal()}syncBtns()}
    if(ST.listening&&!ST.heard&&Date.now()-ST.t0>9000)say(null,'Cannot hear anything yet. Turn the sound up and bring it closer.')},200);
   syncBtns();
  }
+ let WL=null;
+ async function awake(on){try{if(on){if(navigator.wakeLock&&!WL){WL=await navigator.wakeLock.request('screen');WL.addEventListener('release',()=>{WL=null})}}else if(WL){const w=WL;WL=null;await w.release()}}catch(e){}}
+ document.addEventListener('visibilitychange',()=>{if(ST&&(ST.listening||ST.tx)&&document.visibilityState==='visible')awake(true)});
  function stopListen(){
+  awake(!!(ST&&ST.tx));
   if(!ST)return;if(ST.mic){ST.mic.stop();ST.mic=null}clearInterval(ST.lvT);ST.listening=false;ST.paused=false;
   const l=$$('sslv');if(l)l.style.width='0';
  }
@@ -6026,10 +6052,10 @@ async function sendConn(fl){
  /* ---------- send ---------- */
  function drawSend(){
   const b=$$('ssb'),s=ST.send;
-  b.innerHTML=`<div style="position:relative;max-width:560px;margin:0 auto"><canvas class="ss_pic" id="sspv" width="320" height="240" style="touch-action:none;cursor:${s.img?'grab':'pointer'}" ${s.img?'':'data-ss="pickimg"'}></canvas>${s.img?'':`<button class="ss_empty" data-ss="pickimg" aria-label="Choose a picture"><span class="ss_ei">${ic('plus',30)}</span><b>Choose a picture</b><small>Tap here, then drag and pinch to frame it</small></button>`}</div>
+  b.innerHTML=`<div style="position:relative;width:fit-content;max-width:100%;margin:6px auto"><canvas class="ss_pic" id="sspv" width="320" height="240" style="margin:0;touch-action:none;cursor:${s.img?'grab':'pointer'}" ${s.img?'':'data-ss="pickimg"'}></canvas>${s.img?'':`<button class="ss_empty" data-ss="pickimg" aria-label="Choose a picture"><span class="ss_ei">${ic('plus',30)}</span><b>Choose a picture</b><small>Tap here, then drag and pinch to frame it</small></button>`}</div>
   <p class="sub" style="text-align:center;color:var(--muted);font-size:13px;margin:0 0 6px" id="sszh">${s.img?'Drag to move. Pinch or scroll to zoom.':''}</p>
   <div class="ss_row" ${s.img?'':'hidden'} id="sszr"><button class="ss_tb" data-ss="zout" aria-label="Zoom out">−</button><button class="ss_tb" data-ss="zreset" id="sszp">100%</button><button class="ss_tb" data-ss="zin" aria-label="Zoom in">+</button></div>
-  <div class="ss_row"><button class="ss_tb pri" data-ss="pickimg">${ic('plus',18)}${s.img?'Change picture':'Choose a picture'}</button></div>
+  ${s.img?`<div class="ss_row"><button class="ss_tb" data-ss="pickimg">${ic('plus',18)}Change picture</button></div>`:''}
   <h4>Mode</h4><div class="ss_chips" id="ssmodes">${MODEL.map(m=>`<button data-ss="svis" data-v="${m[0]}">${m[1]} · ${secs(E.durationSec(m[0]))}</button>`).join('')}</div>
   <h4>Picture fit</h4><div class="ss_chips"><button data-ss="fit" data-v="cover">Fill (crop)</button><button data-ss="fit" data-v="contain">Fit (bars)</button></div>
   <h4>Caption (optional)</h4><textarea id="sscap" rows="2" maxlength="600" placeholder="Callsign, name or a note. Long text wraps and climbs the picture." style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);font:15px system-ui;resize:vertical">${esc(s.cap)}</textarea>
@@ -6079,7 +6105,7 @@ async function sendConn(fl){
   f.onchange=()=>{const file=f.files[0];f.remove();if(!file)return;const im=new Image();im.onload=()=>{if(!ST)return;Object.assign(ST.send,{img:im,z:1,ox:0,oy:0});drawSend()};im.onerror=()=>toast('Could not open that picture');im.src=URL.createObjectURL(file)};
   f.addEventListener('cancel',()=>f.remove());f.click();
  }
- function stopTx(){if(ST&&ST.tx){const t=ST.tx;ST.tx=null;clearInterval(t.tm);try{t.src.stop()}catch(e){}try{t.ctx.close()}catch(e){}const p=$$('ssplay');if(p)p.lastChild.textContent='Play'}}
+ function stopTx(){if(ST&&ST.tx){const t=ST.tx;ST.tx=null;awake(!!ST.listening);clearInterval(t.tm);try{t.src.stop()}catch(e){}try{t.ctx.close()}catch(e){}const p=$$('ssplay');if(p)p.lastChild.textContent='Play'}}
  async function play(){
   if(ST.tx)return stopTx();
   const s=ST.send;if(!s.img)return;
@@ -6090,7 +6116,7 @@ async function sendConn(fl){
   const total=f.length/ctx.sampleRate,t0=Date.now()/1000,me={ctx,src};ST.tx=me;
   me.tm=setInterval(()=>{if(ST&&ST.tx!==me){clearInterval(me.tm);return}const p=Math.min(1,(Date.now()/1000-t0)/total),bar=$$('ssbar2'),tx=$$('sstx2');if(bar)bar.style.width=p*100+'%';if(tx)tx.textContent='Playing · '+secs(Math.max(0,total*(1-p)))+' left'},300);
   src.onended=()=>{if(ST&&ST.tx===me){ST.tx=null;clearInterval(me.tm);try{ctx.close()}catch(e){}const bar=$$('ssbar2'),tx=$$('sstx2'),p=$$('ssplay');if(bar)bar.style.width='100%';if(tx)tx.textContent='Finished';if(p)p.lastChild.textContent='Play'}};
-  src.start();const p=$$('ssplay');if(p)p.lastChild.textContent='Stop';
+  src.start();awake(true);const p=$$('ssplay');if(p)p.lastChild.textContent='Stop';
  }
  function wavBlob(f,fs){
   const n=f.length,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))};
@@ -6149,8 +6175,222 @@ async function sendConn(fl){
  const pend=e=>{PTR.delete(e.pointerId);LAST=null;const cv=$$('sspv');if(cv)cv.style.cursor='grab'};
  document.addEventListener('pointerup',pend);document.addEventListener('pointercancel',pend);
  document.addEventListener('wheel',e=>{if(!ST||e.target.id!=='sspv'||!ST.send.img)return;e.preventDefault();const p=cpos(e,e.target);zoomBy(e.deltaY<0?1.1:1/1.1,p.x,p.y)},{passive:false});
+ ['wheel','touchmove'].forEach(ev=>document.addEventListener(ev,e=>{if(ST&&e.target.closest&&e.target.closest('#sswin'))ST.noFollow=true},{passive:true}));
  document.addEventListener('input',e=>{if(!ST||e.target.id!=='sscap')return;ST.send.cap=e.target.value;renderPv()});
  window.__sstv={open,close,engine:E,get st(){return ST}};
+})();
+
+/* QR stream: a big file sent as plain numbered pieces in a loop (no repair codes). The receiver shows which pieces it has. */
+(function(){
+ const MAXS=80000000,FPSL=[1,2,3,4,5,6,8,10,12,15,20,24],SIZES=[[300,'Standard'],[600,'Dense'],[900,'Ultra']];
+ const CT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+ const crcT=u8=>{let c=-1;for(let i=0;i<u8.length;i++)c=CT[(c^u8[i])&255]^(c>>>8);return((c^-1)>>>0).toString(16).padStart(8,'0')};
+ const fmtT=s=>{s=Math.max(0,Math.round(s));return s<90?s+' s':s<5400?Math.round(s/60)+' min':(Math.round(s/360)/10)+' h'};
+ const kbs=n=>n<1024?Math.round(n)+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';
+ const sha=async u8=>b64u(new Uint8Array(await crypto.subtle.digest('SHA-256',u8)));
+
+ /* ---------------- sender ---------------- */
+ let TX=null;
+ function dataFrame(t,i){
+  const B=t.B,a=i*B,d=new Uint8Array(B);d.set(t.u8.subarray(a,Math.min(t.len,a+B)));
+  const head=`MNS1|${t.tid}|${t.K}|${t.len}|${B}|${t.crc}|${i}|${b64u(d)}`;return head+'|'+fnv(head);
+ }
+ function nextFrame(t){
+  const s=t.seq++;if(s%16===0)return t.hdr;
+  const f=dataFrame(t,t.pos);t.pos++;if(t.pos>=t.K){t.pos=0;t.pass++}return f;
+ }
+ async function prep(name,m,u8,B){
+  const hashFull=await sha(u8),tid=hashFull.slice(0,6),crc=crcT(u8),K=Math.ceil(u8.length/B);
+  const hdr='MNS0|'+tid+'|'+await sealMsg({t:'sfile',n:devName(),ts:Date.now(),tid,name,m,size:u8.length,sha:hashFull});
+  return {name,m,u8,len:u8.length,B,K,tid,crc,hdr,pos:0,pass:1,seq:0,fps:8,paused:false,timer:null,drag:false};
+ }
+ async function start(f){
+  stop();let u8;
+  try{toast('Getting it ready…');u8=f.big?new Uint8Array(await f.big.arrayBuffer()):f.u8}catch(e){return toast('Could not read that file')}
+  if(!u8||!u8.length||u8.length>MAXS)return toast('That file is too big for this');
+  const B=(window.S&&0)||(S.set&&+S.set.qsB)||600;
+  TX=await prep(f.name,f.m,u8,B);TX.base={name:f.name,m:f.m,u8};drawTx();
+ }
+ async function resize(B){
+  const t=TX;if(!t)return;clearTimeout(t.timer);S.set.qsB=B;save();const keep=t.fps;
+  TX=await prep(t.name,t.m,t.u8,B);TX.fps=keep;drawTx();
+ }
+ function stop(){if(TX){clearTimeout(TX.timer);TX=null}}
+ function drawTx(){
+  const t=TX;if(!t)return;
+  openSheet(`<h3>Streaming “${esc(t.name)}”</h3><div class="qrbox" id="qsbox"></div><p class="hint" id="qsinfo" style="text-align:center"></p>
+  <input type="range" id="qspos" min="0" max="${t.K-1}" value="0" style="width:100%" aria-label="Position in the file">
+  <p class="hint" style="text-align:center;margin:0 0 6px">Drag the slider to jump to a spot the other phone missed.</p>
+  <div class="qrspeed"><button class="btn" data-qx="slow">Slower</button><span id="qsfps"></span><button class="btn" data-qx="fast">Faster</button></div>
+  <div class="seg" id="qssz" style="margin:8px 0 4px">${SIZES.map(([b,l])=>`<button data-qx="size" data-b="${b}" class="${b===t.B?'on':''}">${l}</button>`).join('')}</div>
+  <p class="hint" style="text-align:center">Pieces go out in order and loop. There are no repair codes, so a missed piece comes round again on the next loop. Ultra needs an excellent camera and light.</p>
+  <div class="btnrow"><button class="btn" data-qx="pause" id="qspause">Pause</button><button class="btn pri" data-qx="done">Done</button></div>`);
+  const tick=()=>{
+   if(TX!==t||!document.getElementById('qsbox'))return;
+   if(!t.paused){
+    const box=$('#qsbox');box.innerHTML='';box.appendChild(qrCanvas(nextFrame(t),340,'L'));
+    if(!t.drag){const p=$('#qspos');if(p)p.value=Math.min(t.K-1,t.pos)}
+   }
+   const rate=t.fps*t.B,inf=$('#qsinfo'),fp=$('#qsfps');
+   if(inf)inf.textContent=`Piece ${t.pos.toLocaleString()} of ${t.K.toLocaleString()} · loop ${t.pass} · ${kbs(rate)}/s · one loop takes about ${fmtT(t.K/t.fps)}`;
+   if(fp)fp.textContent=t.fps+' per second';
+   t.timer=setTimeout(tick,1000/t.fps);
+  };
+  tick();
+ }
+ document.addEventListener('input',e=>{if(e.target.id!=='qspos'||!TX)return;TX.drag=true;TX.pos=+e.target.value;TX.seq=Math.max(1,TX.seq)});
+ document.addEventListener('change',e=>{if(e.target.id==='qspos'&&TX)TX.drag=false});
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-qx]');if(!m||!TX)return;const k=m.dataset.qx,t=TX;
+  if(k==='done'){stop();closeSheet();return}
+  if(k==='pause'){t.paused=!t.paused;m.textContent=t.paused?'Resume':'Pause';return}
+  if(k==='slow'||k==='fast'){let i=FPSL.indexOf(t.fps);if(i<0)i=6;i=Math.max(0,Math.min(FPSL.length-1,i+(k==='fast'?1:-1)));t.fps=FPSL[i];return}
+  if(k==='size'){resize(+m.dataset.b);return}
+ });
+
+ /* ---------------- receiver ---------------- */
+ const RX={};
+ const keyOf=(tid,B)=>tid+':'+B;
+ function parse(t){
+  const p=t.split('|');if(p.length!==9||p[0]!=='MNS1')return null;
+  if(fnv(p.slice(0,8).join('|'))!==p[8])return null;
+  const K=+p[2],len=+p[3],B=+p[4],idx=+p[6];
+  if(!(K>0&&K<=800000&&len>0&&len<=MAXS&&B>=50&&B<=1000&&Math.ceil(len/B)===K&&idx>=0&&idx<K))return null;
+  if(!/^[A-Za-z0-9_-]{6}$/.test(p[1])||!/^[0-9a-f]{8}$/.test(p[5]))return null;
+  let d;try{d=unb64u(p[7])}catch(e){return null}if(d.length!==B)return null;
+  return {tid:p[1],K,len,B,crc:p[5],idx,data:d};
+ }
+ async function getState(f){
+  const key=keyOf(f.tid,f.B);let st=RX[key];if(st)return st;
+  st={key,tid:f.tid,K:f.K,len:f.len,B:f.B,crc:f.crc,buf:new Uint8Array(f.K*f.B),have:new Uint8Array(f.K),got:0,hi:0,dup:0,hdr:null,t0:Date.now(),times:[],lastUi:0,dirty:false,sv:0};
+  if(f.len<=16000000){try{const sv=await idbGet('qrs:'+key);if(sv&&sv.len===f.len&&sv.crc===f.crc&&sv.buf&&sv.have){st.buf=sv.buf;st.have=sv.have;for(let i=0;i<f.K;i++)if(st.have[i])st.got++}}catch(e){}}
+  RX[key]=st;return st;
+ }
+ function persist(st){
+  if(st.len>16000000||!st.dirty||Date.now()-st.sv<8000)return;st.sv=Date.now();st.dirty=false;
+  try{idbSet('qrs:'+st.key,{len:st.len,crc:st.crc,buf:st.buf,have:st.have,t:Date.now()})}catch(e){}
+ }
+ function ui(st,force){
+  const now=Date.now();if(!force&&now-st.lastUi<250)return;st.lastUi=now;
+  const el=$('#qrprog');if(!el)return;el.hidden=false;
+  const pc=Math.floor(st.got/st.K*100);el.querySelector('i').style.width=pc+'%';
+  let cv=el.querySelector('canvas');
+  if(!cv){cv=document.createElement('canvas');cv.width=360;cv.height=16;cv.style.cssText='width:100%;height:16px;border-radius:8px;margin:2px 0 8px;background:rgba(127,127,127,.22);display:block';el.insertBefore(cv,el.querySelector('span'))}
+  const g=cv.getContext('2d'),bins=Math.min(st.K,360);g.clearRect(0,0,360,16);
+  const bw=360/bins;
+  for(let b=0;b<bins;b++){
+   const a=Math.floor(b*st.K/bins),z=Math.floor((b+1)*st.K/bins);let c=0;for(let i=a;i<z;i++)c+=st.have[i];
+   const fr=c/Math.max(1,z-a);if(fr>0){g.fillStyle='rgba(60,190,110,'+(0.25+0.75*fr)+')';g.fillRect(b*bw,0,Math.ceil(bw),16)}
+  }
+  g.fillStyle='rgba(255,255,255,.9)';g.fillRect(Math.min(358,st.hi/st.K*360),0,2,16);
+  const ts=st.times.filter(x=>now-x<6000),rate=ts.length?ts.length/Math.max(1,Math.min(6,(now-ts[0])/1000)):0,missing=st.K-st.got;
+  let first=-1;for(let i=0;i<st.K;i++)if(!st.have[i]){first=i;break}
+  let hint='';
+  if(missing&&first>=0&&first<st.hi-2)hint='<br>Missed a spot around '+Math.round(first/st.K*100)+'%. It comes round again, or ask the sender to drag the slider there.';
+  else if(missing)hint='<br>Waiting for the rest…';
+  const span=el.querySelector('span');
+  span.innerHTML=`${st.got.toLocaleString()} of ${st.K.toLocaleString()} pieces · ${pc}%<br>${kbs(rate*st.B)}/s · ${missing.toLocaleString()} missing`+(rate>0&&missing?' · about '+fmtT(missing/rate)+' left':'')+hint;
+  const s=$('#qrstat');if(s)s.textContent=st.hdr?'Receiving “'+sstr(st.hdr.obj.name,60)+'”. Keep the camera on the codes.':'Receiving a file stream. Keep the camera on the codes.';
+ }
+ async function feedS(txt){
+  txt=String(txt||'');
+  if(txt.startsWith('MNS0|')){
+   const i=txt.indexOf('|',5);if(i<0)return false;const tid=txt.slice(5,i);let r;try{r=await openMsg(txt.slice(i+1))}catch(e){return false}
+   const o=r&&r.obj;if(!o||o.t!=='sfile'||o.tid!==tid||!(o.size>0&&o.size<=MAXS)||typeof o.sha!=='string'||o.sha.length!==43)return false;
+   for(const st of Object.values(RX))if(st.tid===tid&&st.len===o.size&&!st.hdr){st.hdr={obj:o,r};ui(st,true);if(st.got>=st.K)return await finish(st)}
+   RX.__hdr=RX.__hdr||{};RX.__hdr[tid]={obj:o,r};return false;
+  }
+  const f=parse(txt);if(!f)return false;
+  const st=await getState(f);if(st.K!==f.K||st.len!==f.len||st.crc!==f.crc)return false;
+  if(!st.hdr&&RX.__hdr&&RX.__hdr[f.tid]&&RX.__hdr[f.tid].obj.size===f.len)st.hdr=RX.__hdr[f.tid];
+  if(f.idx>st.hi)st.hi=f.idx;
+  if(!st.have[f.idx]){st.buf.set(f.data,f.idx*f.B);st.have[f.idx]=1;st.got++;st.dirty=true;st.times.push(Date.now());if(st.times.length>400)st.times.splice(0,st.times.length-400)}else st.dup++;
+  ui(st,false);persist(st);
+  if(st.got>=st.K&&st.hdr)return await finish(st);
+  if(st.got>=st.K)ui(st,true);
+  return false;
+ }
+ async function finish(st){
+  if(st.fin)return false;st.fin=true;
+  const bytes=st.buf.subarray(0,st.len);
+  let ok=false;try{ok=(await sha(bytes))===st.hdr.obj.sha}catch(e){}
+  if(!ok){delete RX[st.key];try{idbSet('qrs:'+st.key,null)}catch(e){}toast('That transfer was damaged. Please start it again.');return false}
+  const o=st.hdr.obj,r=st.hdr.r,known=isTrusted(r.k),from=sstr(o.n,40)||'Unknown device';
+  const nm0=sstr(o.name,100).replace(/[^\w.\- ()]+/g,'_')||'file',ext=extOf(nm0);
+  if(!okAny(ext)){delete RX[st.key];return false}
+  const mime=mimeAny(ext,bytes.subarray(0,16)),blob=new Blob([bytes],{type:mime||'application/octet-stream'});
+  delete RX[st.key];try{idbSet('qrs:'+st.key,null)}catch(e){}
+  const f={id:'',name:nm0,ext,m:mime||'application/octet-stream',size:st.len,url:URL.createObjectURL(blob),big:true,blob};
+  QP={kind:'files',k:r.k,name:from,files:[f]};
+  const cp=window.__canPreview;if(cp&&!cp.__nb){const w=x=>!x.big&&cp(x);w.__nb=1;window.__canPreview=w}
+  try{closeScanner()}catch(e){}
+  openSheet(`<h3>Received “${esc(nm0)}”</h3><div class="qrwho ${known?'ok':'new'}"><b>${devIcon(r.dt)}${esc(from)}</b><code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet'}</span></div><p class="hint">Checked against the sender’s signature and fingerprint. Nothing is opened. Tap the arrow to save it.</p>${filesHtml([f])}<div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);
+  return true;
+ }
+ const _qf=qrFeed;
+ qrFeed=async function(txt,single){
+  const t=String(txt||'');
+  if(t.startsWith('MNS1|')||t.startsWith('MNS0|'))return feedS(t);
+  return _qf.apply(this,arguments);
+ };
+ window.__qrStream={start,stop,nextFrame,dataFrame,prep,feed:feedS,get tx(){return TX},get rx(){return RX}};
+})();
+
+/* Share a look preset: QR, Connect, copy code or the system share sheet. Receiving offers to add it (and optionally apply it). */
+(function(){
+ const NUM={patOp:[0,60],patSize:[12,48],patW:.5<3?[.5,3]:0,fs:[10,40],lh:[14,60],maxw:[320,2000],rad:[0,60]};
+ const clean=o=>{
+  const r={};if(!o||typeof o!=='object')return r;
+  for(const k of Object.keys(NUM)){const v=+o[k];if(o[k]!=null&&isFinite(v))r[k]=Math.min(NUM[k][1],Math.max(NUM[k][0],v))}
+  if(SHADES.some(x=>x[0]===o.shade))r.shade=o.shade;
+  if(['blank','dots','lines','grid'].includes(o.paper))r.paper=o.paper;
+  if(['ink','accent'].includes(o.patC))r.patC=o.patC;
+  if(typeof o.font==='string'&&FONTS[o.font])r.font=o.font;
+  if(typeof o.headFont==='string'&&(o.headFont==='match'||FONTS[o.headFont]))r.headFont=o.headFont;
+  if(typeof o.guides==='boolean')r.guides=o.guides;
+  const c=o.custom;
+  if(r.shade==='custom'&&c&&typeof c==='object'){const cu={};let ok=true;
+   for(const k of ['paper','shell','ink','accent']){const a=c[k];if(!Array.isArray(a)||a.length!==3||a.some(v=>typeof v!=='number'||!isFinite(v))){ok=false;break}cu[k]=[Math.min(1,Math.max(0,a[0])),Math.min(.4,Math.max(0,a[1])),((a[2]%360)+360)%360]}
+   if(ok)r.custom=cu;else r.shade='auto'}
+  else if(r.shade==='custom')r.shade='auto';
+  return r;
+ };
+ let cur=null;
+ const find=()=>{const u=presets().find(p=>p.id===selP);if(u)return{name:u.name,set:u.set};const nw=appNow(),m=BUILTIN.concat(presets()).find(p=>JSON.stringify(normApp(Object.assign({},p.set)))===nw);return{name:m?m.name:'My look',set:normApp(S.set)}};
+ async function code(o){return sealMsg(o)}
+ const mkObj=()=>{const f=find();return{t:'preset',n:devName(),ts:Date.now(),name:(f.name||'Look').slice(0,30),set:clean(f.set)}};
+ document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-pm="share"]');
+  if(b){e.stopPropagation();cur=mkObj();
+   const linked=window.__link&&window.__link.state&&(window.__link.state()||{}).state==='open';
+   openSheet(`<h3>Share “${esc(cur.name)}”</h3><p class="hint">Sends only the look (colors, fonts, spacing). No notes.</p>
+   <div class="optlist"><button class="opt" data-ps="qr">${ic('table',18)}Show a QR code</button>
+   <button class="opt" data-ps="conn" ${linked?'':'disabled'}>${ic('send',18)}${linked?'Send over Connect':'Send over Connect (connect a device first)'}</button>
+   <button class="opt" data-ps="copy">${ic('copy',18)}Copy a code</button>
+   <button class="opt" data-ps="send">${ic('send',18)}Send with another app…</button></div>
+   <div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);return}
+  const m=e.target.closest('[data-ps]');if(!m||!cur)return;e.stopPropagation();const k=m.dataset.ps;
+  try{
+   if(k==='qr')await showQR('Share “'+cur.name+'”',cur,'On the other device: Home ⋯ → Scan QR code.');
+   else if(k==='conn'){await window.__link.sendStr(await code(cur));toast('Sent')}
+   else if(k==='copy'){const t=await code(cur);await navigator.clipboard.writeText(t);toast('Code copied. On the other device: Home ⋯ → Paste a code.')}
+   else if(k==='send'){const t=await code(cur);if(window.NativeBridge&&NativeBridge.shareText)NativeBridge.shareText('Margin Notes look: '+cur.name,t);else if(navigator.share)await navigator.share({title:'Margin Notes look: '+cur.name,text:t});else{await navigator.clipboard.writeText(t);toast('Code copied')}}
+  }catch(er){if(er&&er.name!=='AbortError')toast('Could not share')}
+ },true);
+ let got=null;
+ window.__presetRecv=(r,o,who,from,known)=>{
+  const set=clean(o.set),name=sstr(o.name,30).trim()||'Shared look';got={name,set};
+  const dot=(set.shade==='custom'&&set.custom)?okStr(set.custom.paper):((SHADES.find(x=>x[0]===(set.shade||'auto'))||[])[2]||'#cfcfcf');
+  const fn=set.font&&FONTS[set.font]?FONTS[set.font].l:'Default';
+  openSheet(`<h3>Received a look</h3>${who}<div class="qrprev"><b style="display:flex;align-items:center;gap:8px"><i style="width:18px;height:18px;border-radius:50%;background:${dot};border:1px solid var(--line);display:inline-block"></i>${esc(name)}</b><small>${esc((set.shade||'auto'))} shade · ${esc(set.paper||'dots')} paper · ${esc(fn)} font</small></div><p class="hint">It only changes colors, fonts and spacing. Your notes are not touched.</p><div class="btnrow"><button class="btn" data-qr="close">Cancel</button><button class="btn" data-pr="add">Add to my presets</button><button class="btn pri" data-pr="use">Add and use</button></div>`);
+ };
+ document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-pr]');if(!m||!got)return;e.stopPropagation();
+  let n=got.name,i=2;while(presets().some(p=>p.name===n))n=got.name+' '+(i++);
+  const p={id:uid(),name:n,set:got.set};presets().push(p);
+  if(m.dataset.pr==='use'){APPKEYS.forEach(k=>delete S.set[k]);Object.assign(S.set,JSON.parse(JSON.stringify(p.set)));if(S.set.shade==null)S.set.shade='auto';if(S.set.paper==null)S.set.paper='dots';selP=p.id;applySettings()}
+  save();closeSheet();toast(m.dataset.pr==='use'?'Look applied and saved as “'+n+'”':'Saved as “'+n+'”');got=null;
+ },true);
 })();
 
 /* Connect: a QR (or pasted code) sets up a direct, encrypted device-to-device link; then pages and vaults go over it */
@@ -6167,7 +6407,7 @@ async function sendConn(fl){
  function wire(dc){
   L.dc=dc;try{dc.binaryType='arraybuffer'}catch(e){}
   dc.onopen=()=>{clearTimeout(L.to);L.state='open';connected();const pf=window.__pendSend;if(pf){window.__pendSend=null;setTimeout(()=>{try{window.__sendConn(pf)}catch(e){}},900)}};
-  dc.onclose=()=>{if(L&&L.dc===dc){L.state='closed';if(document.getElementById('lnkst'))toast('Connection closed')}};
+  dc.onclose=()=>{if(L&&L.dc===dc){L.state='closed';try{if(L.tr&&(L.tr.state==='go'||L.tr.state==='ask')){L.tr.files.forEach(f=>{if(f.state!=='done')f.state='cancel'});L.tr.state='end';L.big=null;dockDraw()}}catch(e){}if(document.getElementById('lnkst'))toast('Connection closed')}};
   dc.onmessage=async ev=>{
    if(typeof ev.data!=='string'){bigBin(ev.data);return}
    if(ev.data.charAt(0)==='{'){let h;try{h=JSON.parse(ev.data)}catch(e){return}
@@ -6183,76 +6423,116 @@ async function sendConn(fl){
   };
  }
 
- /* ---- big files: streamed in pieces, receiver is asked first ---- */
+ /* ---- big files: streamed in pieces. One Accept covers a batch. The receiver sees a dock where each file can be saved the moment it finishes. ---- */
  const bkb=n=>n<1048576?Math.round(n/1024)+' KB':n<1073741824?(n/1048576).toFixed(1)+' MB':(n/1073741824).toFixed(2)+' GB';
  const bigSheet=(title,txt,pct,btn)=>openSheet(`<h3>${esc(title)}</h3><p class="hint" id="bgtx">${esc(txt)}</p><div class="bgbar"><i id="bgfill" style="width:${pct||0}%"></i></div><div class="btnrow">${btn||''}</div>`);
  const bigProg=(txt,pct)=>{const a=document.getElementById('bgtx'),b=document.getElementById('bgfill');if(a)a.textContent=txt;if(b)b.style.width=pct+'%'};
  let BS=null; /* sender state */
- async function sendBig(f){
+ async function sendBig(list){
+  if(!Array.isArray(list))list=[list];
   if(!L||!L.dc||L.dc.readyState!=='open'){toast('Not connected');return false}
-  const dc=L.dc,id=uid(),size=f.big.size,peer=L.name||'the other device';
-  await sendStr(await sealMsg({t:'fhead',n:devName(),ts:Date.now(),id,name:f.name,m:f.m,size}));
-  BS={id,stop:false};
-  bigSheet('Waiting for '+peer,'“'+f.name+'” ('+bkb(size)+'). The other device has to tap Accept first.',0,'<button class="btn" data-bg="cancel">Cancel</button>');
+  const dc=L.dc,bid=uid(),peer=L.name||'the other device';
+  const files=list.map(f=>({id:uid(),name:f.name,m:f.m,size:f.big.size})),total=files.reduce((a,x)=>a+x.size,0);
+  await sendStr(await sealMsg({t:'fhead',n:devName(),ts:Date.now(),bid,files}));
+  BS={id:bid,stop:false};
+  bigSheet('Waiting for '+peer,(files.length===1?'“'+files[0].name+'”':files.length+' files')+' ('+bkb(total)+'). The other device has to tap Accept first.',0,'<button class="btn" data-bg="cancel">Cancel</button>');
   L.fw=L.fw||{};
-  const ans=await new Promise(res=>{L.fw[id]=res;BS.abort=()=>res('no');setTimeout(()=>res('timeout'),180000)});
-  if(L&&L.fw)delete L.fw[id];
-  if(ans!=='yes'){BS=null;closeSheet();toast(ans==='timeout'?'No answer':'Not accepted');try{dc.send(JSON.stringify({t:'fcancel',id}))}catch(e){}return false}
-  dc.send(JSON.stringify({t:'fstart',id,size}));
-  bigSheet('Sending “'+f.name+'”','0 of '+bkb(size),0,'<button class="btn" data-bg="cancel">Cancel</button>');
-  const CH=16384,BLK=1048576;let sent=0,last=0;
+  const ans=await new Promise(res=>{L.fw[bid]=res;BS.abort=()=>res('no');setTimeout(()=>res('timeout'),180000)});
+  if(L&&L.fw)delete L.fw[bid];
+  if(ans!=='yes'){BS=null;closeSheet();toast(ans==='timeout'?'No answer':'Not accepted');try{dc.send(JSON.stringify({t:'fcancel',id:bid}))}catch(e){}return false}
+  const CH=16384,BLK=1048576;let sentAll=0,last=0;
   try{
-   for(let off=0;off<size&&!BS.stop;off+=BLK){
-    const buf=new Uint8Array(await f.big.slice(off,Math.min(size,off+BLK)).arrayBuffer());
-    for(let i=0;i<buf.length&&!BS.stop;i+=CH){
-     while(dc.bufferedAmount>1<<20&&!BS.stop){if(dc.readyState!=='open')throw 0;await new Promise(r=>setTimeout(r,20))}
-     if(dc.readyState!=='open')throw 0;
-     dc.send(buf.subarray(i,i+CH));sent+=Math.min(CH,buf.length-i);
-     if(Date.now()-last>200){last=Date.now();bigProg(bkb(sent)+' of '+bkb(size),Math.round(sent/size*100))}
+   for(let fi=0;fi<files.length&&!BS.stop;fi++){
+    const F=files[fi],src=list[fi].big;let sent=0;
+    dc.send(JSON.stringify({t:'fstart',id:F.id,bid,size:F.size}));
+    const label=(files.length>1?(fi+1)+' of '+files.length+': ':'')+'“'+F.name+'”';
+    bigSheet('Sending '+label,'0 of '+bkb(F.size),Math.round(sentAll/total*100),'<button class="btn" data-bg="cancel">Cancel</button>');
+    for(let off=0;off<F.size&&!BS.stop;off+=BLK){
+     const buf=new Uint8Array(await src.slice(off,Math.min(F.size,off+BLK)).arrayBuffer());
+     for(let i=0;i<buf.length&&!BS.stop;i+=CH){
+      while(dc.bufferedAmount>1<<20&&!BS.stop){if(dc.readyState!=='open')throw 0;await new Promise(r=>setTimeout(r,20))}
+      if(dc.readyState!=='open')throw 0;
+      dc.send(buf.subarray(i,i+CH));sent+=Math.min(CH,buf.length-i);
+      if(Date.now()-last>200){last=Date.now();bigProg(bkb(sent)+' of '+bkb(F.size)+(files.length>1?' · '+Math.round((sentAll+sent)/total*100)+'% of all':''),Math.round((sentAll+sent)/total*100))}
+     }
     }
+    if(BS.stop)break;
+    while(dc.bufferedAmount>0&&dc.readyState==='open')await new Promise(r=>setTimeout(r,30));
+    dc.send(JSON.stringify({t:'fend',id:F.id,bid}));sentAll+=F.size;
    }
   }catch(e){BS=null;toast('Connection lost');return false}
-  if(BS.stop){BS=null;try{dc.send(JSON.stringify({t:'fcancel',id}))}catch(e){}closeSheet();toast('Cancelled');return false}
-  while(dc.bufferedAmount>0&&dc.readyState==='open')await new Promise(r=>setTimeout(r,30));
-  dc.send(JSON.stringify({t:'fend',id}));BS=null;
-  bigProg('Sent “'+f.name+'”.',100);setTimeout(()=>{if(document.getElementById('bgfill'))connected()},900);
+  if(BS.stop){BS=null;try{dc.send(JSON.stringify({t:'fcancel',id:bid}))}catch(e){}closeSheet();toast('Cancelled');return false}
+  BS=null;bigProg('Sent '+(files.length===1?'“'+files[0].name+'”':files.length+' files')+'.',100);setTimeout(()=>{if(document.getElementById('bgfill'))connected()},900);
   return true;
  }
- /* receiver */
+ /* receiver dock */
+ const dockCss=document.createElement('style');
+ dockCss.textContent=`#xfer{position:fixed;left:8px;right:8px;bottom:calc(10px + var(--sab,env(safe-area-inset-bottom,0px)));max-width:560px;margin:0 auto;z-index:55;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow,0 8px 30px rgba(0,0,0,.25));padding:12px 12px 10px;max-height:46vh;overflow:auto}
+#xfer .xh{display:flex;align-items:baseline;gap:8px;margin:0 0 6px}#xfer .xh b{flex:1;font-size:15px}#xfer .xh small{color:var(--muted)}
+#xfer .xr{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}#xfer .xr:first-of-type{border-top:0}
+#xfer .xn{flex:1;min-width:0}#xfer .xn em{display:block;font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#xfer .xn small{color:var(--muted)}
+#xfer .xbar{height:6px;border-radius:4px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden;margin-top:5px}#xfer .xbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+#xfer .xs{width:42px;height:42px;border-radius:12px;border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--ink);display:flex;align-items:center;justify-content:center}
+#xfer .xs:hover{background:color-mix(in srgb,var(--ink) 12%,transparent)}
+#xfer .xb{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}`;
+ document.head.appendChild(dockCss);
+ function dockDraw(){
+  const T=L&&L.tr,old=document.getElementById('xfer');
+  if(!T){if(old)old.remove();return}
+  const d=old||Object.assign(document.createElement('div'),{id:'xfer'});if(!old)document.body.appendChild(d);
+  const total=T.files.reduce((a,x)=>a+x.size,0),n=T.files.length;
+  const rows=T.files.map((f,i)=>{
+   let right='',sub='';
+   if(f.state==='done'){sub=bkb(f.size)+' · received';right=`<button class="xs" data-qf="${f.idx}" aria-label="Save ${esc(f.name)}">${ic('dl',18)}</button>`}
+   else if(f.state==='recv'){sub=`<span id="xt${i}">${bkb(f.got)} of ${bkb(f.size)}</span><div class="xbar"><i id="xp${i}" style="width:${Math.round(f.got/f.size*100)}%"></i></div>`}
+   else if(f.state==='cancel')sub=bkb(f.size)+' · cancelled';
+   else sub=bkb(f.size)+(T.state==='ask'?'':' · waiting');
+   return `<div class="xr"><div class="xn"><em>${esc(f.name)}</em><small>${sub}</small></div>${right}</div>`;
+  }).join('');
+  const finished=T.files.filter(f=>f.state==='done').length;
+  let head,btns;
+  if(T.state==='ask'){head=`<b>${esc(T.from)} wants to send ${n===1?'a file':n+' files'}</b><small>${bkb(total)}</small>`;btns='<button class="btn" data-bg="deny">Decline</button><button class="btn pri" data-bg="accept">Accept</button>'}
+  else if(T.state==='go'){head=`<b>Receiving from ${esc(T.from)}</b><small>${finished} of ${n} done</small>`;btns='<button class="btn" data-bg="rcancel">Cancel the rest</button>'}
+  else{head=`<b>${finished===n?(n===1?'File received':'All '+n+' files received'):finished+' of '+n+' received'}</b><small>${esc(T.from)}</small>`;btns='<button class="btn pri" data-bg="xclose">Done</button>'}
+  d.innerHTML=`<div class="xh">${head}</div>${rows}<div class="xb">${btns}</div>`;
+ }
  function bigStart(h){
-  const w=L&&L.want;if(!w||w.id!==h.id)return;L.want=null;
-  L.big={id:w.id,name:w.name,m:w.m,size:w.size,from:w.from,got:0,parts:[],cur:[],curLen:0,last:0};
-  bigSheet('Receiving “'+w.name+'”','0 of '+bkb(w.size),0,'<button class="btn" data-bg="rcancel">Cancel</button>');
+  const T=L&&L.tr;if(!T||T.state!=='go')return;const f=T.files.find(x=>x.id===h.id);if(!f||f.state!=='wait')return;
+  f.state='recv';f.got=0;L.big={id:f.id,f,name:f.name,m:f.m,size:f.size,parts:[],cur:[],curLen:0,last:0};dockDraw();
  }
  function bigBin(d){
   const b=L&&L.big;if(!b||!(d instanceof ArrayBuffer))return;
-  b.got+=d.byteLength;if(b.got>b.size)return bigAbort(b.id,false);
+  b.f.got+=d.byteLength;if(b.f.got>b.size)return bigAbort(L.tr.bid,false);
   b.cur.push(d);b.curLen+=d.byteLength;
   if(b.curLen>=8388608){b.parts.push(new Blob(b.cur));b.cur=[];b.curLen=0}
-  if(Date.now()-b.last>200){b.last=Date.now();bigProg(bkb(b.got)+' of '+bkb(b.size),Math.round(b.got/b.size*100))}
+  if(Date.now()-b.last>200){b.last=Date.now();const i=L.tr.files.indexOf(b.f),t=document.getElementById('xt'+i),p=document.getElementById('xp'+i);if(t)t.textContent=bkb(b.f.got)+' of '+bkb(b.size);if(p)p.style.width=Math.round(b.f.got/b.size*100)+'%'}
  }
  function bigAbort(id,remote){
   if(BS&&BS.id===id){BS.stop=true;if(BS.abort)BS.abort();if(remote){closeSheet();toast('The other device cancelled')}return}
-  if(L&&L.want&&L.want.id===id){L.want=null;if(remote)closeSheet()}
-  if(L&&L.big&&L.big.id===id){L.big=null;if(!remote){try{L.dc.send(JSON.stringify({t:'fcancel',id}))}catch(e){}}closeSheet();toast(remote?'The other device cancelled':'Transfer stopped')}
+  const T=L&&L.tr;if(!T||(id!==T.bid&&!(L.big&&L.big.id===id)))return;
+  if(!remote){try{L.dc.send(JSON.stringify({t:'fcancel',id:T.bid}))}catch(e){}}
+  T.files.forEach(f=>{if(f.state!=='done')f.state='cancel'});L.big=null;T.state='end';dockDraw();toast(remote?'The other device cancelled':'Transfer stopped');
  }
  function bigEnd(h){
-  const b=L&&L.big;if(!b||b.id!==h.id)return;L.big=null;
-  if(b.got!==b.size){closeSheet();return toast('The file did not arrive in full')}
+  const T=L&&L.tr,b=L&&L.big;if(!T||!b||b.id!==h.id)return;L.big=null;
+  if(b.f.got!==b.size){b.f.state='cancel';dockDraw();return toast('A file did not arrive in full')}
   if(b.cur.length)b.parts.push(new Blob(b.cur));
   const ext=extOf(b.name),blob=new Blob(b.parts,{type:b.m||'application/octet-stream'});
   const f={id:'',name:b.name,ext,m:b.m||'application/octet-stream',size:b.size,url:URL.createObjectURL(blob),big:true,blob};
-  QP={kind:'files',k:'',name:b.from,files:[f]};
+  T.done.push(f);b.f.idx=T.done.length-1;b.f.state='done';
+  QP={kind:'files',k:T.k,name:T.from,files:T.done};
   const cp=window.__canPreview;if(cp&&!cp.__nb){const w=x=>!x.big&&cp(x);w.__nb=1;window.__canPreview=w}
-  try{L.dc.send(JSON.stringify({t:'ack',id:b.id}))}catch(e){}
-  openSheet(`<h3>Received “${esc(b.name)}”</h3><p class="hint">From ${esc(b.from)}. It was too big to preview. Nothing is opened. Tap the arrow to save it.</p>${filesHtml([f])}<div class="btnrow"><button class="btn pri" data-qr="close">Done</button></div>`);
+  try{navigator.vibrate&&navigator.vibrate(30)}catch(e){}
+  if(!T.files.some(x=>x.state==='wait'||x.state==='recv')){T.state='end';try{L.dc.send(JSON.stringify({t:'ack',id:T.bid}))}catch(e){}}
+  dockDraw();
  }
  document.addEventListener('click',e=>{
   const m=e.target.closest('[data-bg]');if(!m)return;const k=m.dataset.bg;
   if(k==='cancel'&&BS){BS.stop=true;if(BS.abort)BS.abort()}
-  if(k==='rcancel'&&L&&L.big)bigAbort(L.big.id,false);
-  if(k==='accept'&&L&&L.want){const w=L.want;try{L.dc.send(JSON.stringify({t:'faccept',id:w.id}))}catch(er){toast('Not connected')}bigSheet('Waiting for “'+w.name+'”','Starting…',0,'')}
-  if(k==='deny'&&L&&L.want){try{L.dc.send(JSON.stringify({t:'fdeny',id:L.want.id}))}catch(er){}L.want=null;closeSheet()}
+  if(k==='rcancel'&&L&&L.tr)bigAbort(L.tr.bid,false);
+  if(k==='accept'&&L&&L.tr&&L.tr.state==='ask'){try{L.dc.send(JSON.stringify({t:'faccept',id:L.tr.bid}));L.tr.state='go';dockDraw()}catch(er){toast('Not connected')}}
+  if(k==='deny'&&L&&L.tr){try{L.dc.send(JSON.stringify({t:'fdeny',id:L.tr.bid}))}catch(er){}L.tr=null;dockDraw()}
+  if(k==='xclose'&&L){L.tr=null;dockDraw()}
  });
  async function sendStr(s){
   if(!L||!L.dc||L.dc.readyState!=='open')return toast('Not connected');
@@ -6312,12 +6592,18 @@ async function sendConn(fl){
  receiveMsg=async function(str){
   let r=null;try{r=await openMsg(str)}catch(e){}
   if(r&&r.obj&&r.obj.t==='fhead'){
-   const o=r.obj,known=isTrusted(r.k),from=sstr(o.n,40)||'Unknown device',size=+o.size|0;
-   if(!L||L.state!=='open'||!(size>0)||size>1000000000||typeof o.id!=='string'||o.id.length>40)return;
-   const nm=sstr(o.name,100).replace(/[^\w.\- ()]+/g,'_')||'file',ext=extOf(nm);
-   if(!okAny(ext))return;
-   L.want={id:o.id,name:nm,m:mimeAny(ext,new Uint8Array(0)),size,from};
-   return openSheet(`<h3>${esc(from)} wants to send a file</h3><div class="qrwho ${known?'ok':'new'}"><b>${devIcon(r.dt)}${esc(from)}</b><code>${esc(r.fp)}</code><span>${known?'Trusted device':'New device, not trusted yet'}</span></div><div class="qfiles"><div class="qfile"><div class="qft">${esc((ext||'file').slice(0,4).toUpperCase())}</div><span><em>${esc(nm)}</em><small>${bkb(size)}${RISKY.includes(ext)?' · could run code if opened':''}</small></span></div></div><p class="hint">It is saved only when you tap the arrow afterwards. Nothing is opened.</p><div class="btnrow"><button class="btn" data-bg="deny">Decline</button><button class="btn pri" data-bg="accept">Accept</button></div>`);
+   const o=r.obj,known=isTrusted(r.k),from=sstr(o.n,40)||'Unknown device';
+   if(!L||L.state!=='open'||typeof o.bid!=='string'||o.bid.length>40||!Array.isArray(o.files)||!o.files.length||o.files.length>50)return;
+   const files=[];
+   for(const x of o.files){
+    const size=+x.size|0,nm=sstr(x.name,100).replace(/[^\w.\- ()]+/g,'_')||'file',ext=extOf(nm);
+    if(!(size>0&&size<=1000000000)||typeof x.id!=='string'||x.id.length>40||!okAny(ext))return;
+    files.push({id:x.id,name:nm,m:mimeAny(ext,new Uint8Array(0)),size,state:'wait',got:0,idx:-1});
+   }
+   if(L.tr&&L.tr.state==='go')return; /* one batch at a time */
+   L.tr={bid:o.bid,from,k:r.k,known,state:'ask',files,done:(L.tr&&L.tr.done)||[]};
+   try{navigator.vibrate&&navigator.vibrate(20)}catch(e){}
+   return dockDraw();
   }
   if(!r||!r.obj||r.obj.t!=='conn')return _rm(str);
   const o=r.obj,known=isTrusted(r.k),from=sstr(o.n,40)||'Unknown device';
