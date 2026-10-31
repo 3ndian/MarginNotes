@@ -2855,11 +2855,12 @@ else if (typeof exports === 'object')
 var SSTV=(function(){
  const W=320,H=256;
  const MODES={
-  40:{name:'Martin M2',vis:40,scan:73.216},
-  44:{name:'Martin M1',vis:44,scan:146.432}
+  40:{name:'Martin M2',vis:40,scan:73.216,h:256,type:'m'},
+  44:{name:'Martin M1',vis:44,scan:146.432,h:256,type:'m'},
+  8:{name:'Robot 36',vis:8,h:240,type:'r',line:150}
  };
  const SYNC=4.862,PORCH=0.572,SEP=0.572,F_BLACK=1500,F_WHITE=2300;
- const lineMs=m=>SYNC+PORCH+3*m.scan+3*SEP;
+ const lineMs=m=>m.type==='r'?m.line:SYNC+PORCH+3*m.scan+3*SEP;
  /* ---------- encoder: rgb is Uint8ClampedArray W*H*3 ---------- */
  function encode(rgb,visCode,fs){
   const m=MODES[visCode||40],segs=[];
@@ -2867,13 +2868,26 @@ var SSTV=(function(){
   tone(1900,300);tone(1200,10);tone(1900,300);tone(1200,30);
   let par=0;for(let i=0;i<7;i++){const b=(m.vis>>i)&1;par^=b;tone(b?1100:1300,30)}
   tone(par?1100:1300,30);tone(1200,30);
-  const dt=m.scan/W,body=[];
-  for(let y=0;y<H;y++){
+  const body=[],hh=m.h||H,fq=v=>F_BLACK+(F_WHITE-F_BLACK)*v/255;
+  if(m.type==='r'){
+   const Y=new Float32Array(W*hh),CR=new Float32Array(W*hh),CB=new Float32Array(W*hh);
+   for(let i=0;i<W*hh;i++){const r=rgb[i*3],g=rgb[i*3+1],b=rgb[i*3+2],yy=0.299*r+0.587*g+0.114*b;Y[i]=yy;CR[i]=128+0.713*(r-yy);CB[i]=128+0.564*(b-yy)}
+   for(let y=0;y<hh;y++){
+    body.push([1200,9],[1500,3]);
+    for(let x=0;x<W;x++)body.push([fq(Y[y*W+x]),88/W]);
+    const even=(y&1)===0,pl=even?CR:CB,y0=y&~1,y1=Math.min(hh-1,y0+1);
+    body.push([even?1500:2300,4.5],[1900,1.5]);
+    for(let x=0;x<W/2;x++){const v=(pl[y0*W+2*x]+pl[y0*W+2*x+1]+pl[y1*W+2*x]+pl[y1*W+2*x+1])/4;body.push([fq(v),44/(W/2)])}
+   }
+  }else{
+  const dt=m.scan/W;
+  for(let y=0;y<hh;y++){
    body.push([1200,SYNC],[1500,PORCH]);
    for(const ch of [1,2,0]){ // green, blue, red
     for(let x=0;x<W;x++){const v=rgb[(y*W+x)*3+ch];body.push([F_BLACK+(F_WHITE-F_BLACK)*v/255,dt])}
     body.push([1500,SEP]);
    }
+  }
   }
   const all=segs.concat(body);let total=0;for(const s of all)total+=s[1];
   const n=Math.ceil(total*fs/1000)+2,out=new Float32Array(n);
@@ -2885,7 +2899,7 @@ var SSTV=(function(){
   }
   return out;
  }
- const durationSec=vis=>(1.2+0.03*10+ H*lineMs(MODES[vis||40])/1000);
+ const durationSec=vis=>{const m=MODES[vis||40];return 1.2+0.03*10+(m.h||H)*lineMs(m)/1000};
  /* ---------- decoder ---------- */
  class Decoder{
   constructor(fs){
@@ -2895,7 +2909,7 @@ var SSTV=(function(){
    const L=this.L;this.b1r=new Float32Array(L);this.b1i=new Float32Array(L);this.b2r=new Float32Array(L);this.b2i=new Float32Array(L);this.bp=0;
    this.s1r=0;this.s1i=0;this.s2r=0;this.s2i=0;
    this.state='wait';this.mode=null;this.line=0;this.rgb=new Uint8ClampedArray(W*H*3);
-   this.searchFrom=0;this.t0=0;this.expect=0;this.r=1;this.onUpdate=null;this.level=0;
+   this.searchFrom=0;this.t0=0;this.expect=0;this.r=1;this.onUpdate=null;this.level=0;this.hunt=false;this.gapMs=0;this.nPause=0;this.forced=false;this.lenEst=0;this.prevS=-1;this.sc=1;this.Y=new Float32Array(W*H);this.cr=new Float32Array(160*128);this.cb=new Float32Array(160*128);this.hasCr=new Uint8Array(128);this.hasCb=new Uint8Array(128);
   }
   /* feed samples */
   push(x){
@@ -2923,6 +2937,7 @@ var SSTV=(function(){
   }
   ms(v){return v*this.fs/1000}
   msr(v){return v*this.fs/1000/this.r}
+  mr(v){return this.msr(v)*(this.sc||1)}
   step(){
    if(this.state==='wait')this.findVis();
    if(this.state==='image')this.decodeLines();
@@ -2932,7 +2947,7 @@ var SSTV=(function(){
    if(this.n<this.searchFrom+this.ms(700))return;
    // classify each ms: 0 other, 1 = leader 1900, 2 = sync 1200
    const cls=[],t0=this.searchFrom;
-   for(let a=t0;a+hop<=this.n;a+=hop){const f=this.fq(a,a+hop);cls.push(isNaN(f)?0:Math.abs(f-1900)<110?1:Math.abs(f-1200)<90?2:0)}
+   for(let a=t0;a+hop<=this.n;a+=hop){const f=this.fq(a,a+hop);cls.push(isNaN(f)?0:Math.abs(f-1900)<150?1:Math.abs(f-1200)<170?2:0)}
    // runs with small gap tolerance
    const runs=[];for(let i=0;i<cls.length;i++){const c=cls[i];if(runs.length&&runs[runs.length-1].c===c)runs[runs.length-1].l++;else runs.push({c,l:1,s:i})}
    // absorb 1-2 ms transition glitches into the previous run, then join equal neighbours
@@ -2941,12 +2956,12 @@ var SSTV=(function(){
    for(let i=1;i<runs.length-1;i++){if(runs[i].l<=2&&runs[i-1].c===runs[i+1].c&&runs[i].c!==runs[i-1].c){runs[i-1].l+=runs[i].l+runs[i+1].l;runs.splice(i,2);i--}}
    for(let i=0;i+3<runs.length;i++){
     const a=runs[i],b=runs[i+1],c=runs[i+2];
-    if(a.c===2&&a.l>=6&&a.l<=16&&b.c===1&&b.l>=200&&c.c===2&&c.l>=22&&c.l<=40){
+    if(a.c===2&&a.l>=6&&a.l<=16&&b.c===1&&b.l>=200&&c.c===2&&c.l>=10){
      const startBit=t0+c.s*hop; // start of 1200 start bit (samples)
      // calibrate on the leader
      const lf=this.fq(t0+(b.s+20)*hop,t0+(b.s+b.l-20)*hop);
      if(!isNaN(lf)){const r=lf*this.r/1900;if(r>0.9&&r<1.1)this.r=r}
-     const sb=startBit+this.ms(c.l); // end of start bit (real length)
+     const sb=startBit+this.msr(30); // end of the 30 ms start bit
      if(this.n<sb+this.ms(300))return;
      let code=0,par=0,ok=true;
      for(let j=0;j<8;j++){
@@ -2963,43 +2978,90 @@ var SSTV=(function(){
    // keep a tail so a pattern straddling the boundary is still found
    this.searchFrom=Math.max(this.searchFrom,this.n-this.ms(1400));
   }
+  /* find where a sync pulse starts: slide a matched filter (low inside, higher either side) so noise and echo
+     cannot fool it the way a single threshold crossing can. Returns a sample position or -1. */
+  findSync(a0,a1,syncMs){
+   syncMs=syncMs||(this.mode&&this.mode.type==='r'?9:4.862);
+   const fs=this.fs,r=this.r,pad=Math.round(fs*0.004),lo=Math.max(0,Math.round(a0)-pad),hi=Math.min(this.n,Math.round(a1+this.msr(syncMs))+pad+Math.round(fs*0.003));
+   if(hi-lo<fs*0.02)return -1;
+   const N=hi-lo,P=new Float64Array(N+1);
+   for(let i=0;i<N;i++){const k=lo+i;let f=(1900+fs*Math.atan2(this.wi[k],this.wr[k])/(2*Math.PI))/r;if(!(f>1000))f=1000;else if(f>2600)f=2600;P[i+1]=P[i]+f}
+   const mean=(x0,x1)=>{x0=Math.round(x0)-lo;x1=Math.round(x1)-lo;if(x0<0)x0=0;if(x1>N)x1=N;return x1>x0?(P[x1]-P[x0])/(x1-x0):NaN};
+   const sl=this.msr(syncMs),m8=this.msr(0.8),m03=this.msr(0.3),m2=this.msr(2),m15=this.msr(1.5);
+   let best=-1,bs=0;const st=Math.max(2,Math.round(this.msr(0.1)));
+   for(let c=Math.round(a0);c<=a1;c+=st){
+    const ins=mean(c+m8,c+sl-m8);if(isNaN(ins)||ins>1420)continue;
+    const bf=mean(c-m2,c-m03),af=mean(c+sl+m03,c+sl+m15);if(isNaN(bf)||isNaN(af))continue;
+    const sc=(bf+af)/2-ins;if(sc>bs){bs=sc;best=c}
+   }
+   return bs>=110?best:-1;
+  }
+  /* carry on after a pause: gapMs of the picture went by unheard */
+  resume(gapMs){if(this.state!=='image')return;this.gapMs=gapMs;this.nPause=this.n;this.expect=this.n;this.hunt=true}
+  /* no header heard: start this mode at the next line */
+  force(vis){const m=MODES[vis];if(!m)return;this.mode=m;this.state='image';this.t0=this.n;this.expect=this.n;this.line=0;this.hunt=true;this.forced=true;this.gapMs=0;this.nPause=this.n;if(this.onUpdate)this.onUpdate('vis',this)}
+  yv(f){const v=(isNaN(f)?F_BLACK:f);const x=(v-F_BLACK)/(F_WHITE-F_BLACK)*255;return x<0?0:x>255?255:x}
+  renderRobot(y){
+   const p=y>>1,o=y*W*3;
+   for(let x=0;x<W;x++){
+    const Yv=this.Y[y*W+x],cr=(this.hasCr[p]?this.cr[p*160+(x>>1)]:128)-128,cb=(this.hasCb[p]?this.cb[p*160+(x>>1)]:128)-128;
+    const R=Yv+1.402*cr,G=Yv-0.344136*cb-0.714136*cr,B=Yv+1.772*cb,k=o+x*3;
+    this.rgb[k]=R<0?0:R>255?255:R;this.rgb[k+1]=G<0?0:G>255?255:G;this.rgb[k+2]=B<0?0:B>255?255:B;
+   }
+  }
   decodeLines(){
-   const m=this.mode,fs=this.fs,lm=lineMs(m),dt=m.scan/W;
-   while(this.line<H){
-    const exp=this.expect;
-    if(exp+this.msr(lm+8)>this.n)break;
-    // find the sync pulse near expected start
-    let s=exp;
-    const step=this.msr(0.25),w=this.msr(0.5);let prev=null,found=false;
-    for(let a=exp-this.msr(7);a<exp+this.msr(7);a+=step){
-     const f=this.fq(a,a+w);
-     if(prev!==null&&!isNaN(f)&&!isNaN(prev.f)&&prev.f>=1350&&f<1350){
-      const f2=this.fq(a+this.msr(1.2),a+this.msr(1.7));
-      if(!isNaN(f2)&&f2<1350){const fr=(prev.f-1350)/(prev.f-f);s=prev.a+fr*step+w/2-this.msr(0.0);found=true;break}
-     }
-     prev={a,f};
+   const m=this.mode,fs=this.fs,lm=lineMs(m),dt=m.scan/W,hh=m.h||H,sm=m.type==='r'?9:SYNC,nom=this.msr(lm);
+   if(!this.lenEst)this.lenEst=nom;
+   while(this.line<hh){
+    const exp=this.expect;let s=exp,found=false,hunted=false;
+    if(this.hunt){
+     if(exp+this.msr(2*lm+12)>this.n)break;
+     const f=this.findSync(exp,exp+this.msr(lm+6),sm);
+     if(f<0){this.expect=exp+nom;continue}
+     s=f;found=true;hunted=true;this.hunt=false;this.prevS=-1;
+     if(!this.forced){
+      const tImg=(this.nPause-this.t0)*1000/fs+this.gapMs+(s-this.nPause)*1000/fs;
+      const ln=Math.round(tImg/lm);this.line=Math.max(this.line,Math.min(hh-1,ln));
+     }else this.forced=false;
+    }else{
+     if(exp+this.msr(lm+8)>this.n)break;
+     const f=this.findSync(exp-this.msr(7),exp+this.msr(7),sm);
+     if(f>=0){s=f;found=true}
     }
-    if(!found&&this.line>0)s=exp;
-    const y=this.line,starts=[s+this.msr(SYNC+PORCH)];
-    starts.push(starts[0]+this.msr(m.scan+SEP),starts[0]+this.msr(2*(m.scan+SEP)));
-    const chOrder=[1,2,0];
-    for(let c=0;c<3;c++){
-     for(let x=0;x<W;x++){
-      const a=starts[c]+this.msr(x*dt),b=starts[c]+this.msr((x+1)*dt);
-      let f=this.fq(a,Math.max(b,a+2));
-      if(isNaN(f))f=F_BLACK;
-      const v=(f-F_BLACK)/(F_WHITE-F_BLACK)*255;
-      this.rgb[(y*W+x)*3+chOrder[c]]=v<0?0:v>255?255:v;
+    if(found&&!hunted&&this.prevS>=0){const dl=s-this.prevS,rel=dl/this.lenEst;if(rel>0.985&&rel<1.015){this.lenEst=this.lenEst*0.85+dl*0.15}}
+    if(found)this.prevS=s;
+    this.sc=Math.max(0.99,Math.min(1.01,this.lenEst/nom));
+    let y=this.line;
+    if(m.type==='r'){
+     {const sp0=s+this.mr(100),sf0=this.fq(sp0+this.mr(0.8),sp0+this.mr(3.7));
+      if(!isNaN(sf0)){const ry0=sf0<1900;if(ry0!==((y&1)===0)){y=Math.min(hh-1,y+1);this.line=y;if(ry0!==((y&1)===0))y=this.line=y-1}}}
+     const ys=s+this.mr(12);
+     for(let x=0;x<W;x++)this.Y[y*W+x]=this.yv(this.fq(ys+this.mr(x*88/W),Math.max(ys+this.mr((x+1)*88/W),ys+this.mr(x*88/W)+2)));
+     const sp=s+this.mr(100),sepf=this.fq(sp+this.mr(0.8),sp+this.mr(3.7)),isRY=isNaN(sepf)?((y&1)===0):sepf<1900,cs=s+this.mr(106),p=y>>1;
+     const pl=isRY?this.cr:this.cb;
+     for(let x=0;x<W/2;x++)pl[p*160+x]=this.yv(this.fq(cs+this.mr(x*44/(W/2)),Math.max(cs+this.mr((x+1)*44/(W/2)),cs+this.mr(x*44/(W/2))+2)));
+     if(isRY)this.hasCr[p]=1;else this.hasCb[p]=1;
+     this.renderRobot(y);if(!isRY&&y>0&&(y&1))this.renderRobot(y-1);
+    }else{
+     const starts=[s+this.mr(SYNC+PORCH)];
+     starts.push(starts[0]+this.mr(m.scan+SEP),starts[0]+this.mr(2*(m.scan+SEP)));
+     const chOrder=[1,2,0];
+     for(let c=0;c<3;c++){
+      for(let x=0;x<W;x++){
+       const a=starts[c]+this.mr(x*dt),b=starts[c]+this.mr((x+1)*dt);
+       const v=this.yv(this.fq(a,Math.max(b,a+2)));
+       this.rgb[(y*W+x)*3+chOrder[c]]=v;
+      }
      }
     }
     // follow the sender's clock: blend found sync into the running estimate
-    this.expect=(found?s:exp)+this.msr(lm);
+    this.expect=(found?s:exp)+this.lenEst;
     this.line++;
-    if(this.onUpdate&&(this.line%4===0||this.line===H))this.onUpdate('line',this);
+    if(this.onUpdate&&(this.line%4===0||this.line===hh))this.onUpdate('line',this);
    }
-   if(this.line>=H){this.state='done';if(this.onUpdate)this.onUpdate('done',this)}
+   if(this.line>=hh){this.state='done';if(this.onUpdate)this.onUpdate('done',this)}
   }
-  progress(){return this.mode?this.line/H:0}
+  progress(){return this.mode?this.line/(this.mode.h||H):0}
  }
  return {W,H,MODES,encode,Decoder,durationSec,lineMs};
 })();
@@ -5438,10 +5500,22 @@ async function sendConn(fl){
  const BC_MAX=2400;
  function bcast(){
   closeSide&&closeSide();
-  openSheet(`<h3>Broadcast a message</h3><p class="hint">Makes a normal QR code that any phone camera can read, with no app needed. Anyone who sees it can read it. It is not private or signed.</p><textarea class="inp" id="bctx" rows="4" placeholder="Type the message, or a link" style="width:100%;resize:vertical"></textarea><p class="hint" id="bcinfo" style="text-align:center"></p><div id="bcbox" style="text-align:center"></div><div class="btnrow"><button class="btn" data-bc="x">Close</button><button class="btn pri" data-bc="go">Show QR</button></div><p class="hint" style="text-align:center;margin-top:6px">Scanning from far away? After the code shows, tap <b>Fill screen</b>.</p>`);
+  openSheet(`<h3>Broadcast a message</h3><p class="hint">Makes a normal QR code that any phone camera can read, with no app needed. Anyone who sees it can read it. It is not private or signed.</p><textarea class="inp" id="bctx" rows="4" placeholder="Type the message, or a link" style="width:100%;resize:vertical"></textarea><p class="hint" id="bcinfo" style="text-align:center"></p><div id="bcbox" style="text-align:center"></div><div class="btnrow"><button class="btn" data-bc="x">Close</button><button class="btn pri" data-bc="full" id="bcfull" disabled>Fill screen (for far away)</button></div>`);
   const t=document.getElementById('bctx');setTimeout(()=>{try{t.focus()}catch(e){}},200);
   const upd=()=>{const n=unescape(encodeURIComponent(t.value)).length,i=document.getElementById('bcinfo');if(i)i.textContent=n?n+' of '+BC_MAX+' characters'+(n>700&&n<=BC_MAX?'. Long messages make a dense code that is harder to scan.':''):'';};
-  t.addEventListener('input',upd);
+  const live=()=>{
+   upd();const box=document.getElementById('bcbox'),fb=document.getElementById('bcfull');if(!box)return;
+   const raw=t.value.trim();if(fb)fb.disabled=!raw;
+   if(!raw){box.innerHTML='<p class="hint">The code appears here as you type, so you can see how the size changes.</p>';return}
+   const enc=/^[\x00-\x7f]*$/.test(raw)?raw:unescape(encodeURIComponent(raw));
+   if(enc.length>BC_MAX){box.innerHTML='<p class="hint">Too long for one code. Shorten it.</p>';return}
+   try{
+    const c=qrCanvas(enc,300,enc.length>500?'L':'M'),n=Math.round(Math.sqrt(c.width*c.height))/1,q=qrcode(0,enc.length>500?'L':'M');q.addData(enc);q.make();const mods=q.getModuleCount();
+    const lvl=mods<=33?['Easy to scan, even from far away','ok']:mods<=57?['Medium. Fine up close, harder from far away','mid']:['Dense. Needs to be close and steady','hard'];
+    box.innerHTML='';box.appendChild(c);box.insertAdjacentHTML('beforeend','<p class="hint"><b>'+lvl[0]+'</b> · '+mods+'×'+mods+' squares</p>');
+   }catch(er){box.innerHTML='<p class="hint">Could not make the code.</p>'}
+  };
+  t.addEventListener('input',live);live();
  }
  document.addEventListener('click',e=>{
   const m=e.target.closest('[data-bc]');if(!m)return;
@@ -5459,7 +5533,6 @@ async function sendConn(fl){
     ov.onclick=()=>ov.remove();document.body.appendChild(ov);
    }catch(er){toast('Could not make the code')}return;
   }
-  try{const c=qrCanvas(enc,300,enc.length>500?'L':'M');box.innerHTML='';box.appendChild(c);box.insertAdjacentHTML('beforeend','<p class="hint">Point any camera at this. Raise the screen brightness for best results. The shorter the message, the bigger the squares, and the farther away it can be read.</p><div class="btnrow"><button class="btn" data-bc="full">Fill screen (for far away)</button></div>')}catch(er){toast('Could not make the code')}
  });
  const REG=[
   {id:'home',label:'Home',icon:'home',html:()=>`<button class="pill ${S.cur==='root'?'on':''}" data-go="root" data-t="home">${ic('home',18)}Home</button>`},
@@ -5474,10 +5547,11 @@ async function sendConn(fl){
   {id:'newpage',label:'New page',icon:'plus',run:()=>{closeSide();newNote(S.cur)}},
   {id:'folder',label:'New folder',icon:'folder',via:'sFolder'},
   {id:'paper',label:'Paper',icon:'pal',via:'sPaper'},
-  {id:'broadcast',label:'Broadcast',icon:'scan',run:()=>{closeSide();bcast()}}
+  {id:'broadcast',label:'Broadcast',icon:'scan',run:()=>{closeSide();bcast()}},
+  {id:'sstv',label:'SSTV',icon:'recv',run:()=>{closeSide();window.__sstv&&window.__sstv.open()}}
  ];
  const BYID={};REG.forEach(t=>BYID[t.id]=t);
- const DEFAULT=['home','search','scan','send','connect','today','folder','paper','all','canvas','listen','newpage','broadcast']; /* Backups and Trash stay at the bottom of the panel */
+ const DEFAULT=['home','search','scan','send','connect','today','folder','paper','all','canvas','listen','newpage','broadcast','sstv']; /* Backups and Trash stay at the bottom of the panel */
  let more=false,edit=false,target=null;
  /* the first SHOWN entries are slots (a slot can be empty, null); the rest are hidden tiles */
  const order=()=>{
@@ -5736,6 +5810,292 @@ async function sendConn(fl){
  });
  window.__devs={list,devs};
 })();
+/* SSTV studio: receive a slow-scan picture live (pause, save anywhere) and send one. */
+(function(){
+ const E=SSTV,W=E.W,MODEL=[[8,'Robot 36'],[44,'Martin M1'],[40,'Martin M2']];
+ const $$=id=>document.getElementById(id);
+ const secs=v=>{const t=Math.round(v);return t>=60?Math.floor(t/60)+' min '+(t%60?(t%60)+' s':''):t+' s'};
+ let ST=null;
+ const css=document.createElement('style');
+ css.textContent=`#sstv{position:fixed;inset:0;z-index:50;background:var(--paper);color:var(--ink);display:flex;flex-direction:column;padding-top:var(--sat,env(safe-area-inset-top,0px))}
+#sstv [hidden]{display:none!important}
+#sstv .ss_sh{display:flex;align-items:center;gap:10px;padding:10px 14px 6px}
+#sstv .ss_sh h2{margin:0;font-size:19px;flex:1}
+#sstv .ss_sx{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--ink);font-size:18px}
+#sstv .ss_stabs{display:flex;gap:6px;padding:0 14px 8px}
+#sstv .ss_stabs button,#sstv .ss_chips button{padding:9px 14px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink)}
+#sstv .ss_stabs button{flex:1}
+#sstv .ss_stabs button.on,#sstv .ss_chips button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+#sstv .ss_sb{flex:1;overflow:auto;padding:4px 14px calc(18px + var(--sab,env(safe-area-inset-bottom,0px)))}
+#sstv .ss_chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+#sstv canvas.ss_pic{display:block;width:100%;max-width:560px;margin:6px auto;border-radius:14px;background:#000;border:1px solid var(--line)}
+#sstv .ss_st{text-align:center;font-weight:600;margin:6px 0 2px}
+#sstv .ss_sub{text-align:center;color:var(--muted);font-size:13px;margin:0 0 8px}
+#sstv .ss_bar{height:8px;border-radius:5px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden;margin:6px 0}
+#sstv .ss_bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+#sstv .ss_lv{height:5px;border-radius:3px;background:color-mix(in srgb,var(--ink) 8%,transparent);overflow:hidden;margin:2px 0 10px}
+#sstv .ss_lv i{display:block;height:100%;width:0;background:var(--muted)}
+#sstv .ss_row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+#sstv .ss_tb{flex:1 1 90px;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 10px;border-radius:14px;border:1px solid color-mix(in srgb,var(--ink) 8%,transparent);background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--ink);font-size:14px;transition:background .15s,transform .1s}
+#sstv .ss_tb:hover:not(:disabled){background:color-mix(in srgb,var(--ink) 11%,transparent);border-color:color-mix(in srgb,var(--ink) 17%,transparent)}
+#sstv .ss_tb:active:not(:disabled){transform:scale(.96)}
+#sstv .ss_tb:disabled{opacity:.4}
+#sstv .ss_tb.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+#sstv .ss_gal{display:flex;gap:8px;overflow:auto;padding:4px 0}
+#sstv .ss_gal img{height:64px;border-radius:8px;border:2px solid transparent;cursor:pointer}
+#sstv .ss_gal img.on{border-color:var(--accent)}
+#sstv input[type=text]{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);font-size:15px}
+#sstv p.hint{color:var(--muted);font-size:13px;margin:6px 0}
+#sstv h4{margin:14px 0 4px;font-size:13px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}`;
+ document.head.appendChild(css);
+
+ /* ---------- saving: pick a place when the device allows it ---------- */
+ async function saveTo(blob,name){
+  const mime=blob.type||'application/octet-stream';
+  try{
+   if(window.NativeBridge&&NativeBridge.saveFile){
+    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(blob)});
+    const ok=await new Promise(res=>{window.__nativeDone=res;NativeBridge.saveFile(name,mime,b64)});if(ok)toast('Saved');return;
+   }
+   if(window.showSaveFilePicker){
+    const ext=name.slice(name.lastIndexOf('.'));
+    const h=await window.showSaveFilePicker({suggestedName:name,types:[{description:mime,accept:{[mime]:[ext]}}]});
+    const w=await h.createWritable();await w.write(blob);await w.close();toast('Saved');return;
+   }
+   const f=new File([blob],name,{type:mime});
+   if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}
+   const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('Downloaded');
+  }catch(e){if(e&&e.name==='AbortError')return;toast('Could not save')}
+ }
+ const stamp=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())};
+ const modeSlug=m=>(m&&m.name||'sstv').toLowerCase().replace(/\s+/g,'');
+
+ /* ---------- screen ---------- */
+ function open(tab){
+  try{closeSide()}catch(e){}
+  if(ST)return;
+  ST={tab:tab||'r',pick:0,paused:false,listening:false,dec:null,mic:null,gal:[],sel:-1,tx:null,send:{vis:8,fit:'cover',cap:'',img:null,z:1,ox:0,oy:0}};
+  const el=document.createElement('div');el.id='sstv';
+  el.innerHTML=`<div class="ss_sh"><h2>SSTV</h2><button class="ss_sx" data-ss="close" aria-label="Close">✕</button></div>
+  <div class="ss_stabs"><button data-ss="tab" data-v="r">Receive</button><button data-ss="tab" data-v="s">Send</button></div><div class="ss_sb" id="ssb"></div>`;
+  document.body.appendChild(el);ST.el=el;draw();
+ }
+ function close(){
+  if(!ST)return;stopListen();stopTx();try{ST.el.remove()}catch(e){}ST=null;
+ }
+ function draw(){
+  if(!ST)return;
+  ST.el.querySelectorAll('.ss_stabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===ST.tab));
+  if(ST.tab==='r')drawRecv();else drawSend();
+ }
+
+ /* ---------- receive ---------- */
+ function drawRecv(){
+  const b=$$('ssb');
+  b.innerHTML=`<p class="hint">Hold this device near a speaker or radio playing a slow-scan picture. The picture draws as it arrives. Keep it quiet.</p>
+  <canvas class="ss_pic" id="sscv" width="320" height="240"></canvas>
+  <div class="ss_st" id="sstx">Not listening</div><p class="ss_sub" id="sssub"></p>
+  <div class="ss_bar"><i id="ssbar"></i></div><div class="ss_lv"><i id="sslv"></i></div>
+  <div class="ss_row"><button class="ss_tb pri" data-ss="listen" id="sslisten">${ic('recv',18)}Listen</button><button class="ss_tb" data-ss="pause" id="sspause" disabled>Pause</button><button class="ss_tb" data-ss="clear">Clear</button></div>
+  <div class="ss_row"><button class="ss_tb" data-ss="save" id="sssave" disabled>${ic('dl',18)}Save…</button><button class="ss_tb" data-ss="more" id="ssmore" disabled>Copy or add to a page</button></div>
+  <h4>Missed the start?</h4><p class="hint">Pick the mode, then tap Start now. It begins at the next line it hears.</p>
+  <div class="ss_chips" id="sschips">${MODEL.map(m=>`<button data-ss="mode" data-v="${m[0]}">${m[1]}</button>`).join('')}</div>
+  <div class="ss_row"><button class="ss_tb" data-ss="force" id="ssforce" disabled>Start now</button><button class="ss_tb" data-ss="file">Decode a recording…</button></div>
+  <h4>This session</h4><div class="ss_gal" id="ssgal"></div>`;
+  const cv=$$('sscv'),cx=cv.getContext('2d');cx.fillStyle='#000';cx.fillRect(0,0,320,240);
+  if(ST.shown)paintImg(ST.shown.rgb,ST.shown.h);
+  syncBtns();drawGal();
+ }
+ function paintImg(rgb,h){
+  const cv=$$('sscv');if(!cv)return;if(cv.height!==h)cv.height=h;
+  const cx=cv.getContext('2d'),im=cx.createImageData(W,h),o=im.data;
+  for(let i=0,j=0;i<o.length;i+=4,j+=3){o[i]=rgb[j];o[i+1]=rgb[j+1];o[i+2]=rgb[j+2];o[i+3]=255}
+  cx.putImageData(im,0,0);
+ }
+ function syncBtns(){
+  if(!ST||ST.tab!=='r')return;
+  const l=$$('sslisten'),p=$$('sspause'),f=$$('ssforce'),s=$$('sssave'),m=$$('ssmore');if(!l)return;
+  l.lastChild.textContent=ST.listening?'Stop':'Listen';
+  p.disabled=!ST.listening;p.textContent=ST.paused?'Resume':'Pause';
+  f.disabled=!ST.listening||!ST.pick||(ST.dec&&ST.dec.state==='image');
+  const has=!!ST.shown;s.disabled=!has;m.disabled=!has;
+  document.querySelectorAll('#sschips button').forEach(c=>c.classList.toggle('on',+c.dataset.v===ST.pick));
+ }
+ const say=(t,sub)=>{const a=$$('sstx'),b=$$('sssub');if(a&&t!=null)a.textContent=t;if(b&&sub!=null)b.textContent=sub};
+ function newDecoder(rate){
+  const d=new E.Decoder(rate);
+  d.onUpdate=(k,dd)=>{
+   if(!ST||ST.dec!==d)return;
+   const h=dd.mode.h||E.H;
+   if(k==='vis'){ST.shown=null;say('Receiving '+dd.mode.name+'…','Header heard. The picture draws line by line.');const cv=$$('sscv');if(cv){cv.height=h;const cx=cv.getContext('2d');cx.fillStyle='#000';cx.fillRect(0,0,W,h)}syncBtns();return}
+   ST.shown={rgb:dd.rgb.slice(0,W*h*3),h,mode:dd.mode};paintImg(dd.rgb,h);
+   const bar=$$('ssbar');if(bar)bar.style.width=Math.round(dd.line/h*100)+'%';
+   if(k==='done'){
+    say('Done · '+dd.mode.name,'Saved to this session. Listening for the next one.');
+    try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}
+    const c=document.createElement('canvas');c.width=W;c.height=h;const x=c.getContext('2d'),im=x.createImageData(W,h);for(let i=0,j=0;i<im.data.length;i+=4,j+=3){im.data[i]=ST.shown.rgb[j];im.data[i+1]=ST.shown.rgb[j+1];im.data[i+2]=ST.shown.rgb[j+2];im.data[i+3]=255}x.putImageData(im,0,0);
+    ST.gal.push({url:c.toDataURL('image/png'),rgb:ST.shown.rgb,h,mode:dd.mode});ST.sel=ST.gal.length-1;drawGal();
+    if(ST.listening&&!ST.fromFile){ST.dec=newDecoder(ST.rate)}
+    syncBtns();
+   }else{say('Receiving '+dd.mode.name+'… '+Math.round(dd.line/h*100)+'%',null);syncBtns()}
+  };
+  return d;
+ }
+ function drawGal(){
+  const g=$$('ssgal');if(!g)return;
+  g.innerHTML=ST.gal.length?ST.gal.map((x,i)=>`<img src="${x.url}" data-ss="gal" data-i="${i}" class="${i===ST.sel?'on':''}" alt="">`).join(''):'<span class="hint">Finished pictures collect here.</span>';
+ }
+ async function startListen(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return toast('The microphone is not available here');
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();try{ctx.resume()}catch(e){}
+  let stream;try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}})}catch(e){try{ctx.close()}catch(x){}return say('Microphone not available','Allow microphone access for this app, then tap Listen.')}
+  try{await ctx.resume()}catch(e){}
+  if(!ST||ST.listening){stream.getTracks().forEach(t=>t.stop());try{ctx.close()}catch(e){}return}
+  const src=ctx.createMediaStreamSource(stream),proc=ctx.createScriptProcessor(4096,1,1),mute=ctx.createGain();mute.gain.value=0;
+  ST.rate=ctx.sampleRate;ST.fromFile=false;ST.dec=newDecoder(ST.rate);ST.peak=0;
+  proc.onaudioprocess=e=>{
+   if(!ST||!ST.listening)return;const x=new Float32Array(e.inputBuffer.getChannelData(0));
+   let p=0;for(let i=0;i<x.length;i+=8){const a=Math.abs(x[i]);if(a>p)p=a}if(p>ST.peak)ST.peak=p;
+   if(!ST.paused&&ST.dec)ST.dec.push(x);
+  };
+  src.connect(proc);proc.connect(mute);mute.connect(ctx.destination);
+  ST.mic={stop(){try{proc.onaudioprocess=null;proc.disconnect();src.disconnect()}catch(e){}try{stream.getTracks().forEach(t=>t.stop())}catch(e){}try{ctx.close()}catch(e){}}};
+  ST.listening=true;ST.paused=false;ST.t0=Date.now();
+  say('Listening…','Waiting for a picture. Start it on the other device.');
+  ST.lvT=setInterval(()=>{if(!ST){return}const l=$$('sslv');if(l)l.style.width=Math.min(100,ST.peak*260)+'%';if(ST.peak>0.01)ST.heard=true;ST.peak*=.6;
+   if(ST.listening&&!ST.heard&&Date.now()-ST.t0>9000)say(null,'Cannot hear anything yet. Turn the sound up and bring it closer.')},200);
+  syncBtns();
+ }
+ function stopListen(){
+  if(!ST)return;if(ST.mic){ST.mic.stop();ST.mic=null}clearInterval(ST.lvT);ST.listening=false;ST.paused=false;
+  const l=$$('sslv');if(l)l.style.width='0';
+ }
+ async function decodeFile(file){
+  stopListen();say('Reading the recording…','');
+  let ab;try{ab=await new (window.AudioContext||window.webkitAudioContext)().decodeAudioData(await file.arrayBuffer())}catch(e){return say('Could not read that audio file','Try a WAV or MP3 recording.')}
+  const x=ab.getChannelData(0),d=ST.dec=newDecoder(ab.sampleRate);ST.fromFile=true;ST.shown=null;
+  for(let i=0;i<x.length&&ST&&ST.dec===d;i+=ab.sampleRate){d.push(x.slice(i,Math.min(x.length,i+ab.sampleRate)));await new Promise(r=>setTimeout(r,0))}
+  if(ST&&ST.dec===d&&d.state==='wait')say('No picture found','This recording did not contain a slow-scan header. Try Start now with a mode picked.');
+  syncBtns();
+ }
+ function curImage(){const g=ST.sel>=0&&ST.gal[ST.sel],sh=ST.shown;return g&&(!sh||document.activeElement&&0)?g:(sh?{rgb:sh.rgb,h:sh.h,mode:sh.mode}:g)}
+ async function pngOf(img){
+  const c=document.createElement('canvas');c.width=W;c.height=img.h;const x=c.getContext('2d'),im=x.createImageData(W,img.h);
+  for(let i=0,j=0;i<im.data.length;i+=4,j+=3){im.data[i]=img.rgb[j];im.data[i+1]=img.rgb[j+1];im.data[i+2]=img.rgb[j+2];im.data[i+3]=255}
+  x.putImageData(im,0,0);return new Promise(r=>c.toBlob(r,'image/png'));
+ }
+
+ /* ---------- send ---------- */
+ function drawSend(){
+  const b=$$('ssb'),s=ST.send;
+  b.innerHTML=`<canvas class="ss_pic" id="sspv" width="320" height="240" style="touch-action:none;cursor:grab"></canvas>
+  <p class="sub" style="text-align:center;color:var(--muted);font-size:13px;margin:0 0 6px" id="sszh">${s.img?'Drag to move. Pinch or scroll to zoom.':''}</p>
+  <div class="ss_row" ${s.img?'':'hidden'} id="sszr"><button class="ss_tb" data-ss="zout" aria-label="Zoom out">−</button><button class="ss_tb" data-ss="zreset" id="sszp">100%</button><button class="ss_tb" data-ss="zin" aria-label="Zoom in">+</button></div>
+  <div class="ss_row"><button class="ss_tb pri" data-ss="pickimg">${ic('plus',18)}${s.img?'Change picture':'Choose a picture'}</button></div>
+  <h4>Mode</h4><div class="ss_chips" id="ssmodes">${MODEL.map(m=>`<button data-ss="svis" data-v="${m[0]}">${m[1]} · ${secs(E.durationSec(m[0]))}</button>`).join('')}</div>
+  <h4>Picture fit</h4><div class="ss_chips"><button data-ss="fit" data-v="cover">Fill (crop)</button><button data-ss="fit" data-v="contain">Fit (bars)</button></div>
+  <h4>Caption (optional)</h4><input type="text" id="sscap" maxlength="40" placeholder="Callsign, name or a short note" value="${esc(s.cap)}">
+  <div class="ss_st" id="sstx2"></div><div class="ss_bar"><i id="ssbar2"></i></div>
+  <div class="ss_row"><button class="ss_tb pri" data-ss="play" id="ssplay" ${s.img?'':'disabled'}>${ic('recv',18)}Play</button><button class="ss_tb" data-ss="wav" id="sswav" ${s.img?'':'disabled'}>Save as audio…</button></div>
+  <p class="hint">Turn the volume up and hold the speaker near the other device's microphone, or play it into a radio. Cropped or letterboxed to ${W}×240 for Robot 36 and ${W}×256 for Martin.</p>`;
+  markSend();renderPv();
+ }
+ function markSend(){
+  const s=ST.send;
+  document.querySelectorAll('#ssmodes button').forEach(c=>c.classList.toggle('on',+c.dataset.v===s.vis));
+  document.querySelectorAll('[data-ss=fit]').forEach(c=>c.classList.toggle('on',c.dataset.v===s.fit));
+ }
+ function renderPv(){
+  const cv=$$('sspv');if(!cv)return;const s=ST.send,h=E.MODES[s.vis].h;cv.height=h;
+  const x=cv.getContext('2d');x.fillStyle='#000';x.fillRect(0,0,W,h);
+  if(s.img){
+   const iw=s.img.naturalWidth||s.img.width,ih=s.img.naturalHeight||s.img.height,k=(s.fit==='cover'?Math.max(W/iw,h/ih):Math.min(W/iw,h/ih))*s.z,dw=iw*k,dh=ih*k;
+   x.drawImage(s.img,(W-dw)/2+s.ox,(h-dh)/2+s.oy,dw,dh);
+   const zp=$$('sszp');if(zp)zp.textContent=Math.round(s.z*100)+'%';
+  }else{x.fillStyle='#777';x.font='16px system-ui';x.textAlign='center';x.fillText('Choose a picture to send',W/2,h/2)}
+  if(s.cap){x.font='bold 20px system-ui';x.textAlign='left';x.lineJoin='round';x.lineWidth=5;x.strokeStyle='#000';x.fillStyle='#fff';x.strokeText(s.cap,8,h-10);x.fillText(s.cap,8,h-10)}
+ }
+ function rgbOfPv(){
+  const cv=$$('sspv'),d=cv.getContext('2d').getImageData(0,0,W,cv.height).data,n=W*cv.height,rgb=new Uint8ClampedArray(n*3);
+  for(let i=0;i<n;i++){rgb[i*3]=d[i*4];rgb[i*3+1]=d[i*4+1];rgb[i*3+2]=d[i*4+2]}return rgb;
+ }
+ function pickImage(){
+  const f=document.createElement('input');f.type='file';f.accept='image/*';f.style.cssText='position:fixed;left:-999px;opacity:0';document.body.appendChild(f);
+  f.onchange=()=>{const file=f.files[0];f.remove();if(!file)return;const im=new Image();im.onload=()=>{if(!ST)return;Object.assign(ST.send,{img:im,z:1,ox:0,oy:0});drawSend()};im.onerror=()=>toast('Could not open that picture');im.src=URL.createObjectURL(file)};
+  f.addEventListener('cancel',()=>f.remove());f.click();
+ }
+ function stopTx(){if(ST&&ST.tx){const t=ST.tx;ST.tx=null;clearInterval(t.tm);try{t.src.stop()}catch(e){}try{t.ctx.close()}catch(e){}const p=$$('ssplay');if(p)p.lastChild.textContent='Play'}}
+ async function play(){
+  if(ST.tx)return stopTx();
+  const s=ST.send;if(!s.img)return;
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();try{await ctx.resume()}catch(e){}
+  const t=$$('sstx2');if(t)t.textContent='Preparing…';await new Promise(r=>setTimeout(r,30));
+  const f=E.encode(rgbOfPv(),s.vis,ctx.sampleRate),buf=ctx.createBuffer(1,f.length,ctx.sampleRate);buf.copyToChannel(f,0);
+  const src=ctx.createBufferSource();src.buffer=buf;src.connect(ctx.destination);
+  const total=f.length/ctx.sampleRate,t0=Date.now()/1000,me={ctx,src};ST.tx=me;
+  me.tm=setInterval(()=>{if(ST&&ST.tx!==me){clearInterval(me.tm);return}const p=Math.min(1,(Date.now()/1000-t0)/total),bar=$$('ssbar2'),tx=$$('sstx2');if(bar)bar.style.width=p*100+'%';if(tx)tx.textContent='Playing · '+secs(Math.max(0,total*(1-p)))+' left'},300);
+  src.onended=()=>{if(ST&&ST.tx===me){ST.tx=null;clearInterval(me.tm);try{ctx.close()}catch(e){}const bar=$$('ssbar2'),tx=$$('sstx2'),p=$$('ssplay');if(bar)bar.style.width='100%';if(tx)tx.textContent='Finished';if(p)p.lastChild.textContent='Play'}};
+  src.start();const p=$$('ssplay');if(p)p.lastChild.textContent='Stop';
+ }
+ function wavBlob(f,fs){
+  const n=f.length,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))};
+  w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,fs,true);v.setUint32(28,fs*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){const x=Math.max(-1,Math.min(1,f[i]));v.setInt16(44+i*2,x<0?x*32768:x*32767,true)}
+  return new Blob([b],{type:'audio/wav'});
+ }
+
+ /* ---------- clicks ---------- */
+ document.addEventListener('click',async e=>{
+  const m=e.target.closest('[data-ss]');if(!m||!ST)return;const k=m.dataset.ss;
+  if(k==='close')return close();
+  if(k==='tab'){if(ST.tab!==m.dataset.v){ST.tab=m.dataset.v;if(ST.tab==='s'&&ST.listening)stopListen();stopTx();draw()}return}
+  if(k==='listen'){if(ST.listening){stopListen();say('Stopped','');syncBtns()}else{ST.shown=null;await startListen()}return}
+  if(k==='pause'){
+   if(!ST.listening)return;
+   if(!ST.paused){ST.paused=true;ST.pauseAt=Date.now();say(null,'Paused. Tap Resume to carry on. The part you skip stays blank.')}
+   else{ST.paused=false;if(ST.dec)ST.dec.resume(Date.now()-ST.pauseAt);say(null,'Listening again…')}
+   syncBtns();return;
+  }
+  if(k==='clear'){const rate=ST.rate;ST.shown=null;ST.sel=-1;if(ST.listening)ST.dec=newDecoder(rate);ST.paused=false;drawRecv();if(ST.listening)say('Listening…','Waiting for a picture.');return}
+  if(k==='mode'){ST.pick=+m.dataset.v;syncBtns();return}
+  if(k==='force'){if(ST.dec&&ST.pick){ST.dec.force(ST.pick)}return}
+  if(k==='file'){const f=document.createElement('input');f.type='file';f.accept='audio/*,.wav';f.style.cssText='position:fixed;left:-999px;opacity:0';document.body.appendChild(f);f.onchange=()=>{const x=f.files[0];f.remove();if(x)decodeFile(x)};f.addEventListener('cancel',()=>f.remove());f.click();return}
+  if(k==='gal'){const g=ST.gal[+m.dataset.i];if(g){ST.sel=+m.dataset.i;ST.shown={rgb:g.rgb,h:g.h,mode:g.mode};paintImg(g.rgb,g.h);say('Picture from this session · '+g.mode.name,'');drawGal();syncBtns()}return}
+  if(k==='save'){const img=ST.shown;if(!img)return;const bl=await pngOf(img);saveTo(bl,'sstv-'+stamp()+'-'+modeSlug(img.mode)+'.png');return}
+  if(k==='more'){const img=ST.shown;if(!img)return;const bl=await pngOf(img),bytes=new Uint8Array(await bl.arrayBuffer());window.__imgRecv(null,{d:b64u(bytes),title:'SSTV picture',w:W,h:img.h},'',null,null);return}
+  if(k==='pickimg')return pickImage();
+  if(k==='svis'){ST.send.vis=+m.dataset.v;markSend();renderPv();return}
+  if(k==='fit'){Object.assign(ST.send,{fit:m.dataset.v,z:1,ox:0,oy:0});markSend();renderPv();return}
+  if(k==='zin'||k==='zout'){zoomBy(k==='zin'?1.25:0.8);return}
+  if(k==='zreset'){Object.assign(ST.send,{z:1,ox:0,oy:0});renderPv();return}
+  if(k==='play')return play();
+  if(k==='wav'){const s=ST.send;if(!s.img)return;toast('Making the audio…');await new Promise(r=>setTimeout(r,30));const fs=44100,f=E.encode(rgbOfPv(),s.vis,fs);saveTo(wavBlob(f,fs),'sstv-'+stamp()+'-'+modeSlug(E.MODES[s.vis])+'.wav');return}
+ });
+ function zoomBy(f,cx,cy){
+  const s=ST.send,cv=$$('sspv');if(!cv||!s.img)return;const h=cv.height,nz=Math.max(0.2,Math.min(8,s.z*f)),r=nz/s.z;
+  const px=(cx==null?W/2:cx)-W/2,py=(cy==null?h/2:cy)-h/2;
+  s.ox=px-(px-s.ox)*r;s.oy=py-(py-s.oy)*r;s.z=nz;renderPv();
+ }
+ /* drag to move, pinch or wheel to zoom */
+ const PTR=new Map();let LAST=null;
+ const cpos=(e,cv)=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*cv.height/r.height}};
+ document.addEventListener('pointerdown',e=>{if(!ST||e.target.id!=='sspv'||!ST.send.img)return;const cv=e.target;PTR.set(e.pointerId,cpos(e,cv));try{cv.setPointerCapture(e.pointerId)}catch(x){}LAST=null;cv.style.cursor='grabbing';e.preventDefault()});
+ document.addEventListener('pointermove',e=>{
+  if(!ST||!PTR.has(e.pointerId))return;const cv=$$('sspv');if(!cv)return;const s=ST.send,np=cpos(e,cv),old=PTR.get(e.pointerId);PTR.set(e.pointerId,np);
+  if(PTR.size===1){s.ox+=np.x-old.x;s.oy+=np.y-old.y;renderPv()}
+  else if(PTR.size>=2){
+   const ps=[...PTR.values()],mx=(ps[0].x+ps[1].x)/2,my=(ps[0].y+ps[1].y)/2,d=Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y);
+   if(LAST&&LAST.d>4){s.ox+=mx-LAST.mx;s.oy+=my-LAST.my;zoomBy(d/LAST.d,mx,my)}
+   LAST={mx,my,d};
+  }
+ });
+ const pend=e=>{PTR.delete(e.pointerId);LAST=null;const cv=$$('sspv');if(cv)cv.style.cursor='grab'};
+ document.addEventListener('pointerup',pend);document.addEventListener('pointercancel',pend);
+ document.addEventListener('wheel',e=>{if(!ST||e.target.id!=='sspv'||!ST.send.img)return;e.preventDefault();const p=cpos(e,e.target);zoomBy(e.deltaY<0?1.1:1/1.1,p.x,p.y)},{passive:false});
+ document.addEventListener('input',e=>{if(!ST||e.target.id!=='sscap')return;ST.send.cap=e.target.value;renderPv()});
+ window.__sstv={open,close,engine:E,get st(){return ST}};
+})();
+
 /* Connect: a QR (or pasted code) sets up a direct, encrypted device-to-device link; then pages and vaults go over it */
 (function(){
  Object.assign(IC,{link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'});

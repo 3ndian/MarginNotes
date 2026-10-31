@@ -1,5 +1,5 @@
 // Margin Notes offline cache. Bump V whenever index.html changes.
-const V='margin-notes-v109';
+const V='margin-notes-v112';
 const CORE=['./','./index.html','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png'];
 const PDFJS=['./pdf.min.js','./pdf.worker.min.js']; // the PDF reader, fetched once and kept for offline use
 const CDN='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
