@@ -5828,7 +5828,19 @@ async function sendConn(fl){
 #sstv .ss_stabs button.on,#sstv .ss_chips button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 #sstv .ss_sb{flex:1;overflow:auto;padding:4px 14px calc(18px + var(--sab,env(safe-area-inset-bottom,0px)))}
 #sstv .ss_chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
-#sstv canvas.ss_pic{display:block;width:100%;max-width:560px;margin:6px auto;border-radius:14px;background:#000;border:1px solid var(--line)}
+#sstv canvas.ss_pic{display:block;width:auto;max-width:100%;max-height:52vh;margin:6px auto;border-radius:14px;background:#000;border:1px solid var(--line)}
+#sstv .ss_empty{position:absolute;inset:12px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:14px;border:2px dashed color-mix(in srgb,#fff 35%,transparent);background:transparent;color:#fff;cursor:pointer;transition:background .15s}
+#sstv .ss_empty:hover{background:rgba(255,255,255,.08)}
+#sstv .ss_empty b{font-size:17px;font-weight:600}
+#sstv .ss_empty small{font-size:13px;opacity:.7}
+#sstv .ss_ei{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.14)}
+#sstv .ss_cols{display:block}
+@media (orientation:landscape) and (max-height:560px){
+ #sstv .ss_cols{display:flex;gap:16px;align-items:flex-start}
+ #sstv .ss_view{flex:1 1 55%;position:sticky;top:0;min-width:0}
+ #sstv .ss_ctl{flex:1 1 45%;min-width:0}
+ #sstv canvas.ss_pic{max-height:calc(100vh - 150px)}
+}
 #sstv .ss_st{text-align:center;font-weight:600;margin:6px 0 2px}
 #sstv .ss_sub{text-align:center;color:var(--muted);font-size:13px;margin:0 0 8px}
 #sstv .ss_bar{height:8px;border-radius:5px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden;margin:6px 0}
@@ -5874,14 +5886,14 @@ async function sendConn(fl){
  function open(tab){
   try{closeSide()}catch(e){}
   if(ST)return;
-  ST={tab:tab||'r',pick:0,paused:false,listening:false,dec:null,mic:null,gal:[],sel:-1,tx:null,send:{vis:8,fit:'cover',cap:'',img:null,z:1,ox:0,oy:0}};
+  ST={tab:tab||'r',pick:0,paused:false,listening:false,dec:null,mic:null,gal:[],sel:-1,tx:null,send:{vis:8,fit:'cover',cap:'',fs:20,img:null,z:1,ox:0,oy:0}};
   const el=document.createElement('div');el.id='sstv';
   el.innerHTML=`<div class="ss_sh"><h2>SSTV</h2><button class="ss_sx" data-ss="close" aria-label="Close">✕</button></div>
   <div class="ss_stabs"><button data-ss="tab" data-v="r">Receive</button><button data-ss="tab" data-v="s">Send</button></div><div class="ss_sb" id="ssb"></div>`;
   document.body.appendChild(el);ST.el=el;draw();
  }
  function close(){
-  if(!ST)return;stopListen();stopTx();try{ST.el.remove()}catch(e){}ST=null;
+  if(!ST)return;stopListen();stopTx();const f=document.getElementById('ssfull');if(f)f.remove();try{ST.el.remove()}catch(e){}ST=null;
  }
  function draw(){
   if(!ST)return;
@@ -5892,25 +5904,51 @@ async function sendConn(fl){
  /* ---------- receive ---------- */
  function drawRecv(){
   const b=$$('ssb');
-  b.innerHTML=`<p class="hint">Hold this device near a speaker or radio playing a slow-scan picture. The picture draws as it arrives. Keep it quiet.</p>
-  <canvas class="ss_pic" id="sscv" width="320" height="240"></canvas>
+  b.innerHTML=`<div class="ss_cols"><div class="ss_view"><canvas class="ss_pic" id="sscv" width="320" height="240" data-ss="full" style="cursor:zoom-in"></canvas>
   <div class="ss_st" id="sstx">Not listening</div><p class="ss_sub" id="sssub"></p>
-  <div class="ss_bar"><i id="ssbar"></i></div><div class="ss_lv"><i id="sslv"></i></div>
+  <div class="ss_bar"><i id="ssbar"></i></div><div class="ss_lv"><i id="sslv"></i></div></div><div class="ss_ctl"><p class="hint">Hold this device near a speaker or radio playing a slow-scan picture. It draws as it arrives. Keep it quiet. Tap the picture to see it full screen.</p>
   <div class="ss_row"><button class="ss_tb pri" data-ss="listen" id="sslisten">${ic('recv',18)}Listen</button><button class="ss_tb" data-ss="pause" id="sspause" disabled>Pause</button><button class="ss_tb" data-ss="clear">Clear</button></div>
   <div class="ss_row"><button class="ss_tb" data-ss="save" id="sssave" disabled>${ic('dl',18)}Save…</button><button class="ss_tb" data-ss="more" id="ssmore" disabled>Copy or add to a page</button></div>
   <h4>Missed the start?</h4><p class="hint">Pick the mode, then tap Start now. It begins at the next line it hears.</p>
   <div class="ss_chips" id="sschips">${MODEL.map(m=>`<button data-ss="mode" data-v="${m[0]}">${m[1]}</button>`).join('')}</div>
   <div class="ss_row"><button class="ss_tb" data-ss="force" id="ssforce" disabled>Start now</button><button class="ss_tb" data-ss="file">Decode a recording…</button></div>
-  <h4>This session</h4><div class="ss_gal" id="ssgal"></div>`;
+  <h4>This session</h4><div class="ss_gal" id="ssgal"></div></div></div>`;
   const cv=$$('sscv'),cx=cv.getContext('2d');cx.fillStyle='#000';cx.fillRect(0,0,320,240);
   if(ST.shown)paintImg(ST.shown.rgb,ST.shown.h);
   syncBtns();drawGal();
  }
  function paintImg(rgb,h){
-  const cv=$$('sscv');if(!cv)return;if(cv.height!==h)cv.height=h;
-  const cx=cv.getContext('2d'),im=cx.createImageData(W,h),o=im.data;
-  for(let i=0,j=0;i<o.length;i+=4,j+=3){o[i]=rgb[j];o[i+1]=rgb[j+1];o[i+2]=rgb[j+2];o[i+3]=255}
-  cx.putImageData(im,0,0);
+  for(const id of ['sscv','ssfullcv']){
+   const cv=$$(id);if(!cv)continue;if(cv.height!==h)cv.height=h;
+   const cx=cv.getContext('2d'),im=cx.createImageData(W,h),o=im.data;
+   for(let i=0,j=0;i<o.length;i+=4,j+=3){o[i]=rgb[j];o[i+1]=rgb[j+1];o[i+2]=rgb[j+2];o[i+3]=255}
+   cx.putImageData(im,0,0);
+  }
+ }
+ /* full-screen viewer: scales to fit, pinch or scroll to zoom, drag to move; keeps updating while a picture arrives */
+ function openFull(){
+  if(!ST||document.getElementById('ssfull'))return;
+  const el=document.createElement('div');el.id='ssfull';
+  el.style.cssText='position:fixed;inset:0;z-index:55;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none';
+  const h=ST.shown?ST.shown.h:240,cv=document.createElement('canvas');cv.id='ssfullcv';cv.width=W;cv.height=h;
+  cv.style.cssText='max-width:100vw;max-height:100vh;width:auto;height:auto;image-rendering:auto;transform-origin:50% 50%';
+  el.appendChild(cv);
+  const x=document.createElement('button');x.textContent='✕';x.setAttribute('aria-label','Close');x.style.cssText='position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:12px;width:44px;height:44px;border-radius:14px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.5);color:#fff;font-size:18px';
+  x.onclick=()=>el.remove();el.appendChild(x);
+  const z={k:1,x:0,y:0},pt=new Map();let last=null;
+  const ap=()=>{cv.style.transform='translate('+z.x+'px,'+z.y+'px) scale('+z.k+')'};
+  el.addEventListener('pointerdown',e=>{if(e.target===x)return;pt.set(e.pointerId,{x:e.clientX,y:e.clientY});last=null;try{el.setPointerCapture(e.pointerId)}catch(er){}});
+  el.addEventListener('pointermove',e=>{
+   if(!pt.has(e.pointerId))return;const o=pt.get(e.pointerId),n={x:e.clientX,y:e.clientY};pt.set(e.pointerId,n);
+   if(pt.size===1){z.x+=n.x-o.x;z.y+=n.y-o.y;ap()}
+   else if(pt.size>=2){const a=[...pt.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),mx=(a[0].x+a[1].x)/2,my=(a[0].y+a[1].y)/2;
+    if(last&&last.d>4){z.x+=mx-last.mx;z.y+=my-last.my;z.k=Math.max(1,Math.min(8,z.k*d/last.d));ap()}last={d,mx,my}}
+  });
+  const up=e=>{pt.delete(e.pointerId);last=null;if(z.k<=1.01){z.k=1;z.x=0;z.y=0;ap()}};
+  el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  el.addEventListener('wheel',e=>{e.preventDefault();z.k=Math.max(1,Math.min(8,z.k*(e.deltaY<0?1.12:1/1.12)));if(z.k===1){z.x=0;z.y=0}ap()},{passive:false});
+  el.addEventListener('dblclick',()=>{z.k=1;z.x=0;z.y=0;ap()});
+  document.body.appendChild(el);if(ST.shown)paintImg(ST.shown.rgb,ST.shown.h);
  }
  function syncBtns(){
   if(!ST||ST.tab!=='r')return;
@@ -5988,13 +6026,14 @@ async function sendConn(fl){
  /* ---------- send ---------- */
  function drawSend(){
   const b=$$('ssb'),s=ST.send;
-  b.innerHTML=`<canvas class="ss_pic" id="sspv" width="320" height="240" style="touch-action:none;cursor:grab"></canvas>
+  b.innerHTML=`<div style="position:relative;max-width:560px;margin:0 auto"><canvas class="ss_pic" id="sspv" width="320" height="240" style="touch-action:none;cursor:${s.img?'grab':'pointer'}" ${s.img?'':'data-ss="pickimg"'}></canvas>${s.img?'':`<button class="ss_empty" data-ss="pickimg" aria-label="Choose a picture"><span class="ss_ei">${ic('plus',30)}</span><b>Choose a picture</b><small>Tap here, then drag and pinch to frame it</small></button>`}</div>
   <p class="sub" style="text-align:center;color:var(--muted);font-size:13px;margin:0 0 6px" id="sszh">${s.img?'Drag to move. Pinch or scroll to zoom.':''}</p>
   <div class="ss_row" ${s.img?'':'hidden'} id="sszr"><button class="ss_tb" data-ss="zout" aria-label="Zoom out">−</button><button class="ss_tb" data-ss="zreset" id="sszp">100%</button><button class="ss_tb" data-ss="zin" aria-label="Zoom in">+</button></div>
   <div class="ss_row"><button class="ss_tb pri" data-ss="pickimg">${ic('plus',18)}${s.img?'Change picture':'Choose a picture'}</button></div>
   <h4>Mode</h4><div class="ss_chips" id="ssmodes">${MODEL.map(m=>`<button data-ss="svis" data-v="${m[0]}">${m[1]} · ${secs(E.durationSec(m[0]))}</button>`).join('')}</div>
   <h4>Picture fit</h4><div class="ss_chips"><button data-ss="fit" data-v="cover">Fill (crop)</button><button data-ss="fit" data-v="contain">Fit (bars)</button></div>
-  <h4>Caption (optional)</h4><input type="text" id="sscap" maxlength="40" placeholder="Callsign, name or a short note" value="${esc(s.cap)}">
+  <h4>Caption (optional)</h4><textarea id="sscap" rows="2" maxlength="600" placeholder="Callsign, name or a note. Long text wraps and climbs the picture." style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);font:15px system-ui;resize:vertical">${esc(s.cap)}</textarea>
+  <div class="ss_chips" style="margin-top:8px"><button data-ss="tsz" data-v="14">Small text</button><button data-ss="tsz" data-v="20">Medium</button><button data-ss="tsz" data-v="30">Large</button></div><p class="hint" id="sscn"></p>
   <div class="ss_st" id="sstx2"></div><div class="ss_bar"><i id="ssbar2"></i></div>
   <div class="ss_row"><button class="ss_tb pri" data-ss="play" id="ssplay" ${s.img?'':'disabled'}>${ic('recv',18)}Play</button><button class="ss_tb" data-ss="wav" id="sswav" ${s.img?'':'disabled'}>Save as audio…</button></div>
   <p class="hint">Turn the volume up and hold the speaker near the other device's microphone, or play it into a radio. Cropped or letterboxed to ${W}×240 for Robot 36 and ${W}×256 for Martin.</p>`;
@@ -6004,6 +6043,7 @@ async function sendConn(fl){
   const s=ST.send;
   document.querySelectorAll('#ssmodes button').forEach(c=>c.classList.toggle('on',+c.dataset.v===s.vis));
   document.querySelectorAll('[data-ss=fit]').forEach(c=>c.classList.toggle('on',c.dataset.v===s.fit));
+  document.querySelectorAll('[data-ss=tsz]').forEach(c=>c.classList.toggle('on',+c.dataset.v===s.fs));
  }
  function renderPv(){
   const cv=$$('sspv');if(!cv)return;const s=ST.send,h=E.MODES[s.vis].h;cv.height=h;
@@ -6012,8 +6052,23 @@ async function sendConn(fl){
    const iw=s.img.naturalWidth||s.img.width,ih=s.img.naturalHeight||s.img.height,k=(s.fit==='cover'?Math.max(W/iw,h/ih):Math.min(W/iw,h/ih))*s.z,dw=iw*k,dh=ih*k;
    x.drawImage(s.img,(W-dw)/2+s.ox,(h-dh)/2+s.oy,dw,dh);
    const zp=$$('sszp');if(zp)zp.textContent=Math.round(s.z*100)+'%';
-  }else{x.fillStyle='#777';x.font='16px system-ui';x.textAlign='center';x.fillText('Choose a picture to send',W/2,h/2)}
-  if(s.cap){x.font='bold 20px system-ui';x.textAlign='left';x.lineJoin='round';x.lineWidth=5;x.strokeStyle='#000';x.fillStyle='#fff';x.strokeText(s.cap,8,h-10);x.fillText(s.cap,8,h-10)}
+  }
+  const cn=$$('sscn');if(cn)cn.textContent='';
+  if(s.cap&&s.cap.trim()){
+   const fs=s.fs||20,lh=Math.round(fs*1.2);x.font='bold '+fs+'px system-ui';x.textAlign='left';x.textBaseline='alphabetic';x.lineJoin='round';x.lineWidth=Math.max(3,Math.round(fs/4));x.strokeStyle='#000';x.fillStyle='#fff';
+   const maxW=W-16,lines=[];
+   for(const para of s.cap.split('\n')){
+    let cur='';
+    for(let w of para.split(/\s+/).filter(Boolean)){
+     while(x.measureText(w).width>maxW){let k=w.length;while(k>1&&x.measureText(w.slice(0,k)).width>maxW)k--;if(cur){lines.push(cur);cur=''}lines.push(w.slice(0,k));w=w.slice(k)}
+     const t=cur?cur+' '+w:w;if(x.measureText(t).width<=maxW)cur=t;else{lines.push(cur);cur=w}
+    }
+    lines.push(cur);
+   }
+   const room=Math.max(1,Math.floor((h-6)/lh)),shown=lines.slice(-room);
+   if(lines.length>room&&cn)cn.textContent='The text is longer than the picture. The first '+(lines.length-room)+' line'+(lines.length-room>1?'s':'')+' do not fit.';
+   shown.forEach((ln,i)=>{const y=h-8-(shown.length-1-i)*lh;x.strokeText(ln,8,y);x.fillText(ln,8,y)});
+  }
  }
  function rgbOfPv(){
   const cv=$$('sspv'),d=cv.getContext('2d').getImageData(0,0,W,cv.height).data,n=W*cv.height,rgb=new Uint8ClampedArray(n*3);
@@ -6063,9 +6118,11 @@ async function sendConn(fl){
   if(k==='gal'){const g=ST.gal[+m.dataset.i];if(g){ST.sel=+m.dataset.i;ST.shown={rgb:g.rgb,h:g.h,mode:g.mode};paintImg(g.rgb,g.h);say('Picture from this session · '+g.mode.name,'');drawGal();syncBtns()}return}
   if(k==='save'){const img=ST.shown;if(!img)return;const bl=await pngOf(img);saveTo(bl,'sstv-'+stamp()+'-'+modeSlug(img.mode)+'.png');return}
   if(k==='more'){const img=ST.shown;if(!img)return;const bl=await pngOf(img),bytes=new Uint8Array(await bl.arrayBuffer());window.__imgRecv(null,{d:b64u(bytes),title:'SSTV picture',w:W,h:img.h},'',null,null);return}
+  if(k==='full'){openFull();return}
   if(k==='pickimg')return pickImage();
   if(k==='svis'){ST.send.vis=+m.dataset.v;markSend();renderPv();return}
   if(k==='fit'){Object.assign(ST.send,{fit:m.dataset.v,z:1,ox:0,oy:0});markSend();renderPv();return}
+  if(k==='tsz'){ST.send.fs=+m.dataset.v;markSend();renderPv();return}
   if(k==='zin'||k==='zout'){zoomBy(k==='zin'?1.25:0.8);return}
   if(k==='zreset'){Object.assign(ST.send,{z:1,ox:0,oy:0});renderPv();return}
   if(k==='play')return play();
